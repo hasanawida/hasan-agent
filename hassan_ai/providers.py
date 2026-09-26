@@ -40,8 +40,17 @@ CLI_KINDS = ("claude_cli", "codex_cli", "gemini_cli")
 DEFAULT_COMMAND = {"claude_cli": "claude", "codex_cli": "codex", "gemini_cli": "gemini"}
 
 
+# Codex and Gemini CLIs are agents with their own tools and approval systems. Here they are
+# only the *brain*: if one tries to act itself (open Edge, run a command…) its own sandbox
+# refuses and it reports "approval refused" instead of giving Hassan's operator the steps.
+TEXT_ONLY_NOTE = ("IMPORTANT: you are used as a text-only brain inside Hassan AI OS. Do NOT run commands, "
+                  "open apps, browse, read files or use any of your own tools, and do not ask for approvals. "
+                  "The host program performs every action itself after Hassan approves it. "
+                  "Only reply with the text/JSON requested below.")
+
+
 def _combined(system: str, user: str) -> str:
-    return f"<instructions>\n{system}\n</instructions>\n\n{user}"
+    return f"<instructions>\n{TEXT_ONLY_NOTE}\n\n{system}\n</instructions>\n\n{user}"
 
 
 @dataclass
