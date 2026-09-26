@@ -384,7 +384,8 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
         return {"ok": True}
 
     # ---- live webcam / microphone (Hassan presses the button; one viewer each) --
-    LIVE_TYPES = {"camera": "multipart/x-mixed-replace;boundary=ffmpeg", "mic": "audio/mpeg"}
+    LIVE_TYPES = {"camera": "multipart/x-mixed-replace;boundary=ffmpeg", "mic": "audio/mpeg",
+                  "screen": "multipart/x-mixed-replace;boundary=ffmpeg"}
     live: dict = {k: {"token": None, "expires": 0.0, "proc": None} for k in LIVE_TYPES}
 
     async def stop_live(kind: str) -> None:
@@ -422,7 +423,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
         slot["token"] = None
         await stop_live(kind)
         try:
-            argv = await (pc.live_camera_argv() if kind == "camera" else pc.live_mic_argv())
+            argv = await {"camera": pc.live_camera_argv, "mic": pc.live_mic_argv, "screen": pc.live_screen_argv}[kind]()
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
         proc = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE,

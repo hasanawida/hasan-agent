@@ -261,3 +261,19 @@ def test_dashboard_voice_goes_to_whisper(client, monkeypatch):
     monkeypatch.setattr("hassan_ai.server.groq_transcriber", fake)
     r = client.post("/api/transcribe", content=b"AUDIO", headers={"Content-Type": "audio/webm;codecs=opus"})
     assert r.json() == {"text": "شو في على سطح المكتب"}
+
+
+@pytest.mark.skipif(not __import__("shutil").which("ffmpeg"), reason="ffmpeg not installed")
+def test_live_screen_is_view_only_stream(client):
+    tools = client.app.state.orchestrator.operator.tools
+
+    async def fake_screen():
+        return [tools._ffmpeg(), "-loglevel", "error", "-f", "lavfi", "-i",
+                "testsrc=size=640x360:rate=6:duration=1", "-f", "mpjpeg", "pipe:1"]
+
+    tools.live_screen_argv = fake_screen
+    assert client.get("/api/live/screen").status_code == 403  # no token, no screen
+    url = client.post("/api/live/screen").json()["url"]
+    with client.stream("GET", url) as resp:
+        assert b"image/jpeg" in next(resp.iter_bytes())
+    assert client.post("/api/live/nope").status_code == 404

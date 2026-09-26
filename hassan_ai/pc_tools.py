@@ -635,6 +635,15 @@ class PCTools:
             src.unlink(missing_ok=True)
             wav.unlink(missing_ok=True)
 
+    async def live_screen_argv(self) -> list[str]:
+        """ffmpeg capturing the whole desktop (view only) as a multipart MJPEG stream to stdout."""
+        if os.name == "nt":
+            src = ["-f", "gdigrab", "-framerate", "6", "-draw_mouse", "1", "-i", "desktop"]
+        else:
+            src = ["-f", "x11grab", "-framerate", "6", "-i", os.environ.get("DISPLAY", ":0")]
+        return [self._ffmpeg(), "-hide_banner", "-loglevel", "error", *src, "-vf", "scale='min(1280,iw)':-2",
+                "-q:v", "7", "-f", "mpjpeg", "pipe:1"]
+
     async def live_mic_argv(self, device: str = "") -> list[str]:
         """ffmpeg reading the microphone and writing a low-latency MP3 stream to stdout."""
         if os.name == "nt":

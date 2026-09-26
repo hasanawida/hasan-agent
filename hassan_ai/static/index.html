@@ -47,7 +47,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px sol
 .hist div:hover{border-color:var(--line)}
 .decision{white-space:pre-wrap;line-height:1.7}
 .mic{flex:0 0 auto;width:46px;font-size:18px;padding:8px}
-.mic.on,#talkBtn.on{background:var(--bad);color:#fff;animation:pulse 1.2s infinite}
+.mic.on,#talkBtn.on,#scrMic.on{background:var(--bad);color:#fff;animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.6}}
 .voice{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
 .voice select{width:auto;padding:4px}
@@ -149,6 +149,24 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     </div>
     <div id="lineInfo" class="muted" style="font-size:12px;margin-top:6px"></div>
     <audio id="lineAudio" style="display:none"></audio>
+  </div>
+  <div class="card" id="screenCard">
+    <h2>🖥️ شاشة الكمبيوتر مباشرة</h2>
+    <p class="muted" style="font-size:12px;margin-top:0">بتشوف الشاشة، وبتحكي للإيجنت شو يعمل — بتتفرّج عليه عم يشتغل وبتوافق على خطواته من هون.</p>
+    <div class="row">
+      <button class="ghost small" id="scrBtn">▶ اعرض الشاشة</button>
+      <button class="ghost small" id="scrFull" style="display:none">⛶ ملء الشاشة</button>
+    </div>
+    <div id="scrErr" style="color:var(--bad);font-size:12px"></div>
+    <div id="scrBox" style="display:none">
+      <img id="scrView" alt="" style="width:100%;border-radius:8px;margin-top:8px;background:#000">
+      <div class="row" style="margin-top:8px">
+        <input id="scrCmd" placeholder="قلّه شو يعمل: افتح CapCut وحط الفيديو اللي على الديسكتوب">
+        <button class="ghost small" style="flex:0 0 auto" id="scrMic" title="احكي">🎤</button>
+        <button class="small" style="flex:0 0 auto" id="scrGo">▶</button>
+      </div>
+      <div id="scrStatus" style="font-size:13px;margin-top:6px"></div>
+    </div>
   </div>
   <div class="card" id="camCard">
     <h2>📷 كاميرا الكمبيوتر مباشرة</h2>
@@ -558,6 +576,70 @@ $("talkBtn").onclick = async () => {
   $("lineInfo").textContent = "⏳ عم بشغّل صوتك على الكمبيوتر…";
   try { const r = await sendAudio("/api/intercom/say", blob); $("lineInfo").textContent = `✅ انسمع صوتك على الكمبيوتر (${r.seconds} ث)`; }
   catch (e) { $("lineInfo").textContent = "ما انسمع: " + e.message; }
+};
+// ---- live screen + telling the agent what to do while watching ----
+let scrOn = false, scrTask = null, scrTimer = null;
+function scrStop() {
+  scrOn = false; $("scrView").src = ""; $("scrBox").style.display = "none"; $("scrFull").style.display = "none";
+  $("scrBtn").textContent = "▶ اعرض الشاشة";
+  api("/api/live/screen/stop", {method: "POST"}).catch(() => {});
+}
+$("scrBtn").onclick = async () => {
+  if (scrOn) return scrStop();
+  $("scrErr").textContent = "";
+  try {
+    const r = await api("/api/live/screen", {method: "POST"});
+    scrOn = true; $("scrView").src = r.url; $("scrBox").style.display = ""; $("scrFull").style.display = "";
+    $("scrBtn").textContent = "⏹ وقّف العرض";
+  } catch (e) { $("scrErr").textContent = e.message; }
+};
+$("scrView").onerror = () => { if (scrOn) { scrStop(); $("scrErr").textContent = "ما قدرت أعرض الشاشة (ffmpeg مثبت؟)"; } };
+$("scrFull").onclick = () => ($("scrView").requestFullscreen || $("scrView").webkitRequestFullscreen)?.call($("scrView"));
+async function scrSend() {
+  const prompt = $("scrCmd").value.trim();
+  if (!prompt) return;
+  try {
+    const t = await api("/api/tasks", {method: "POST", body: JSON.stringify({prompt, kind: "operate",
+      budget: $("budget").value, conversation: chatId()})});
+    $("scrCmd").value = ""; scrTask = t.id; loadHistory(); showChat();
+    clearInterval(scrTimer); scrTimer = setInterval(scrPoll, 1500); scrPoll();
+  } catch (e) { $("scrStatus").textContent = e.message; }
+}
+async function scrPoll() {
+  if (!scrTask) return;
+  const t = await api(`/api/tasks/${scrTask}`).catch(() => null);
+  if (!t) return;
+  const pend = (t.approvals || []).filter(a => a.status === "pending");
+  const last = (t.evidence || []).slice(-1)[0];
+  let html = `<span class="pill ${t.status}">${t.status}</span> ${esc(last ? last.title : t.phase || "")}`;
+  for (const a of pend) html += `<div class="row" style="margin-top:6px;align-items:center"><span style="flex:1">⏸ ${esc(a.title)}</span>
+      <button class="small" data-ok="${a.id}" style="flex:0 0 auto">✅ وافق</button>
+      <button class="ghost small" data-no="${a.id}" style="flex:0 0 auto">❌</button></div>`;
+  if (t.status === "completed" || t.status === "failed") {
+    html += `<p style="margin:6px 0 0">${esc(t.decision || t.error || "")}</p>`;
+    clearInterval(scrTimer);
+    if (t.decision && $("speakReply").checked) speak(t.decision);
+  }
+  $("scrStatus").innerHTML = html;
+  $("scrStatus").querySelectorAll("[data-ok],[data-no]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    await api(`/api/approvals/${b.dataset.ok || b.dataset.no}`, {method: "POST", body: JSON.stringify({approve: !!b.dataset.ok})}).catch(e => alert(e.message));
+    scrPoll();
+  });
+}
+$("scrGo").onclick = scrSend;
+$("scrCmd").addEventListener("keydown", e => { if (e.key === "Enter") scrSend(); });
+$("scrMic").onclick = async () => {  // speak the instruction (Whisper), then send
+  if (recorder.mr) {
+    $("scrMic").classList.remove("on"); const blob = await recordStop();
+    if (!blob?.size) return;
+    $("scrStatus").textContent = "⏳ عم بفهم الكلام…";
+    try { const r = await sendAudio("/api/transcribe", blob); if (r.text) { $("scrCmd").value = r.text; scrSend(); } }
+    catch (e) { $("scrStatus").textContent = e.message; }
+    return;
+  }
+  try { await recordStart(() => $("scrMic").click()); $("scrMic").classList.add("on"); $("scrStatus").textContent = "🎙️ احكي…"; }
+  catch (e) { $("scrStatus").textContent = "اسمح للمتصفح يستخدم المايكروفون"; }
 };
 // ---- live webcam ----
 let camOn = false;
