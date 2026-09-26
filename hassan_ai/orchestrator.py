@@ -297,7 +297,8 @@ class Orchestrator:
             except LLMError as exc:
                 self.memory.record_model_call(alias, agent, False, time.time() - started)
                 errors.append(str(exc))
-                self._emit(task, "fallback", f"{agent}: {alias} failed, trying next", {"error": str(exc)})
+                self._emit(task, "fallback", f"{agent}: {alias} failed ({str(exc)[:300]}), trying next",
+                           {"error": str(exc)})
         out = AgentOutput(agent=label or agent, model=chain[-1], content="", started_at=started,
                           finished_at=time.time(), ok=False, error="; ".join(errors))
         task.outputs.append(out)
