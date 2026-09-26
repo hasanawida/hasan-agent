@@ -1,0 +1,29 @@
+# MCP connectors. Enable a server once it is installed on this machine.
+# transport: stdio  -> command + args (spawned as a subprocess)
+# transport: http   -> url (Streamable HTTP endpoint)
+# ${VARS} in args/env are expanded from the environment.
+
+servers:
+  local-project:
+    description: Hassan's own read/verify server for the current workspace
+    transport: stdio
+    enabled: true
+    command: python
+    args: ["connectors/local-project-mcp/server.py"]
+    env:
+      HASSAN_MCP_WORKSPACE: "${HASSAN_MCP_WORKSPACE}"
+
+  visual-studio:
+    description: Visual Studio MCP server (Roslyn symbols, diagnostics, build, debugger)
+    transport: http
+    enabled: false
+    # Point this at the Streamable HTTP endpoint exposed by your VS extension.
+    url: http://127.0.0.1:5050/mcp
+
+  blender:
+    description: Blender MCP server (scene inspection, bpy, render)
+    transport: stdio
+    enabled: false
+    # Example; replace with the command documented by the Blender MCP you install.
+    command: uvx
+    args: ["blender-mcp"]

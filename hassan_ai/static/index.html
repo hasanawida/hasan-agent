@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hassan AI OS</title>
+<style>
+:root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Tahoma,"Noto Kufi Arabic",sans-serif;background:var(--bg);color:var(--text)}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}
+header h1{font-size:20px;margin:0}header .meta{color:var(--muted);font-size:13px}
+main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px;max-width:1500px;margin:auto}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600}
+textarea,input,select{width:100%;background:#0e1427;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit}
+textarea{min-height:110px;resize:vertical}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 14px;font:inherit;cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+button.ok{background:var(--ok)}button.bad{background:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:8px}
+.agent{border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px}
+.agent b{display:block}.agent small{color:var(--muted);direction:ltr;display:block;text-align:right}
+.agent.done{border-color:var(--ok)}.agent.active{border-color:var(--warn);box-shadow:0 0 0 1px var(--warn) inset}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+.pill.completed{border-color:var(--ok);color:var(--ok)}.pill.failed,.pill.rejected{border-color:var(--bad);color:var(--bad)}
+.pill.awaiting_approval,.pill.running{border-color:var(--warn);color:var(--warn)}
+.log{font-size:13px;max-height:280px;overflow:auto;direction:ltr;text-align:left;font-family:Consolas,monospace}
+.log div{padding:3px 0;border-bottom:1px dashed #1c2542}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border-radius:8px;padding:6px 9px;font-size:12px;border:1px solid var(--line);cursor:pointer;direction:ltr}
+.chip.ok{border-color:var(--ok)}.chip.bad{border-color:var(--bad)}
+pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:380px;overflow:auto;direction:ltr;text-align:left;font-size:12px}
+.diff .add{color:var(--ok)}.diff .del{color:var(--bad)}
+.approval{border:1px solid var(--warn);border-radius:10px;padding:12px;margin-bottom:10px}
+.hist div{padding:7px;border-radius:8px;cursor:pointer;font-size:13px;border:1px solid transparent}
+.hist div:hover{border-color:var(--line)}
+.decision{white-space:pre-wrap;line-height:1.7}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+.muted{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧠 Hassan AI OS</h1>
+  <div class="meta" id="health">…</div>
+</header>
+<main>
+<aside>
+  <div class="card">
+    <h2>مهمة جديدة</h2>
+    <textarea id="prompt" placeholder="مثال: افحص مشروع الأقصى، أصلح مشكلة الصوت، ثم اعمل Build واختبار"></textarea>
+    <label>الوضع</label>
+    <select id="mode">
+      <option value="auto">Auto — المدير يقرر</option>
+      <option value="fast">Fast — سريع</option>
+      <option value="consensus">Consensus — عدة نماذج + قاضٍ</option>
+    </select>
+    <label>مجلد المشروع (Workspace)</label>
+    <input id="workspace" placeholder="C:\Users\Hassan\Projects\AlAqsaVR" dir="ltr">
+    <label>اسم المشروع (للذاكرة)</label>
+    <input id="project" placeholder="al-aqsa-vr" dir="ltr">
+    <label class="row" style="justify-content:flex-start;gap:8px"><input type="checkbox" id="execute" style="width:auto"> Execute — Checkpoint + Build + Tests</label>
+    <div style="margin-top:12px"><button id="run" style="width:100%">تشغيل ▶</button></div>
+    <div id="formErr" class="muted" style="color:var(--bad);margin-top:8px"></div>
+  </div>
+  <div class="card">
+    <h2>المهام السابقة</h2>
+    <div class="hist" id="history"></div>
+  </div>
+  <div class="card">
+    <h2>الموصلات (MCP)</h2>
+    <div id="mcp" class="muted">…</div>
+  </div>
+</aside>
+<section>
+  <div class="card">
+    <h2>الفريق</h2>
+    <div class="agents" id="agents"></div>
+  </div>
+  <div id="taskView" style="display:none">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><span class="pill" id="status"></span> <span class="muted" id="phase"></span></div>
+        <div style="flex:0"><button class="ghost" id="rollback" style="display:none">↩ Rollback</button></div>
+      </div>
+      <p id="taskPrompt" class="muted"></p>
+      <div id="errorBox" style="color:var(--bad)"></div>
+    </div>
+    <div id="approvals"></div>
+    <div class="card"><h2>الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><pre id="evDetail" style="display:none"></pre></div>
+    <div class="card"><h2>القرار النهائي</h2><div class="decision" id="decision"><span class="muted">بانتظار الفريق…</span></div></div>
+    <div class="card"><h2>خطة التنفيذ</h2><ol id="plan" class="muted"></ol></div>
+    <div class="card"><h2>مخرجات الوكلاء</h2><div id="outputs"></div></div>
+    <div class="card"><h2>السجل</h2><div class="log" id="log"></div></div>
+  </div>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let agents = [], current = null, lastSeq = 0, timer = null;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function api(path, opts = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...opts});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || r.statusText);
+  return body;
+}
+function remember() {
+  try { for (const k of ["workspace","project","mode"]) localStorage.setItem("hassan."+k, $(k).value);
+        localStorage.setItem("hassan.execute", $("execute").checked ? "1" : ""); } catch {}
+}
+function restore() {
+  try { for (const k of ["workspace","project","mode"]) { const v = localStorage.getItem("hassan."+k); if (v) $(k).value = v; }
+        $("execute").checked = !!localStorage.getItem("hassan.execute"); } catch {}
+}
+async function boot() {
+  restore();
+  const h = await api("/api/health");
+  $("health").textContent = `v${h.version} · ${h.mode === "live" ? "LIVE" : "MOCK"} · ${h.agents} agents`;
+  agents = await api("/api/agents");
+  renderAgents(null);
+  loadHistory();
+  api("/api/mcp").then(m => {
+    $("mcp").innerHTML = (m.sdk_installed ? "" : "⚠️ MCP SDK غير مثبت<br>") +
+      m.servers.map(s => `${s.enabled ? "🟢" : "⚪"} <b>${esc(s.name)}</b> <small>${esc(s.description)}</small>`).join("<br>");
+  }).catch(() => {});
+}
+function renderAgents(task) {
+  const done = new Set((task?.outputs || []).filter(o => o.ok).map(o => o.agent));
+  const phase = task?.phase || "";
+  const active = {manager:"manager",analyst:"analyst",planner:"planner",specialists:"coder",review:"reviewer",judge:"judge",decision:"decision"}[phase];
+  $("agents").innerHTML = agents.map(a => {
+    const cls = done.has(a.name) ? "done" : (a.name === active || (phase === "specialists" && a.name === "researcher") ? "active" : "");
+    return `<div class="agent ${cls}"><b>${esc(a.title)}</b><small>${esc(a.name)} → ${esc(a.model)}</small></div>`;
+  }).join("");
+}
+async function loadHistory() {
+  const tasks = await api("/api/tasks");
+  $("history").innerHTML = tasks.map(t =>
+    `<div data-id="${t.id}"><span class="pill ${t.status}">${t.status}</span> ${esc(t.prompt)}</div>`).join("") || '<span class="muted">لا توجد مهام بعد</span>';
+  $("history").querySelectorAll("div[data-id]").forEach(d => d.onclick = () => openTask(d.dataset.id));
+}
+$("run").onclick = async () => {
+  $("formErr").textContent = "";
+  const prompt = $("prompt").value.trim();
+  if (!prompt) { $("formErr").textContent = "اكتب المهمة أولاً"; return; }
+  remember();
+  $("run").disabled = true;
+  try {
+    const t = await api("/api/tasks", {method: "POST", body: JSON.stringify({
+      prompt, mode: $("mode").value, workspace: $("workspace").value.trim() || null,
+      project: $("project").value.trim() || null, execute: $("execute").checked})});
+    openTask(t.id); loadHistory();
+  } catch (e) { $("formErr").textContent = e.message; }
+  finally { $("run").disabled = false; }
+};
+function openTask(id) {
+  current = id; lastSeq = 0; $("log").innerHTML = ""; $("taskView").style.display = "";
+  clearInterval(timer); poll(); timer = setInterval(poll, 1200);
+}
+async function poll() {
+  if (!current) return;
+  const id = current;
+  const [task, events] = await Promise.all([api(`/api/tasks/${id}`), api(`/api/tasks/${id}/events?after=${lastSeq}`)]);
+  if (id !== current) return;
+  for (const e of events) {
+    lastSeq = e.seq;
+    const d = document.createElement("div");
+    d.textContent = `${new Date(e.ts*1000).toLocaleTimeString()}  [${e.kind}] ${e.message}`;
+    $("log").appendChild(d);
+  }
+  if (events.length) $("log").scrollTop = $("log").scrollHeight;
+  render(task);
+  if (["completed","failed","rejected","awaiting_approval"].includes(task.status) && !events.length) {
+    if (task.status !== "awaiting_approval") { clearInterval(timer); loadHistory(); }
+  }
+}
+function render(t) {
+  renderAgents(t);
+  $("status").className = "pill " + t.status; $("status").textContent = t.status;
+  $("phase").textContent = `${t.phase} · ${t.resolved_mode || t.mode}${t.verified === true ? " · ✓ verified" : t.verified === false ? " · ✗ checks failing" : ""}`;
+  $("taskPrompt").textContent = t.prompt;
+  $("errorBox").textContent = t.error || "";
+  $("rollback").style.display = t.checkpoint && t.checkpoint.backups?.length ? "" : "none";
+  $("decision").textContent = t.decision || "بانتظار الفريق…";
+  $("plan").innerHTML = t.plan.map(s => `<li>${esc(s.title)} <small>(${esc(s.owner || "")})</small></li>`).join("");
+  $("evidence").innerHTML = t.evidence.map((e, i) =>
+    `<span class="chip ${e.ok ? "ok" : "bad"}" data-i="${i}">${e.ok ? "✓" : "✗"} ${esc(e.title)} — ${esc(e.summary)}</span>`).join("") || '<span class="muted">لا أدلة (Workspace غير محدد)</span>';
+  $("evidence").querySelectorAll(".chip").forEach(c => c.onclick = () => {
+    const e = t.evidence[c.dataset.i]; $("evDetail").style.display = ""; $("evDetail").textContent = e.detail || e.summary;
+  });
+  $("outputs").innerHTML = t.outputs.map(o =>
+    `<details><summary>${o.ok ? "✓" : "✗"} ${esc(o.agent)} <small dir="ltr">${esc(o.model)} · ${(o.finished_at - o.started_at).toFixed(1)}s</small></summary><pre>${esc(o.content || o.error)}</pre></details>`).join("");
+  const pending = (t.approvals || []).filter(a => a.status === "pending");
+  $("approvals").innerHTML = pending.map(a => `
+    <div class="card approval"><h2>⚠️ موافقة مطلوبة — <span dir="ltr">${esc(a.action)}</span></h2>
+      <p>${esc(a.title)}</p>
+      <pre class="diff">${esc(a.diff).split("\n").map(l => l.startsWith("+") ? `<span class="add">${l}</span>` : l.startsWith("-") ? `<span class="del">${l}</span>` : l).join("\n")}</pre>
+      <div class="row"><button class="ok" data-a="${a.id}" data-v="1">موافقة وتنفيذ ✓</button><button class="bad" data-a="${a.id}" data-v="">رفض ✗</button></div>
+    </div>`).join("");
+  $("approvals").querySelectorAll("button[data-a]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { await api(`/api/approvals/${b.dataset.a}`, {method: "POST", body: JSON.stringify({approve: !!b.dataset.v})}); }
+    catch (e) { alert(e.message); }
+    clearInterval(timer); timer = setInterval(poll, 1200); poll();
+  });
+}
+$("rollback").onclick = async () => {
+  if (!confirm("استرجاع الملفات التي عدلتها هذه المهمة من الـCheckpoint؟")) return;
+  try { const r = await api(`/api/tasks/${current}/rollback`, {method: "POST"}); alert(`تم استرجاع ${r.restored.length} ملف`); }
+  catch (e) { alert(e.message); }
+};
+boot().catch(e => $("health").textContent = "خطأ: " + e.message);
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+# Agent roster. `model` and `fallbacks` are gateway ALIASES (see
+# configs/litellm.example.yaml), never provider model IDs, so providers can be
+# swapped without touching orchestration code.
+
+agents:
+  manager:
+    title: المدير
+    model: manager
+    fallbacks: [general]
+  analyst:
+    title: المحلل
+    model: analyst
+    fallbacks: [general]
+  planner:
+    title: المخطط
+    model: planner
+    fallbacks: [general]
+  researcher:
+    title: الباحث
+    model: researcher
+    fallbacks: [general]
+  coder:
+    title: المبرمج
+    model: coder
+    fallbacks: [coder-backup, general]
+  reviewer:
+    title: المراجع
+    model: reviewer
+    fallbacks: [general]
+  judge:
+    title: القاضي
+    model: judge
+    fallbacks: [general]
+  decision:
+    title: صانع القرار
+    model: decision
+    fallbacks: [general]
+
+# In consensus mode the Coder runs once per alias below (in parallel) and the
+# Reviewer is repeated with a different alias as an independent cross-review.
+consensus:
+  coders: [coder, coder-backup, coder-third]
+  cross_reviewer: cross-reviewer

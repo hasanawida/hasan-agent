@@ -1,0 +1,165 @@
+"""SQLite persistence: tasks, events, approvals, project memory and model stats."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+import threading
+from pathlib import Path
+from typing import Any
+
+from .schemas import Approval, Event, TaskRecord, now
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    body TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS events (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    message TEXT NOT NULL,
+    data TEXT NOT NULL,
+    ts REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS events_task ON events(task_id, seq);
+CREATE TABLE IF NOT EXISTS approvals (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    body TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS approvals_task ON approvals(task_id);
+CREATE TABLE IF NOT EXISTS project_memory (
+    project TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    content TEXT NOT NULL,
+    ts REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS memory_project ON project_memory(project, kind);
+CREATE TABLE IF NOT EXISTS model_stats (
+    model TEXT NOT NULL,
+    agent TEXT NOT NULL,
+    ok INTEGER NOT NULL,
+    duration REAL NOT NULL,
+    ts REAL NOT NULL
+);
+"""
+
+
+class Memory:
+    def __init__(self, path: Path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn = sqlite3.connect(str(path), check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
+        self._lock = threading.Lock()
+        with self._lock:
+            self._conn.executescript(SCHEMA)
+            self._conn.commit()
+
+    # --- tasks -------------------------------------------------------------
+    def save_task(self, task: TaskRecord) -> None:
+        task.updated_at = now()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO tasks(id,status,created_at,updated_at,body) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET status=excluded.status, "
+                "updated_at=excluded.updated_at, body=excluded.body",
+                (task.id, task.status.value, task.created_at, task.updated_at, task.model_dump_json()),
+            )
+            self._conn.commit()
+
+    def get_task(self, task_id: str) -> TaskRecord | None:
+        with self._lock:
+            row = self._conn.execute("SELECT body FROM tasks WHERE id=?", (task_id,)).fetchone()
+        return TaskRecord.model_validate_json(row["body"]) if row else None
+
+    def list_tasks(self, limit: int = 50) -> list[TaskRecord]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT body FROM tasks ORDER BY created_at DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [TaskRecord.model_validate_json(r["body"]) for r in rows]
+
+    # --- events ------------------------------------------------------------
+    def add_event(self, event: Event) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO events(task_id,kind,message,data,ts) VALUES(?,?,?,?,?)",
+                (event.task_id, event.kind, event.message, json.dumps(event.data, ensure_ascii=False), event.ts),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid)
+
+    def events(self, task_id: str, after: int = 0) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT seq,task_id,kind,message,data,ts FROM events WHERE task_id=? AND seq>? ORDER BY seq",
+                (task_id, after),
+            ).fetchall()
+        return [{**dict(r), "data": json.loads(r["data"])} for r in rows]
+
+    # --- approvals ---------------------------------------------------------
+    def save_approval(self, approval: Approval) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO approvals(id,task_id,status,body) VALUES(?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET status=excluded.status, body=excluded.body",
+                (approval.id, approval.task_id, approval.status, approval.model_dump_json()),
+            )
+            self._conn.commit()
+
+    def get_approval(self, approval_id: str) -> Approval | None:
+        with self._lock:
+            row = self._conn.execute("SELECT body FROM approvals WHERE id=?", (approval_id,)).fetchone()
+        return Approval.model_validate_json(row["body"]) if row else None
+
+    def approvals(self, task_id: str | None = None, status: str | None = None) -> list[Approval]:
+        sql, args = "SELECT body FROM approvals WHERE 1=1", []
+        if task_id:
+            sql += " AND task_id=?"
+            args.append(task_id)
+        if status:
+            sql += " AND status=?"
+            args.append(status)
+        with self._lock:
+            rows = self._conn.execute(sql, args).fetchall()
+        return [Approval.model_validate_json(r["body"]) for r in rows]
+
+    # --- project memory ----------------------------------------------------
+    def remember(self, project: str, kind: str, content: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO project_memory(project,kind,content,ts) VALUES(?,?,?,?)",
+                (project, kind, content, now()),
+            )
+            self._conn.commit()
+
+    def recall(self, project: str, limit: int = 20) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT kind,content,ts FROM project_memory WHERE project=? ORDER BY ts DESC LIMIT ?",
+                (project, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    # --- capability registry (measured, not guessed) ----------------------
+    def record_model_call(self, model: str, agent: str, ok: bool, duration: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO model_stats(model,agent,ok,duration,ts) VALUES(?,?,?,?,?)",
+                (model, agent, int(ok), duration, now()),
+            )
+            self._conn.commit()
+
+    def model_stats(self) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT model, agent, COUNT(*) AS calls, AVG(ok) AS success_rate, "
+                "AVG(duration) AS avg_seconds FROM model_stats GROUP BY model, agent ORDER BY model, agent"
+            ).fetchall()
+        return [dict(r) for r in rows]

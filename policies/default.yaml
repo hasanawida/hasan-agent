@@ -1,0 +1,49 @@
+# Hassan AI OS permission policy.
+# Patterns are fnmatch globs on action names. Order of precedence:
+# forbidden > approval > auto. Anything not listed requires approval.
+
+auto:
+  - project.inspect
+  - files.read
+  - files.list
+  - git.status
+  - git.diff
+  - git.log
+  - checkpoint.create
+  - verify.build
+  - verify.test
+  - openhands.discover
+  # Hassan's own local-project MCP server only reads and runs allow-listed checks.
+  - mcp.local-project.git_status
+  - mcp.local-project.verify
+
+approval:
+  - files.write
+  - files.patch
+  - files.delete
+  - git.commit
+  - git.reset
+  - git.push
+  - checkpoint.restore
+  - app.launch
+  - mcp.*.*   # mutating MCP verbs; read-like verbs are auto-classified
+
+forbidden:
+  - shell.exec          # no arbitrary shell, ever
+  - credentials.read
+  - registry.write
+  - disk.format
+  - system.shutdown
+
+# Files agents may never read or write, even inside the workspace.
+secret_files:
+  - ".env"
+  - ".env.*"
+  - "*.pem"
+  - "*.key"
+  - "*.pfx"
+  - "id_rsa*"
+  - "id_ed25519*"
+  - "credentials*"
+  - "*.kdbx"
+  - "secrets.*"

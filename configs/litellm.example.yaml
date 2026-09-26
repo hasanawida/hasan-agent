@@ -1,0 +1,39 @@
+# LiteLLM gateway: maps Hassan's role ALIASES to real providers.
+# Model IDs below are PLACEHOLDERS: replace them with the IDs your accounts actually offer.
+# Copy to configs/litellm.yaml, adjust model IDs, then run scripts/start-litellm.ps1
+# Provider keys come from environment variables, never from this file.
+
+model_list:
+  - model_name: manager
+    litellm_params: { model: openai/gpt-5.5, api_key: os.environ/OPENAI_API_KEY }
+  - model_name: analyst
+    litellm_params: { model: anthropic/claude-opus-5-5, api_key: os.environ/ANTHROPIC_API_KEY }
+  - model_name: planner
+    litellm_params: { model: openai/gpt-5.5, api_key: os.environ/OPENAI_API_KEY }
+  - model_name: researcher
+    litellm_params: { model: xai/grok-4.7, api_key: os.environ/XAI_API_KEY }
+  - model_name: coder
+    litellm_params: { model: anthropic/claude-opus-5-5, api_key: os.environ/ANTHROPIC_API_KEY }
+  - model_name: coder-backup
+    litellm_params: { model: openai/gpt-5.5, api_key: os.environ/OPENAI_API_KEY }
+  - model_name: coder-third
+    litellm_params: { model: xai/grok-4.7, api_key: os.environ/XAI_API_KEY }
+  - model_name: reviewer
+    litellm_params: { model: openai/gpt-5.5, api_key: os.environ/OPENAI_API_KEY }
+  - model_name: cross-reviewer
+    litellm_params: { model: xai/grok-4.7, api_key: os.environ/XAI_API_KEY }
+  - model_name: judge
+    litellm_params: { model: anthropic/claude-opus-5-5, api_key: os.environ/ANTHROPIC_API_KEY }
+  - model_name: decision
+    litellm_params: { model: openai/gpt-5.5, api_key: os.environ/OPENAI_API_KEY }
+  # Cheap local model for routine work / last-resort fallback (Ollama)
+  - model_name: general
+    litellm_params: { model: ollama/qwen3, api_base: http://127.0.0.1:11434 }
+
+router_settings:
+  num_retries: 2
+  timeout: 180
+  # Provider-level fallbacks in addition to Hassan's per-agent fallback chain
+  fallbacks:
+    - coder: [coder-backup]
+    - judge: [reviewer]
