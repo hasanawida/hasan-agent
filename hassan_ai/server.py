@@ -23,7 +23,8 @@ from .mcp_bus import MCPRegistry
 from .memory import Memory
 from .orchestrator import Orchestrator
 from .policy import Policy, PolicyError, resolve_workspace
-from .providers import RouterLLM
+from .config import save_env_value
+from .providers import APIBackend, RouterLLM
 from .schemas import TaskCreate
 
 STATIC = PACKAGE_DIR / "static"
@@ -40,6 +41,15 @@ class McpCall(BaseModel):
 class OpenRequest(BaseModel):
     path: str
     line: int | None = None
+
+
+class KeyUpdate(BaseModel):
+    name: str
+    key: str = ""
+
+
+SIGNUP = {"groq": "https://console.groq.com/keys", "gemini": "https://aistudio.google.com/apikey",
+          "openrouter": "https://openrouter.ai/keys"}
 
 
 class MemoryNote(BaseModel):
@@ -175,6 +185,43 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
         require_local(request)
         app.state.access_key = remote.rotate_key(settings.data_dir)
         return {"ok": True}
+
+    def api_backends() -> dict:
+        if not isinstance(llm, RouterLLM):
+            return {}
+        return {n: b for n, b in llm.backends.items() if isinstance(b, APIBackend)}
+
+    @app.get("/api/keys")
+    async def list_keys(request: Request):
+        """Which free-API keys are saved (never returns the keys themselves). PC only."""
+        require_local(request)
+        return [{"name": n, "key_env": b.key_env, "set": bool(b.key), "models": b.models,
+                 "signup": SIGNUP.get(n, "")} for n, b in api_backends().items()]
+
+    @app.post("/api/keys")
+    async def save_key(body: KeyUpdate, request: Request):
+        require_local(request)
+        backend = api_backends().get(body.name)
+        if backend is None or not backend.key_env:
+            raise HTTPException(404, "Unknown API backend")
+        key = body.key.strip()
+        if any(c.isspace() for c in key) or len(key) > 400:
+            raise HTTPException(400, "That does not look like an API key")
+        save_env_value(settings.env_file, backend.key_env, key)
+        backend.limited_until = 0.0
+        return {"name": body.name, "set": bool(key)}
+
+    @app.post("/api/keys/{name}/test")
+    async def test_key(name: str, request: Request):
+        require_local(request)
+        backend = api_backends().get(name)
+        if backend is None:
+            raise HTTPException(404, "Unknown API backend")
+        try:
+            comp = await backend.complete(None, "Reply with the single word: OK", "ping")
+            return {"ok": True, "model": comp.model, "reply": comp.text.strip()[:80]}
+        except Exception as exc:  # noqa: BLE001 - report any provider error to the user
+            return {"ok": False, "error": str(exc)[:400]}
 
     @app.get("/api/whoami")
     async def whoami(request: Request):

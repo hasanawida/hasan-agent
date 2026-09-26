@@ -109,6 +109,11 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <h2>المهام السابقة</h2>
     <div class="hist" id="history"></div>
   </div>
+  <div class="card" id="keysCard" style="display:none">
+    <h2>🔑 APIs مجانية (احتياط)</h2>
+    <p class="muted" style="font-size:12px;margin-top:0">إذا خلصت حصة Claude وChatGPT، الشغل بيكمل على هدول. المفاتيح بتنحفظ على الكمبيوتر بس.</p>
+    <div id="keys" class="muted">…</div>
+  </div>
   <div class="card" id="phoneCard" style="display:none">
     <h2>📱 التلفون</h2>
     <div id="phone" class="muted">…</div>
@@ -185,6 +190,8 @@ async function boot() {
     $("brains").innerHTML = Object.entries(p.backends).map(([name, b]) => {
       const ok = b.type === "mock" || b.installed;
       if (b.type === "gateway") return `⚪ <b>${esc(name)}</b> <small dir="ltr">gateway (optional, LiteLLM)</small>`;
+      if (b.type === "api") return b.limit ? `🟡 <b>${esc(name)}</b> <small>وصل للحد المجاني مؤقتاً</small>`
+        : `${b.configured ? "🟢" : "⚪"} <b>${esc(name)}</b> <small>${b.configured ? "احتياط مجاني جاهز" : "بدون مفتاح (اختياري)"}</small>`;
       const detail = b.type.endsWith("_cli") ? (b.installed ? (b["login status"] || b.version || "") : "غير مثبت") : b.type;
       if (b.limit) return `🟡 <b>${esc(name)}</b> <small>خلصت حصة الاشتراك — الشغل رايح على غيره. <span dir="ltr">${esc(b.limit)}</span></small>`;
       return `${ok ? "🟢" : "🔴"} <b>${esc(name)}</b> <small dir="ltr">${esc(detail)}</small>`;
@@ -213,9 +220,37 @@ async function loadUsage() {
       <p style="font-size:11px;margin:8px 0 0">المبلغ ≈ هو سعر الـAPI المكافئ. مع اشتراك Claude/ChatGPT ما بتدفع لكل طلب؛ الاشتراك له حدود استخدام.</p>`;
   } catch {}
 }
+async function loadKeys() {
+  const keys = await api("/api/keys").catch(() => []);
+  if (!keys.length) return;
+  $("keysCard").style.display = "";
+  $("keys").innerHTML = keys.map(k => `
+    <div style="margin-bottom:10px">
+      <b>${k.set ? "🟢" : "⚪"} ${esc(k.name)}</b> <a href="${esc(k.signup)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:12px">احصل على مفتاح مجاني ↗</a>
+      <div class="row" style="margin-top:4px">
+        <input type="password" dir="ltr" placeholder="${k.set ? "محفوظ ✓ (الصق مفتاح جديد لتغييره)" : "الصق المفتاح هون"}" data-key="${esc(k.name)}">
+        <button class="ghost small" style="flex:0 0 auto" data-save="${esc(k.name)}">حفظ</button>
+        ${k.set ? `<button class="ghost small" style="flex:0 0 auto" data-test="${esc(k.name)}">جرّب</button>` : ""}
+      </div><div class="muted" style="font-size:12px" data-res="${esc(k.name)}"></div>
+    </div>`).join("");
+  $("keys").querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
+    const input = $("keys").querySelector(`[data-key="${b.dataset.save}"]`);
+    try { await api("/api/keys", {method: "POST", body: JSON.stringify({name: b.dataset.save, key: input.value})});
+          await loadKeys(); const t = $("keys").querySelector(`[data-test="${b.dataset.save}"]`); if (t) t.click(); }
+    catch (e) { alert(e.message); }
+  });
+  $("keys").querySelectorAll("[data-test]").forEach(b => b.onclick = async () => {
+    const out = $("keys").querySelector(`[data-res="${b.dataset.test}"]`);
+    out.textContent = "بجرّب…";
+    const r = await api(`/api/keys/${b.dataset.test}/test`, {method: "POST"});
+    out.textContent = r.ok ? `✓ شغّال (${r.model})` : `✗ ${r.error}`;
+    out.style.color = r.ok ? "var(--ok)" : "var(--bad)";
+  });
+}
 async function loadPhone() {
   const who = await api("/api/whoami").catch(() => ({local: false}));
   if (!who.local) return;             // the pairing card is only shown on the PC itself
+  loadKeys();
   $("phoneCard").style.display = "";
   const r = await api("/api/remote");
   if (!r.enabled) {

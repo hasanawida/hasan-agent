@@ -43,6 +43,7 @@ class Settings:
     allowed_hosts: list[str] = field(default_factory=lambda: ["127.0.0.1", "localhost"])
     trusted_clients: list[str] = field(default_factory=lambda: ["127.0.0.1", "::1"])
     public_url: str = ""  # e.g. https://my-pc.tail1234.ts.net (set by scripts/enable-phone.ps1)
+    env_file: Path = ROOT_DIR / "hassan.env"
 
     @property
     def db_path(self) -> Path:
@@ -88,6 +89,22 @@ def load_env_file(path: Path) -> None:
             continue
         key, value = line.split("=", 1)
         os.environ.setdefault(key.strip(), value.strip().strip('"'))
+
+
+def save_env_value(path: Path, key: str, value: str) -> None:
+    """Set (or remove, when value is empty) KEY=VALUE in hassan.env and in this process."""
+    lines = path.read_text(encoding="utf-8-sig").splitlines() if path.exists() else []
+    lines = [line for line in lines if not line.strip().startswith(f"{key}=")]
+    if value:
+        lines.append(f"{key}={value}")
+        os.environ[key] = value
+    else:
+        os.environ.pop(key, None)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
 
 
 def load_yaml(path: Path) -> dict:

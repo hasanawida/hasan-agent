@@ -4,6 +4,8 @@
 #               subscription  (install: npm i -g @anthropic-ai/claude-code ; then run `claude` once and log in)
 # codex_cli  -> OpenAI Codex CLI on this PC, logged in with "Sign in with ChatGPT"
 #               (install: npm i -g @openai/codex ; then run `codex login`)
+# gemini_cli -> Google Gemini CLI on this PC, logged in with your Google account (Gemini subscription /
+#               free daily quota)  (install: npm i -g @google/gemini-cli ; then run `gemini` once and log in)
 # gateway    -> LiteLLM / OpenRouter / Ollama or any OpenAI-compatible URL (API keys)
 #
 # CLI brains run in an empty temp folder with tools off / read-only sandbox:
@@ -20,8 +22,36 @@ backends:
     command: codex
     # model: gpt-5.5         # optional; default is whatever your Codex login offers
     use_subscription: true    # ignore OPENAI_API_KEY so your ChatGPT plan is used
+  gemini-sub:
+    type: gemini_cli
+    command: gemini
+    # model: gemini-3.5-pro  # optional
+    use_subscription: true    # ignore GEMINI_API_KEY so your Google login/subscription is used
   gateway:
     type: gateway             # uses HASSAN_GATEWAY_URL (LiteLLM on :4000 by default)
+
+  # ---- Free APIs: backups when Claude/ChatGPT subscription limits run out ----
+  # Keys are saved from the dashboard (PC only) into hassan.env; a backend with no
+  # key is skipped. Models are tried in order (free line-ups change often).
+  groq:                       # console.groq.com  - free: ~1,000 requests/day, very fast
+    type: api
+    url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY
+    models: [openai/gpt-oss-120b, openai/gpt-oss-20b]
+  gemini:                     # aistudio.google.com - free tier (Google may use free-tier data to improve its models)
+    type: api
+    url: https://generativelanguage.googleapis.com/v1beta/openai
+    key_env: GEMINI_API_KEY
+    models: [gemini-3.5-flash, gemini-2.5-flash]
+  openrouter:                 # openrouter.ai - `openrouter/free` picks a currently-free model
+    type: api
+    url: https://openrouter.ai/api/v1
+    key_env: OPENROUTER_API_KEY
+    models: [openrouter/free]
+    headers: {X-Title: Hassan AI OS}
+
+# When an agent's brain fails (limit reached, not installed, no key…) try these in order.
+fallback: [chatgpt, claude, gemini-sub, groq, gemini, openrouter]
 
 # Aliases not listed here go to `default`.
 default: claude
@@ -30,10 +60,10 @@ aliases:
   manager: claude
   analyst: claude
   planner: chatgpt
-  researcher: chatgpt
+  researcher: gemini-sub      # Gemini: strong at research
   coder: claude
   coder-backup: chatgpt       # consensus: a second, independent coder
-  coder-third: chatgpt        # consensus: third opinion; set to `gateway` once LiteLLM (Grok/DeepSeek…) runs
+  coder-third: gemini-sub     # consensus: a third, independent family
   reviewer: chatgpt           # Claude writes, ChatGPT reviews ...
   cross-reviewer: claude      # ... and Claude cross-checks
   judge: claude

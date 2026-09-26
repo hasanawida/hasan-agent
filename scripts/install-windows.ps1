@@ -66,7 +66,7 @@ New-Shortcut (Join-Path $Desktop "Hassan AI.lnk") "-m hassan_ai open" "Open Hass
 Write-Host "Autostart + desktop shortcut created"
 
 # 5. Check the brains
-foreach ($cli in @("claude", "codex", "code")) {
+foreach ($cli in @("claude", "codex", "gemini", "code")) {
     if (Get-Command $cli -ErrorAction SilentlyContinue) { Write-Host "  [ok] $cli" -ForegroundColor Green }
     else { Write-Host "  [--] $cli not found" -ForegroundColor Yellow }
 }

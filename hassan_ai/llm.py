@@ -21,7 +21,9 @@ import httpx
 
 
 class LLMError(RuntimeError):
-    pass
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
 
 
 @dataclass
@@ -43,9 +45,12 @@ class LLM(Protocol):
 class GatewayLLM:
     """OpenAI-compatible chat completions client (LiteLLM proxy, vLLM, Ollama …)."""
 
-    def __init__(self, base_url: str, api_key: str = "", timeout: float = 180.0):
+    def __init__(self, base_url: str, api_key: str = "", timeout: float = 180.0,
+                 transport: httpx.AsyncBaseTransport | None = None, extra_headers: dict | None = None):
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-        self._client = httpx.AsyncClient(base_url=base_url, headers=headers, timeout=timeout)
+        headers.update(extra_headers or {})
+        self._client = httpx.AsyncClient(base_url=base_url.rstrip("/") + "/", headers=headers, timeout=timeout,
+                                         transport=transport)
 
     async def complete(self, model: str, system: str, user: str, *, json_mode: bool = False) -> Completion:
         body: dict = {
@@ -57,11 +62,11 @@ class GatewayLLM:
             body["response_format"] = {"type": "json_object"}
         start = time.monotonic()
         try:
-            resp = await self._client.post("/chat/completions", json=body)
+            resp = await self._client.post("chat/completions", json=body)
         except httpx.HTTPError as exc:
             raise LLMError(f"{model}: gateway unreachable ({exc.__class__.__name__})") from exc
         if resp.status_code >= 400:
-            raise LLMError(f"{model}: HTTP {resp.status_code} {resp.text[:300]}")
+            raise LLMError(f"{model}: HTTP {resp.status_code} {resp.text[:300]}", status=resp.status_code)
         data = resp.json()
         try:
             text = data["choices"][0]["message"]["content"] or ""

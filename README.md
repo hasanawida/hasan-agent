@@ -33,7 +33,7 @@ Model-agnostic multi-agent control plane — many models think, evidence decides
 | اكتشاف OpenHands | ✅ (قراءة فقط) |
 | Visual Studio / Blender الحقيقيين | ⚙️ الموصل جاهز — تحتاج تثبيت خادم MCP لكل برنامج على جهازك وتفعيله في `configs/mcp_servers.yaml` |
 
-الاختبارات: **33 اختبار ناجح**، منها دورة كاملة حقيقية: مهمة → Diff → موافقة → كتابة الملف → pytest → قرار → Rollback.
+الاختبارات: **41 اختبار ناجح**، منها دورة كاملة حقيقية: مهمة → Diff → موافقة → كتابة الملف → pytest → قرار → Rollback.
 
 ## التشغيل على Windows
 
@@ -119,6 +119,28 @@ start-live.bat
 - `use_subscription: true` يخفي `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` عن الـCLI حتى يُحسب الاستخدام على اشتراكك وليس على API.
 - الاشتراك له حدود استخدام؛ وضع Consensus يستهلك أسرع. إذا وصل Claude للحد، النظام ينتقل تلقائياً لـChatGPT والعكس.
 - حالة العقول ظاهرة في الواجهة وفي `/api/providers`.
+
+## Gemini (باشتراك Google)
+
+```text
+npm i -g @google/gemini-cli     ثم  gemini   (سجّل دخول بحساب Google مرة واحدة، ثم /quit)
+```
+Gemini بيشتغل كعقل ثالث (الباحث + المبرمج الثالث بوضع Consensus + احتياط)، بوضع قراءة فقط (`--approval-mode plan`).
+
+## احتياط مجاني: ما بيوقف لو خلص الاشتراك
+
+الترتيب لما عقل يوقف (حد الاشتراك، مش مثبت، …): **ChatGPT → Claude → Gemini → Groq → Gemini API → OpenRouter** (`fallback` في `configs/providers.yaml`).
+
+من الواجهة على الكمبيوتر، كرت **🔑 APIs مجانية**: الصق مفتاح مجاني واضغط **حفظ** (بيجرّبه فوراً):
+
+| الخدمة | مجاناً | المفتاح |
+|---|---|---|
+| **Groq** (الأسرع) | ~1,000 طلب/يوم (gpt-oss-120b) | console.groq.com/keys |
+| **Gemini API** | طبقة مجانية (Google ممكن تستخدم بيانات الطبقة المجانية للتحسين) | aistudio.google.com/apikey |
+| **OpenRouter** | `openrouter/free` بيختار نموذج مجاني متاح | openrouter.ai/keys |
+
+- المفاتيح بتنحفظ بـ`hassan.env` على الكمبيوتر بس (مش على GitHub)، وما بتنعرض أبداً، والتلفون ما بيقدر يقرأها أو يغيّرها.
+- لكل خدمة قائمة نماذج؛ إذا نموذج انشال، بيجرّب اللي بعده. إذا وصلت للحد (429) بتتخطّى مؤقتاً.
 
 ## تشغيل النماذج عبر API (Grok + DeepSeek + محلي …)
 

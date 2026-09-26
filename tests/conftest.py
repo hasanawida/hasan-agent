@@ -26,6 +26,7 @@ def make_settings(tmp_path: Path) -> Settings:
         command_timeout=120,
         allowed_hosts=["127.0.0.1", "localhost", "testserver"],
         trusted_clients=["127.0.0.1", "::1", "testclient"],
+        env_file=tmp_path / "hassan.env",
     )
 
 

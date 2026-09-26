@@ -187,3 +187,51 @@ sys.exit(1)
         assert "weekly limit" in status["limit"]
     calls = [line for line in log.read_text().splitlines() if "claude-limited" in line]
     assert len(calls) == 1  # tried once, then skipped for the rest of the task
+
+
+FAKE_GEMINI = """
+import json, os, sys, asyncio, re
+sys.path.insert(0, {root!r})
+from hassan_ai.llm import MockLLM
+args = sys.argv[1:]
+if args == ["--version"]:
+    print("0.61.0"); sys.exit(0)
+assert "-p" in args and args[args.index("-o") + 1] == "json" and args[args.index("--approval-mode") + 1] == "plan"
+assert os.environ.get("GEMINI_API_KEY") is None  # subscription/login mode
+prompt = sys.stdin.read()
+system = re.search(r"<instructions>\\n(.*?)\\n</instructions>", prompt, re.S).group(1)
+text = asyncio.run(MockLLM().complete("gemini", system, prompt)).text
+print('Approval mode overridden to "default" because the current folder is not trusted.')
+print(json.dumps({{"session_id": "s", "response": text,
+                  "stats": {{"models": {{"gemini-3.5-pro": {{"tokens": {{"prompt": 40, "candidates": 6, "total": 46}}}}}}}}}}, indent=2))
+"""
+
+
+def test_gemini_cli_brain(tmp_path, fake_clis, monkeypatch):
+    claude, codex, _ = fake_clis
+    gemini = make_cli(tmp_path / "bin", "gemini", FAKE_GEMINI)
+    monkeypatch.setenv("GEMINI_API_KEY", "should-not-reach-cli")
+    cfg = tmp_path / "providers.yaml"
+    cfg.write_text(textwrap.dedent(f"""
+        backends:
+          claude: {{type: claude_cli, command: "{claude}"}}
+          chatgpt: {{type: codex_cli, command: "{codex}"}}
+          gemini-sub: {{type: gemini_cli, command: "{gemini}"}}
+        default: gemini-sub
+    """))
+    with live_client(tmp_path, cfg) as client:
+        t = client.post("/api/tasks", json={"prompt": "research", "mode": "fast"}).json()
+        task = wait(client, t["id"])
+        assert task["status"] == "completed", task["error"]
+        out = task["outputs"][0]
+        assert out["model"] == "gemini_cli/gemini-3.5-pro"
+        assert (out["input_tokens"], out["output_tokens"]) == (40, 6)
+        assert client.get("/api/providers").json()["backends"]["gemini-sub"]["installed"]
+
+
+def test_gemini_quota_error_marks_limit():
+    from hassan_ai.providers import CLIBackend
+    b = CLIBackend(kind="gemini_cli", command="gemini")
+    with pytest.raises(Exception):
+        b._parse_gemini('{"error": {"message": "Quota exceeded: RESOURCE_EXHAUSTED", "code": 429}}', "", 1, None)
+    assert "Quota" in b.limit_message
