@@ -47,7 +47,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px sol
 .hist div:hover{border-color:var(--line)}
 .decision{white-space:pre-wrap;line-height:1.7}
 .mic{flex:0 0 auto;width:46px;font-size:18px;padding:8px}
-.mic.on{background:var(--bad);animation:pulse 1.2s infinite}
+.mic.on,#talkBtn.on{background:var(--bad);color:#fff;animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.6}}
 .voice{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
 .voice select{width:auto;padding:4px}
@@ -139,6 +139,16 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   <div class="card">
     <h2>المهام السابقة</h2>
     <div class="hist" id="history"></div>
+  </div>
+  <div class="card" id="lineCard">
+    <h2>📞 خط مع الكمبيوتر</h2>
+    <p class="muted" style="font-size:12px;margin-top:0">🎧 بتسمع مايك الكمبيوتر مباشرة · 🎙️ بتحكي وصوتك بيطلع من سماعات الكمبيوتر.</p>
+    <div class="row">
+      <button class="ghost small" id="listenBtn">🎧 اسمع</button>
+      <button class="ghost small" id="talkBtn">🎙️ احكي</button>
+    </div>
+    <div id="lineInfo" class="muted" style="font-size:12px;margin-top:6px"></div>
+    <audio id="lineAudio" style="display:none"></audio>
   </div>
   <div class="card" id="camCard">
     <h2>📷 كاميرا الكمبيوتر مباشرة</h2>
@@ -413,12 +423,31 @@ $("openTaskWs").onclick = () => currentTask?.workspace && openInEditor(currentTa
 // ---- voice: speech → text (Edge/Chrome Web Speech API) and text → speech ----
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, listening = false;
-if (!SR) {
-  $("mic").title = "المتصفح ما بيدعم الكلام — استخدم Edge أو Chrome";
-  $("mic").disabled = true;
+let useWhisper = !SR;
+try { useWhisper = useWhisper || localStorage.getItem("hassan.whisper") === "1"; } catch (e) {}
+async function whisperMic() {
+  if (listening) { stopWhisper(); return; }
+  try { await recordStart(($("autoSend").checked || $("voiceChat").checked) ? stopWhisper : null); }
+  catch (e) { $("interim").textContent = "اسمح للمتصفح يستخدم المايكروفون"; return; }
+  listening = true; $("mic").classList.add("on"); $("mic").textContent = "⏹"; $("interim").textContent = "🎙️ عم بسمعك…";
+}
+async function stopWhisper() {
+  if (!listening) return;
+  listening = false; $("mic").classList.remove("on"); $("mic").textContent = "🎤";
+  const blob = await recordStop();
+  if (!blob || !blob.size) return;
+  $("interim").textContent = "⏳ عم بفهم الكلام…";
+  try {
+    const r = await sendAudio("/api/transcribe", blob);
+    $("interim").textContent = "";
+    if (r.text) {
+      $("prompt").value = ($("prompt").value.trim() + " " + r.text).trim();
+      if ($("autoSend").checked || $("voiceChat").checked) $("run").click();
+    }
+  } catch (e) { $("interim").textContent = "ما قدرت أفهم الصوت: " + e.message; }
 }
 $("mic").onclick = () => {
-  if (!SR) return;
+  if (useWhisper) return whisperMic();
   if (listening) { rec.stop(); return; }
   rec = new SR();
   rec.lang = $("lang").value; rec.continuous = true; rec.interimResults = true;
@@ -435,7 +464,13 @@ $("mic").onclick = () => {
     $("prompt").value = (base ? base + " " : "") + finalText.trim();
     $("interim").textContent = interim;
   };
-  rec.onerror = ev => { $("interim").textContent = ev.error === "not-allowed" ? "اسمح للمتصفح يستخدم المايكروفون" : "خطأ بالصوت: " + ev.error; };
+  rec.onerror = ev => {
+    if (ev.error === "not-allowed") { $("interim").textContent = "اسمح للمتصفح يستخدم المايكروفون"; return; }
+    if (ev.error === "no-speech" || ev.error === "aborted") return;
+    // the browser's own speech service isn't working here: switch to Whisper (free, via Groq) for good
+    useWhisper = true; try { localStorage.setItem("hassan.whisper", "1"); } catch (e) {}
+    $("interim").textContent = "بدّلت لطريقة تانية لفهم الصوت — اكبس 🎤 مرة تانية";
+  };
   rec.onend = () => {
     listening = false; $("mic").classList.remove("on"); $("mic").textContent = "🎤"; $("interim").textContent = "";
     if (($("autoSend").checked || $("voiceChat").checked) && finalText.trim()) $("run").click();
@@ -460,6 +495,70 @@ $("voiceChat").addEventListener("change", () => {
   $("speakReply").checked = true; if (taskKind !== "operate") setKind("operate");
   if (!listening) $("mic").click();
 });
+// ---- recording in any browser (MediaRecorder); used by the intercom and as the Whisper fallback ----
+const recorder = {mr: null, stream: null, chunks: [], ctx: null};
+async function recordStart(onSilence) {
+  recorder.stream = await navigator.mediaDevices.getUserMedia({audio: true});
+  recorder.mr = new MediaRecorder(recorder.stream); recorder.chunks = [];
+  recorder.mr.ondataavailable = e => e.data.size && recorder.chunks.push(e.data);
+  recorder.mr.start();
+  if (onSilence) {  // 2 s of quiet after some speech -> stop by itself
+    recorder.ctx = new AudioContext();
+    const an = recorder.ctx.createAnalyser(); recorder.ctx.createMediaStreamSource(recorder.stream).connect(an);
+    const buf = new Uint8Array(an.fftSize); let spoke = false, quietSince = Date.now();
+    const tick = () => {
+      if (!recorder.mr || recorder.mr.state !== "recording") return;
+      an.getByteTimeDomainData(buf);
+      const level = Math.max(...buf) - 128;
+      if (level > 12) { spoke = true; quietSince = Date.now(); }
+      if (spoke && Date.now() - quietSince > 2000) return onSilence();
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }
+}
+function recordStop() {
+  return new Promise(resolve => {
+    const mr = recorder.mr; if (!mr) return resolve(null);
+    mr.onstop = () => {
+      recorder.stream.getTracks().forEach(t => t.stop()); recorder.ctx?.close().catch(() => {});
+      recorder.mr = null; resolve(new Blob(recorder.chunks, {type: mr.mimeType || "audio/webm"}));
+    };
+    mr.stop();
+  });
+}
+async function sendAudio(path, blob) {
+  return api(path, {method: "POST", body: blob, headers: {"Content-Type": blob.type.split(";")[0] || "audio/webm"}});
+}
+// ---- intercom ----
+let hearing = false;
+$("listenBtn").onclick = async () => {
+  const a = $("lineAudio");
+  if (hearing) {
+    hearing = false; a.pause(); a.removeAttribute("src"); a.load(); $("listenBtn").textContent = "🎧 اسمع"; $("lineInfo").textContent = "";
+    return api("/api/live/mic/stop", {method: "POST"}).catch(() => {});
+  }
+  try {
+    const r = await api("/api/live/mic", {method: "POST"});
+    a.src = r.url; await a.play();
+    hearing = true; $("listenBtn").textContent = "⏹ وقّف السمع"; $("lineInfo").textContent = "🔴 عم تسمع مايك الكمبيوتر (في تأخير ثانية-ثانيتين)";
+  } catch (e) { $("lineInfo").textContent = "ما قدرت أسمع المايك: " + e.message; }
+};
+$("lineAudio").onerror = () => { if (hearing) { $("listenBtn").click(); $("lineInfo").textContent = "ما قدرت أفتح مايك الكمبيوتر (ffmpeg مثبت؟ المايك شغّال؟)"; } };
+let talking = false;
+$("talkBtn").onclick = async () => {
+  if (!talking) {
+    try { await recordStart(); } catch (e) { $("lineInfo").textContent = "اسمح للمتصفح يستخدم المايكروفون"; return; }
+    talking = true; $("talkBtn").textContent = "📤 ابعت"; $("talkBtn").classList.add("on"); $("lineInfo").textContent = "🎙️ احكي… واكبس «ابعت» لما تخلص";
+    return;
+  }
+  talking = false; $("talkBtn").textContent = "🎙️ احكي"; $("talkBtn").classList.remove("on");
+  const blob = await recordStop();
+  if (!blob || !blob.size) return;
+  $("lineInfo").textContent = "⏳ عم بشغّل صوتك على الكمبيوتر…";
+  try { const r = await sendAudio("/api/intercom/say", blob); $("lineInfo").textContent = `✅ انسمع صوتك على الكمبيوتر (${r.seconds} ث)`; }
+  catch (e) { $("lineInfo").textContent = "ما انسمع: " + e.message; }
+};
 // ---- live webcam ----
 let camOn = false;
 function camStop() {

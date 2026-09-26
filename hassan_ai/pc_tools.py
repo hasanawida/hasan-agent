@@ -606,6 +606,44 @@ class PCTools:
         return [self._ffmpeg(), "-hide_banner", "-loglevel", "error", *src, "-vf", "scale=960:-2",
                 "-r", "12", "-q:v", "6", "-f", "mpjpeg", "pipe:1"]
 
+    async def play_audio(self, audio: bytes, ext: str = "webm") -> float:
+        """Play a voice clip from Hassan's phone on the PC speakers (intercom). Returns seconds."""
+        self.media_dir.mkdir(parents=True, exist_ok=True)
+        stamp = f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid() % 1000}"
+        src, wav = self.media_dir / f".say-{stamp}.{ext}", self.media_dir / f".say-{stamp}.wav"
+        src.write_bytes(audio)
+        try:
+            code, out = await self._proc([self._ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(src),
+                                          "-ac", "1", "-ar", "44100", str(wav)], 60)
+            if code != 0 or not wav.exists():
+                raise RuntimeError(f"could not read the recording: {out[-300:]}")
+            seconds = max(0.0, (wav.stat().st_size - 44) / (44100 * 2))
+            if os.name == "nt":
+                argv = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+                        f"(New-Object Media.SoundPlayer '{wav}').PlaySync()"]
+            else:
+                player = shutil.which("paplay") or shutil.which("aplay") or shutil.which("ffplay")
+                if not player:
+                    raise RuntimeError("No audio player found on this system")
+                argv = [player, str(wav)] if not player.endswith("ffplay") else \
+                    [player, "-nodisp", "-autoexit", "-loglevel", "error", str(wav)]
+            code, out = await self._proc(argv, seconds + 30)
+            if code != 0:
+                raise RuntimeError(f"playback failed: {out[-300:]}")
+            return round(seconds, 1)
+        finally:
+            src.unlink(missing_ok=True)
+            wav.unlink(missing_ok=True)
+
+    async def live_mic_argv(self, device: str = "") -> list[str]:
+        """ffmpeg reading the microphone and writing a low-latency MP3 stream to stdout."""
+        if os.name == "nt":
+            src = ["-f", "dshow", "-audio_buffer_size", "50", "-i", f"audio={device or await self._dshow_device('audio')}"]
+        else:
+            src = ["-f", "pulse", "-i", device or "default"]
+        return [self._ffmpeg(), "-hide_banner", "-loglevel", "error", "-fflags", "nobuffer", *src,
+                "-ac", "1", "-ar", "24000", "-b:a", "64k", "-flush_packets", "1", "-f", "mp3", "pipe:1"]
+
     async def _t_camera_photo(self, device: str = "") -> dict:
         path = self._media_path("camera", ".jpg")
         if os.name == "nt":

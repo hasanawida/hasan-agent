@@ -220,3 +220,44 @@ def test_live_camera_stream_needs_a_fresh_token(client):
         assert b"--ffmpeg" in first and b"image/jpeg" in first
     assert client.get(url).status_code == 403  # a token works once
     client.post("/api/live/camera/stop")
+
+
+@pytest.mark.skipif(not __import__("shutil").which("ffmpeg"), reason="ffmpeg not installed")
+def test_intercom_hear_the_pc_and_talk_to_it(client, tmp_path, monkeypatch):
+    tools = client.app.state.orchestrator.operator.tools
+
+    async def fake_mic(device=""):
+        return [tools._ffmpeg(), "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+                "-ac", "1", "-b:a", "64k", "-f", "mp3", "pipe:1"]
+
+    tools.live_mic_argv = fake_mic
+    url = client.post("/api/live/mic").json()["url"]
+    with client.stream("GET", url) as resp:
+        assert resp.headers["content-type"] == "audio/mpeg"
+        assert len(b"".join(resp.iter_bytes())) > 2000
+
+    # talking: the phone's clip is converted and handed to the PC's player
+    played = []
+    player = tmp_path / "paplay"
+    player.write_text(f"#!/bin/sh\necho \"$1\" >> {tmp_path / 'played.txt'}\n")
+    player.chmod(0o755)
+    real_which = __import__("shutil").which
+    monkeypatch.setattr("hassan_ai.pc_tools.shutil.which", lambda n: str(player) if n == "paplay" else real_which(n))
+    clip = tmp_path / "clip.ogg"
+    import subprocess
+    subprocess.run([tools._ffmpeg(), "-loglevel", "error", "-f", "lavfi", "-i", "sine=duration=1", str(clip)], check=True)
+    r = client.post("/api/intercom/say", content=clip.read_bytes(), headers={"Content-Type": "audio/ogg"})
+    assert r.status_code == 200 and 0.8 < r.json()["seconds"] < 1.3
+    assert (tmp_path / "played.txt").read_text().strip().endswith(".wav")
+    assert not list((tools.media_dir).glob(".say-*"))  # temp files cleaned
+    assert client.post("/api/intercom/say", content=b"", headers={"Content-Type": "audio/ogg"}).status_code == 400
+
+
+def test_dashboard_voice_goes_to_whisper(client, monkeypatch):
+    async def fake(audio, name):
+        assert audio == b"AUDIO" and name == "voice.webm"
+        return " شو في على سطح المكتب "
+
+    monkeypatch.setattr("hassan_ai.server.groq_transcriber", fake)
+    r = client.post("/api/transcribe", content=b"AUDIO", headers={"Content-Type": "audio/webm;codecs=opus"})
+    assert r.json() == {"text": "شو في على سطح المكتب"}

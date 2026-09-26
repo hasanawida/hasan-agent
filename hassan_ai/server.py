@@ -383,55 +383,95 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
             raise HTTPException(404, "Task not found") from exc
         return {"ok": True}
 
-    # ---- live webcam (Hassan presses the button; one viewer at a time) --------
-    live: dict = {"token": None, "expires": 0.0, "proc": None}
+    # ---- live webcam / microphone (Hassan presses the button; one viewer each) --
+    LIVE_TYPES = {"camera": "multipart/x-mixed-replace;boundary=ffmpeg", "mic": "audio/mpeg"}
+    live: dict = {k: {"token": None, "expires": 0.0, "proc": None} for k in LIVE_TYPES}
 
-    async def stop_camera() -> None:
-        proc, live["proc"] = live["proc"], None
+    async def stop_live(kind: str) -> None:
+        proc, live[kind]["proc"] = live[kind]["proc"], None
         if proc and proc.returncode is None:
             proc.kill()
             await proc.wait()
 
-    @app.post("/api/live/camera")
-    async def live_camera_start():
-        # POST first (cross-site pages can't POST here), then the <img> GETs the stream with the token
-        live["token"], live["expires"] = secrets.token_urlsafe(18), time.time() + 60
-        return {"url": f"/api/live/camera?token={live['token']}"}
+    async def stop_camera() -> None:  # on shutdown: everything off
+        for kind in LIVE_TYPES:
+            await stop_live(kind)
 
-    @app.post("/api/live/camera/stop")
-    async def live_camera_stop():
-        await stop_camera()
+    def live_kind(kind: str) -> str:
+        if kind not in LIVE_TYPES:
+            raise HTTPException(404, "Unknown live source")
+        return kind
+
+    @app.post("/api/live/{kind}")
+    async def live_start(kind: str):
+        # POST first (cross-site pages can't POST here), then the <img>/<audio> GETs the stream with the token
+        slot = live[live_kind(kind)]
+        slot["token"], slot["expires"] = secrets.token_urlsafe(18), time.time() + 60
+        return {"url": f"/api/live/{kind}?token={slot['token']}"}
+
+    @app.post("/api/live/{kind}/stop")
+    async def live_stop(kind: str):
+        await stop_live(live_kind(kind))
         return {"ok": True}
 
-    @app.get("/api/live/camera")
-    async def live_camera(request: Request, token: str = ""):
-        if not live["token"] or time.time() > live["expires"] or not secrets.compare_digest(token, live["token"]):
-            raise HTTPException(403, "Press the camera button again")
-        live["token"] = None
-        await stop_camera()
+    @app.get("/api/live/{kind}")
+    async def live_stream(kind: str, request: Request, token: str = ""):
+        slot = live[live_kind(kind)]
+        if not slot["token"] or time.time() > slot["expires"] or not secrets.compare_digest(token, slot["token"]):
+            raise HTTPException(403, "Press the button again")
+        slot["token"] = None
+        await stop_live(kind)
         try:
-            argv = await pc.live_camera_argv()
+            argv = await (pc.live_camera_argv() if kind == "camera" else pc.live_mic_argv())
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
         proc = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.DEVNULL,
                                                     stdin=asyncio.subprocess.DEVNULL, **NO_WINDOW)
-        live["proc"] = proc
+        slot["proc"] = proc
 
-        async def frames():
+        async def chunks():
             try:
-                while chunk := await proc.stdout.read(65536):
+                while chunk := await proc.stdout.read(16384):
                     if await request.is_disconnected():
                         break
                     yield chunk
-            finally:  # the viewer closed the page or pressed stop: the camera turns off
-                if live["proc"] is proc:
-                    await stop_camera()
+            finally:  # the viewer closed the page or pressed stop: the device turns off
+                if slot["proc"] is proc:
+                    await stop_live(kind)
                 elif proc.returncode is None:
                     proc.kill()
 
-        return StreamingResponse(frames(), media_type="multipart/x-mixed-replace;boundary=ffmpeg",
-                                 headers={"Cache-Control": "no-store"})
+        return StreamingResponse(chunks(), media_type=LIVE_TYPES[kind], headers={"Cache-Control": "no-store"})
+
+    AUDIO_EXT = {"audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/webm": "webm"}
+
+    async def audio_body(request: Request) -> tuple[bytes, str]:
+        audio = await request.body()
+        if not audio:
+            raise HTTPException(400, "No audio")
+        if len(audio) > 20_000_000:
+            raise HTTPException(413, "Recording too long")
+        return audio, AUDIO_EXT.get(request.headers.get("content-type", "").split(";")[0].strip(), "webm")
+
+    @app.post("/api/intercom/say")
+    async def intercom_say(request: Request):
+        """Hassan talks from his phone; the PC speakers play it (the other half of the line is /api/live/mic)."""
+        audio, ext = await audio_body(request)
+        try:
+            return {"seconds": await pc.play_audio(audio, ext)}
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
+    @app.post("/api/transcribe")
+    async def transcribe(request: Request):
+        """Voice from the dashboard (any browser) -> text, with Groq's free Whisper."""
+        audio, ext = await audio_body(request)
+        try:
+            text = await groq_transcriber(audio, f"voice.{ext}")
+        except RuntimeError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"text": text.strip()}
 
     @app.get("/api/media/{name}")
     async def media(name: str):
