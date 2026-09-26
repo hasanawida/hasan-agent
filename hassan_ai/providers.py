@@ -49,6 +49,20 @@ class CLIBackend:
     timeout: float = 600.0
     use_subscription: bool = True
     extra_args: list[str] = field(default_factory=list)
+    # Subscription usage limit hit: skip this backend (instant fallback) and re-check later.
+    limited_until: float = 0.0
+    limit_message: str = ""
+    LIMIT_RECHECK = 1800.0
+
+    def _note_limit(self, message: str) -> None:
+        self.limited_until = time.time() + self.LIMIT_RECHECK
+        self.limit_message = message.strip()[:200]
+
+    @staticmethod
+    def _looks_like_limit(text: str) -> bool:
+        t = text.lower()
+        return any(k in t for k in ("usage limit", "weekly limit", "rate limit", "hit your", "limit reached",
+                                    "quota", "429"))
 
     def executable(self) -> str | None:
         return shutil.which(self.command)
@@ -65,6 +79,8 @@ class CLIBackend:
         exe = self.executable()
         if exe is None:
             raise LLMError(f"{self.kind}: '{self.command}' not found on PATH (is it installed?)")
+        if time.time() < self.limited_until:
+            raise LLMError(f"{self.kind}: usage limit — {self.limit_message}")
         model = model or self.default_model
         start = time.monotonic()
         with tempfile.TemporaryDirectory(prefix="hassan-brain-") as scratch:
@@ -104,7 +120,10 @@ class CLIBackend:
                 completion = self._parse_claude(stdout, stderr, proc.returncode, model)
             else:
                 if proc.returncode != 0:
-                    raise LLMError(f"{label}: exit {proc.returncode}: {(stderr or stdout)[-400:]}")
+                    detail = (stderr or stdout)[-400:]
+                    if self._looks_like_limit(detail):
+                        self._note_limit(detail.strip().splitlines()[-1] if detail.strip() else "limit")
+                    raise LLMError(f"{label}: exit {proc.returncode}: {detail}")
                 text = out_file.read_text(encoding="utf-8") if out_file.exists() else ""
                 completion = self._parse_codex(stdout, text, label)
         if not completion.text.strip():
@@ -119,6 +138,8 @@ class CLIBackend:
             data = {}
         if data.get("is_error") or code != 0 or "result" not in data:
             detail = data.get("result") or stderr or stdout
+            if data.get("api_error_status") == 429 or self._looks_like_limit(str(detail)):
+                self._note_limit(str(detail))
             raise LLMError(f"claude_cli: exit {code}: {str(detail)[-400:]}")
         usage = data.get("usage") or {}
         tokens_in = sum(int(usage.get(k) or 0) for k in
@@ -156,6 +177,8 @@ class CLIBackend:
         exe = self.executable()
         info: dict = {"type": self.kind, "command": self.command, "installed": exe is not None,
                       "use_subscription": self.use_subscription}
+        if time.time() < self.limited_until:
+            info["limit"] = self.limit_message
         if not exe:
             return info
         checks = [["--version"]] + ([["login", "status"]] if self.kind == "codex_cli" else [])

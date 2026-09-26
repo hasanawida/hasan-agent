@@ -163,3 +163,27 @@ def test_default_providers_config_loads():
     assert router.route_for("coder").backend == "claude"
     assert router.route_for("reviewer").backend == "chatgpt"
     assert router.route_for("unknown-alias").backend == "claude"
+
+
+def test_usage_limit_is_remembered_and_skipped(tmp_path, fake_clis):
+    """Claude's weekly-limit answer: fall back to ChatGPT at once and show it in the status."""
+    _, codex, log = fake_clis
+    limited = make_cli(tmp_path / "bin", "claude-limited", """
+import json, sys
+args = sys.argv[1:]
+if args == ["--version"]:
+    print("9.9.9 (Claude Code)"); sys.exit(0)
+open({log!r}, "a").write('{{"cli": "claude-limited"}}\\n')
+print(json.dumps({{"type": "result", "is_error": True, "api_error_status": 429,
+                  "result": "You've hit your weekly limit · resets Sep 29, 4pm"}}))
+sys.exit(1)
+""".replace("{log!r}", repr(str(log))))
+    with live_client(tmp_path, write_providers(tmp_path, limited, codex)) as client:
+        t = client.post("/api/tasks", json={"prompt": "x", "mode": "fast"}).json()
+        task = wait(client, t["id"])
+        assert task["status"] == "completed", task["error"]
+        assert all(o["model"].startswith("codex_cli") for o in task["outputs"])
+        status = client.get("/api/providers").json()["backends"]["claude"]
+        assert "weekly limit" in status["limit"]
+    calls = [line for line in log.read_text().splitlines() if "claude-limited" in line]
+    assert len(calls) == 1  # tried once, then skipped for the rest of the task

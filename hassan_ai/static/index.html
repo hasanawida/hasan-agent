@@ -186,6 +186,7 @@ async function boot() {
       const ok = b.type === "mock" || b.installed;
       if (b.type === "gateway") return `⚪ <b>${esc(name)}</b> <small dir="ltr">gateway (optional, LiteLLM)</small>`;
       const detail = b.type.endsWith("_cli") ? (b.installed ? (b["login status"] || b.version || "") : "غير مثبت") : b.type;
+      if (b.limit) return `🟡 <b>${esc(name)}</b> <small>خلصت حصة الاشتراك — الشغل رايح على غيره. <span dir="ltr">${esc(b.limit)}</span></small>`;
       return `${ok ? "🟢" : "🔴"} <b>${esc(name)}</b> <small dir="ltr">${esc(detail)}</small>`;
     }).join("<br>");
   }).catch(() => {});
