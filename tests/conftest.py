@@ -25,6 +25,7 @@ def make_settings(tmp_path: Path) -> Settings:
         agents_config=CONFIGS_DIR / "agents.yaml",
         command_timeout=120,
         allowed_hosts=["127.0.0.1", "localhost", "testserver"],
+        trusted_clients=["127.0.0.1", "::1", "testclient"],
     )
 
 

@@ -41,6 +41,8 @@ class Settings:
     command_timeout: float = 900.0
     editor_command: str = "code"
     allowed_hosts: list[str] = field(default_factory=lambda: ["127.0.0.1", "localhost"])
+    trusted_clients: list[str] = field(default_factory=lambda: ["127.0.0.1", "::1"])
+    public_url: str = ""  # e.g. https://my-pc.tail1234.ts.net (set by scripts/enable-phone.ps1)
 
     @property
     def db_path(self) -> Path:
@@ -72,6 +74,7 @@ class Settings:
             max_repair_rounds=int(os.environ.get("HASSAN_MAX_REPAIR_ROUNDS", "2")),
             command_timeout=float(os.environ.get("HASSAN_COMMAND_TIMEOUT", "900")),
             editor_command=os.environ.get("HASSAN_EDITOR", "code"),
+            public_url=os.environ.get("HASSAN_PUBLIC_URL", "").rstrip("/"),
         )
 
 

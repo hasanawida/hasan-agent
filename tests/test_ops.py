@@ -29,11 +29,69 @@ def test_usage_is_recorded_per_task_and_period(client):
 
 
 def test_foreign_host_and_cross_site_posts_blocked(client):
-    assert client.get("/api/health", headers={"host": "evil.example"}).status_code == 403
+    # a DNS-rebinding page (foreign Host, no key) gets nothing
+    assert client.get("/api/health", headers={"host": "evil.example"}).status_code == 401
     r = client.post("/api/tasks", json={"prompt": "x"}, headers={"origin": "https://evil.example"})
     assert r.status_code == 403
     ok = client.post("/api/tasks", json={"prompt": "x", "mode": "fast"}, headers={"origin": "http://127.0.0.1:8787"})
     assert ok.status_code == 201
+
+
+PHONE = {"host": "my-pc.tail1234.ts.net", "x-forwarded-for": "100.64.0.7", "x-forwarded-proto": "https"}
+
+
+def test_phone_needs_key_then_works(client):
+    key = client.app.state.access_key
+    # without the key: API refuses, pages redirect to the login page
+    assert client.get("/api/tasks", headers=PHONE).status_code == 401
+    r = client.get("/", headers=PHONE, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/login"
+    assert "access key" in client.get("/login", headers=PHONE).text
+    assert client.get("/login?key=wrong", headers=PHONE).status_code == 401
+    # scanning the QR = GET /login?key=... sets a long-lived, HttpOnly, Secure cookie
+    r = client.get(f"/login?key={key}", headers=PHONE, follow_redirects=False)
+    assert r.status_code == 303
+    cookie = r.headers["set-cookie"]
+    assert "HttpOnly" in cookie and "Secure" in cookie and "samesite=strict" in cookie.lower()
+    client.cookies.set("hassan_key", key)
+    t = client.post("/api/tasks", json={"prompt": "from my phone", "mode": "fast"},
+                    headers={**PHONE, "origin": "https://my-pc.tail1234.ts.net"})
+    assert t.status_code == 201
+    assert wait(client, t.json()["id"])["status"] == "completed"
+    # the pairing key/QR is never shown to a remote device, and it can't rotate it
+    assert client.get("/api/remote", headers=PHONE).status_code == 403
+    assert client.post("/api/remote/rotate", headers=PHONE).status_code == 403
+    assert client.get("/api/whoami", headers=PHONE).json() == {"local": False}
+    client.cookies.clear()
+
+
+def test_proxy_cannot_pretend_to_be_local(client):
+    # tailscale serve connects from 127.0.0.1; even with a local Host it stays remote
+    spoof = {"host": "127.0.0.1:8787", "x-forwarded-for": "100.64.0.7"}
+    assert client.get("/api/tasks", headers=spoof).status_code == 401
+
+
+def test_bearer_key_and_rotation(client, tmp_path):
+    key = client.app.state.access_key
+    assert client.get("/api/tasks", headers={**PHONE, "authorization": f"Bearer {key}"}).status_code == 200
+    info = client.get("/api/remote").json()
+    assert info["enabled"] is False  # no public URL / LAN bind configured in tests
+    assert client.post("/api/remote/rotate").status_code == 200
+    assert client.get("/api/tasks", headers={**PHONE, "authorization": f"Bearer {key}"}).status_code == 401
+
+
+def test_pairing_qr_when_public_url_set(tmp_path):
+    from fastapi.testclient import TestClient
+    from hassan_ai.server import create_app
+    from .conftest import make_settings
+    settings = make_settings(tmp_path)
+    settings.public_url = "https://my-pc.tail1234.ts.net"
+    with TestClient(create_app(settings)) as c:
+        info = c.get("/api/remote").json()
+        (url,) = info["urls"]
+        assert url["pair_url"].startswith("https://my-pc.tail1234.ts.net/login?key=")
+        assert url["qr_svg"].startswith("<svg")
+        assert c.get("/manifest.webmanifest", headers=PHONE).json()["short_name"] == "Hassan AI"
 
 
 def test_open_in_editor(client, tmp_path, monkeypatch):

@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hassan AI OS</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icon.svg">
+<link rel="apple-touch-icon" href="/static/icon.svg">
+<meta name="theme-color" content="#0b1020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 :root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429}
 *{box-sizing:border-box}
@@ -51,6 +57,12 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px sol
 .small{padding:5px 9px;font-size:12px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}
 .stats b{display:block;font-size:17px;color:var(--text)}
+.qr{background:#fff;border-radius:10px;padding:8px;display:inline-block;margin:8px 0}
+.qr svg{display:block;width:210px;height:210px}
+@media(max-width:600px){main{padding:8px;gap:8px}.card{padding:11px;margin-bottom:10px}
+  header{padding:10px 12px}header h1{font-size:17px}.agents{grid-template-columns:repeat(3,1fr)}
+  .agent small{display:none}.log{max-height:180px}textarea{min-height:90px;font-size:16px}
+  input,select{font-size:16px}.mic{width:54px;font-size:22px}}
 details summary{cursor:pointer;color:var(--muted);font-size:13px}
 .muted{color:var(--muted);font-size:13px}
 </style>
@@ -95,6 +107,10 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   <div class="card">
     <h2>المهام السابقة</h2>
     <div class="hist" id="history"></div>
+  </div>
+  <div class="card" id="phoneCard" style="display:none">
+    <h2>📱 التلفون</h2>
+    <div id="phone" class="muted">…</div>
   </div>
   <div class="card">
     <h2>الاستهلاك</h2>
@@ -142,6 +158,7 @@ const spoken = new Set();
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 async function api(path, opts = {}) {
   const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...opts});
+  if (r.status === 401) { location.href = "/login"; throw new Error("login required"); }
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(body.detail || r.statusText);
   return body;
@@ -172,6 +189,7 @@ async function boot() {
     }).join("<br>");
   }).catch(() => {});
   loadUsage(); setInterval(loadUsage, 30000);
+  loadPhone();
   const wanted = new URLSearchParams(location.search).get("task");
   if (wanted) openTask(wanted);
   api("/api/mcp").then(m => {
@@ -192,6 +210,29 @@ async function loadUsage() {
       <details style="margin-top:8px"><summary>حسب النموذج (30 يوم)</summary>${models || "—"}</details>
       <p style="font-size:11px;margin:8px 0 0">المبلغ ≈ هو سعر الـAPI المكافئ. مع اشتراك Claude/ChatGPT ما بتدفع لكل طلب؛ الاشتراك له حدود استخدام.</p>`;
   } catch {}
+}
+async function loadPhone() {
+  const who = await api("/api/whoami").catch(() => ({local: false}));
+  if (!who.local) return;             // the pairing card is only shown on the PC itself
+  $("phoneCard").style.display = "";
+  const r = await api("/api/remote");
+  if (!r.enabled) {
+    $("phone").innerHTML = `<p>لسا مش مفعّل. على الكمبيوتر شغّل مرة وحدة:</p>
+      <pre>scripts\\enable-phone.bat</pre><p>وثبّت تطبيق <b>Tailscale</b> على التلفون وسجّل بنفس الحساب.</p>`;
+    return;
+  }
+  $("phone").innerHTML = r.urls.map(u => `
+    <p><b>${u.kind === "tailscale" ? "من أي مكان (Tailscale)" : "نفس الـWi-Fi فقط"}</b></p>
+    <p>افتح كاميرا التلفون وامسح الرمز:</p>
+    <div class="qr">${u.qr_svg}</div>
+    <p dir="ltr" style="font-size:11px;word-break:break-all">${esc(u.base)}</p>
+    ${u.kind === "wifi" ? "<p>⚠️ بدون HTTPS: المايكروفون ما بيشتغل على التلفون. استخدم Tailscale.</p>" : ""}`).join("") +
+    `<p>بعدها من قائمة المتصفح اختار <b>Add to Home screen</b> عشان يصير تطبيق.</p>
+     <button class="ghost small" id="rotateKey">🔑 تغيير المفتاح (يفصل كل التلفونات)</button>`;
+  $("rotateKey").onclick = async () => {
+    if (!confirm("أي تلفون متصل رح ينفصل ولازم تمسح الرمز من جديد. متأكد؟")) return;
+    await api("/api/remote/rotate", {method: "POST"}); loadPhone();
+  };
 }
 async function openInEditor(path, line) {
   try { await api("/api/open", {method: "POST", body: JSON.stringify({path, line: line || null})}); }

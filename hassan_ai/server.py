@@ -10,11 +10,11 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, openhands
+from . import __version__, openhands, remote
 from .agents import Roster
 from .config import PACKAGE_DIR, Settings
 from .execution import CheckpointManager, ExecutionManager, SafeLocalRunner
@@ -93,18 +93,84 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     app.state.orchestrator = orchestrator
     app.state.memory = memory
 
+    access_key = remote.load_or_create_key(settings.data_dir)
+    app.state.access_key = access_key
+    PUBLIC_PATHS = {"/login", "/manifest.webmanifest", "/static/icon.svg"}
+
     @app.middleware("http")
-    async def local_only(request: Request, call_next):
-        # Block DNS-rebinding (foreign Host) and cross-site requests from other web
-        # pages (foreign Origin) — otherwise any website could approve changes.
-        host = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]")
-        if host not in settings.allowed_hosts:
-            return JSONResponse({"detail": "Host not allowed"}, status_code=403)
+    async def guard(request: Request, call_next):
+        local = remote.is_local(request, settings.allowed_hosts, settings.trusted_clients)
+        request.state.local = local
+        if not local and request.url.path not in PUBLIC_PATHS:
+            # Phone / other devices: need the access key (cookie from /login or Bearer header).
+            if not remote.key_ok(remote.presented_key(request), app.state.access_key):
+                if request.url.path.startswith("/api/"):
+                    return JSONResponse({"detail": "Access key required"}, status_code=401)
+                return RedirectResponse("/login", status_code=303)
+        # Cross-site protection: a web page on another site must not drive this API.
         origin = request.headers.get("origin")
         if origin and request.method not in ("GET", "HEAD", "OPTIONS"):
-            if (urlsplit(origin).hostname or "") not in settings.allowed_hosts:
+            origin_host = (urlsplit(origin).hostname or "").lower()
+            if origin_host != remote.request_host(request) and origin_host not in settings.allowed_hosts:
                 return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
         return await call_next(request)
+
+    def login_response(key: str | None, request: Request):
+        if remote.key_ok(key, app.state.access_key):
+            resp = RedirectResponse("/", status_code=303)
+            resp.set_cookie(remote.COOKIE, app.state.access_key, max_age=400 * 86400, httponly=True,
+                            samesite="strict", secure=remote.is_https(request))
+            return resp
+        err = '<p class="err">المفتاح غلط</p>' if key else ""
+        return HTMLResponse(remote.LOGIN_PAGE.replace("__ERR__", err), status_code=401 if key else 200)
+
+    @app.get("/login", include_in_schema=False)
+    async def login_get(request: Request, key: str | None = None):
+        return login_response(key, request)
+
+    @app.post("/login", include_in_schema=False)
+    async def login_post(request: Request):
+        form = (await request.body()).decode("utf-8", "replace")
+        from urllib.parse import parse_qs
+        key = (parse_qs(form).get("key") or [""])[0].strip()
+        return login_response(key or "-", request)
+
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    async def manifest():
+        return JSONResponse({
+            "name": "Hassan AI OS", "short_name": "Hassan AI", "start_url": "/", "display": "standalone",
+            "dir": "rtl", "lang": "ar", "background_color": "#0b1020", "theme_color": "#0b1020",
+            "icons": [{"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
+        }, media_type="application/manifest+json")
+
+    def require_local(request: Request) -> None:
+        if not request.state.local:
+            raise HTTPException(403, "Only from the PC itself")
+
+    @app.get("/api/remote")
+    async def remote_info(request: Request):
+        """Pairing info (key + QR). Only shown on the PC itself, never to remote devices."""
+        require_local(request)
+        port = settings.port
+        urls = []
+        if settings.public_url:
+            urls.append({"kind": "tailscale", "base": settings.public_url})
+        if settings.host in ("0.0.0.0", "::"):
+            urls += [{"kind": "wifi", "base": f"http://{ip}:{port}"} for ip in remote.lan_addresses()]
+        for u in urls:
+            u["pair_url"] = f"{u['base']}/login?key={app.state.access_key}"
+            u["qr_svg"] = remote.qr_svg(u["pair_url"])
+        return {"enabled": bool(urls), "urls": urls, "public_url": settings.public_url, "bind": settings.host}
+
+    @app.post("/api/remote/rotate")
+    async def remote_rotate(request: Request):
+        require_local(request)
+        app.state.access_key = remote.rotate_key(settings.data_dir)
+        return {"ok": True}
+
+    @app.get("/api/whoami")
+    async def whoami(request: Request):
+        return {"local": request.state.local}
 
     @app.get("/", include_in_schema=False)
     async def index():
