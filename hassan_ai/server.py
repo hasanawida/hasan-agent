@@ -24,6 +24,8 @@ from .memory import Memory
 from .operator_mode import Operator
 from .orchestrator import Orchestrator
 from .pc_tools import PCTools
+from .scheduler import Scheduler
+from .telegram import TelegramBot, groq_transcriber
 from .policy import Policy, PolicyError, resolve_workspace
 from .config import save_env_value
 from .providers import APIBackend, RouterLLM
@@ -55,6 +57,23 @@ SIGNUP = {"groq": "https://console.groq.com/keys", "gemini": "https://aistudio.g
           "openrouter": "https://openrouter.ai/keys"}
 
 
+class TokenBody(BaseModel):
+    token: str = ""
+
+
+class ChatBody(BaseModel):
+    chat_id: int
+
+
+class ScheduleBody(BaseModel):
+    text: str  # e.g. "daily 08:00 send me a summary"
+    kind: str = "operate"
+
+
+class ProfileNote(BaseModel):
+    content: str
+
+
 class MemoryNote(BaseModel):
     kind: str = "note"
     content: str
@@ -80,7 +99,8 @@ def editor_argv(exe: str, args: list[str]) -> tuple[list[str], dict | None]:
     return [exe, *args], None
 
 
-def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
+def create_app(settings: Settings | None = None, llm=None, telegram_transport=None,
+               telegram_api: str = "https://api.telegram.org") -> FastAPI:
     settings = settings or Settings.from_env()
     memory = Memory(settings.db_path)
     policy = Policy.load(settings.policy_file)
@@ -95,13 +115,20 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     mcp = MCPRegistry(settings.mcp_config, policy)
     pc = PCTools(policy, settings.allowed_roots, settings.data_dir / "trash",
                  protected_dirs=[settings.data_dir, PACKAGE_DIR.parent], mcp=mcp, media_dir=settings.data_dir / "media")
-    orchestrator.operator = Operator(orchestrator, pc)
+    orchestrator.operator = Operator(orchestrator, pc, skills_dir=settings.data_dir / "skills")
+    scheduler = Scheduler(orchestrator)
+    telegram = TelegramBot(orchestrator, settings.env_file, settings.data_dir / "media", api_base=telegram_api,
+                           transport=telegram_transport, scheduler=scheduler, transcriber=groq_transcriber)
     roster.agents["operator"].extra_system = orchestrator.operator.system_prompt()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         orchestrator.recover_interrupted()
+        scheduler.start()
+        await telegram.start()
         yield
+        await telegram.stop()
+        await scheduler.stop()
         await orchestrator.drain()
         if hasattr(llm, "aclose"):
             await llm.aclose()
@@ -109,6 +136,8 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     app = FastAPI(title="Hassan AI OS", version=__version__, lifespan=lifespan)
     app.state.orchestrator = orchestrator
     app.state.memory = memory
+    app.state.telegram = telegram
+    app.state.scheduler = scheduler
 
     access_key = remote.load_or_create_key(settings.data_dir)
     app.state.access_key = access_key
@@ -229,6 +258,66 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
             return {"ok": True, "model": comp.model, "reply": comp.text.strip()[:80]}
         except Exception as exc:  # noqa: BLE001 - report any provider error to the user
             return {"ok": False, "error": str(exc)[:400]}
+
+    # ---- Telegram (PC only: token and pairing) ------------------------------
+    @app.get("/api/telegram")
+    async def telegram_status(request: Request):
+        require_local(request)
+        return telegram.status()
+
+    @app.post("/api/telegram/token")
+    async def telegram_token(body: TokenBody, request: Request):
+        require_local(request)
+        token = body.token.strip()
+        if token and (":" not in token or any(c.isspace() for c in token) or len(token) > 200):
+            raise HTTPException(400, "That does not look like a bot token (123456:ABC...)")
+        return await telegram.set_token(token)
+
+    @app.post("/api/telegram/pair-code")
+    async def telegram_pair_code(request: Request):
+        require_local(request)
+        if not telegram.token:
+            raise HTTPException(400, "Save the bot token first")
+        return {**telegram.pairing.new(), "bot": telegram.username}
+
+    @app.post("/api/telegram/unpair")
+    async def telegram_unpair(body: ChatBody, request: Request):
+        require_local(request)
+        telegram.unpair(body.chat_id)
+        return telegram.status()
+
+    # ---- schedules ---------------------------------------------------------
+    @app.get("/api/schedules")
+    async def list_schedules():
+        return scheduler.list()
+
+    @app.post("/api/schedules", status_code=201)
+    async def add_schedule(body: ScheduleBody):
+        try:
+            return scheduler.add_from_text(body.text, kind=body.kind if body.kind in ("operate", "project") else "operate")
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.delete("/api/schedules/{schedule_id}")
+    async def delete_schedule(schedule_id: int):
+        if not scheduler.remove(schedule_id):
+            raise HTTPException(404, "Not found")
+        return {"ok": True}
+
+    # ---- memory about Hassan + learned skills ------------------------------
+    @app.get("/api/profile")
+    async def profile():
+        return {"notes": memory.recall("_hassan", 100), "skills": [
+            {"name": n, "description": d} for n, d in orchestrator.operator.skills()]}
+
+    @app.post("/api/profile", status_code=201)
+    async def add_profile(note: ProfileNote):
+        memory.remember("_hassan", "profile", note.content.strip()[:500])
+        return {"ok": True}
+
+    @app.post("/api/profile/forget")
+    async def forget_profile(note: ProfileNote):
+        return {"removed": memory.forget("_hassan", note.content)}
 
     @app.get("/api/whoami")
     async def whoami(request: Request):

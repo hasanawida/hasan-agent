@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .llm import extract_json
@@ -40,16 +42,29 @@ Apps: Blender → `blender` tool (bpy scripts, render). VS Code → `open` a fol
 Video/audio editing → `ffmpeg`. Web → `web_search` / `web_fetch`, or `open` a URL in Hassan's browser.
 Any other app (CapCut, settings, browsers…) → `mcp` server `windows` if listed below: first call Snapshot to
 see the screen's elements (tool Snapshot), then App (open/switch apps), Click, Type, Shortcut, Scroll, Wait. Camera/mic/screen → camera_photo / mic_record / screenshot.
+Memory & skills (Hassan's own, always allowed):
+- ABOUT HASSAN below holds what he told you to remember; respect it. Use `remember` for new lasting
+  preferences/facts he tells you (never secrets or passwords).
+- Before starting, check SKILLS: if one fits, `read_skill` and follow it.
+- After finishing a multi-step task that may recur, `save_skill` with short reusable steps (improve an
+  existing skill by saving it again under the same name).
+- `search_history` finds what was done in earlier tasks.
 Tools:
+- remember("note": text) — save a lasting fact/preference about Hassan.
+- save_skill("name": short-name, "description": one line, "steps": markdown steps) — save/improve a skill.
+- read_skill("name": short-name) — read a saved skill.
+- search_history("query": text) — search earlier tasks and their results.
 """
+INTERNAL_TOOLS = {"remember", "save_skill", "read_skill", "search_history"}
 NOT_TRUSTABLE = {"run", "delete", "camera_photo", "mic_record"}
 MCP_CACHE_SECONDS = 600
 
 
 class Operator:
-    def __init__(self, orch: "Orchestrator", tools: PCTools):
+    def __init__(self, orch: "Orchestrator", tools: PCTools, skills_dir: Path | None = None):
         self.orch = orch
         self.tools = tools
+        self.skills_dir = skills_dir or tools.trash_dir.parent / "skills"
         self._trusted: dict[str, set[str]] = {}
         self._mcp_cache: tuple[float, str] = (0.0, "")
 
@@ -100,6 +115,9 @@ class Operator:
                  f"### ALLOWED FOLDERS\n{json.dumps([str(r) for r in self.tools.allowed_roots], ensure_ascii=False)}",
                  f"### STEP\n{step + 1} of {MAX_STEPS}",
                  f"### MCP SERVERS\n{mcp or '(none connected)'}",
+                 "### ABOUT HASSAN\n" + ("\n".join(f"- {m['content']}" for m in
+                                                   self.orch.memory.recall("_hassan", 30)) or "(nothing saved yet)"),
+                 "### SKILLS\n" + ("\n".join(f"- {n}: {d}" for n, d in self.skills()) or "(none yet)"),
                  "### HISTORY\n" + (json.dumps(info, ensure_ascii=False, indent=1) if info else "(nothing yet)")]
         return "\n\n".join(parts)
 
@@ -143,6 +161,15 @@ class Operator:
         tool = str(act.get("tool", "")) if isinstance(act, dict) else ""
         args = act.get("args") if isinstance(act, dict) and isinstance(act.get("args"), dict) else {}
         record: dict = {"tool": tool, "args": args}
+        if tool in INTERNAL_TOOLS:
+            try:
+                record["result"] = self._internal(tool, args)
+            except Exception as exc:  # noqa: BLE001
+                record["result"] = f"error: {exc}"
+            history.append(record)
+            if tool in ("remember", "save_skill"):
+                self._evidence(task, tool, args, not record["result"].startswith("error"), record["result"])
+            return False
         if tool not in TOOL_BY_NAME:
             record["result"] = f"error: unknown tool '{tool}'"
             history.append(record)
@@ -180,6 +207,46 @@ class Operator:
         history.append(record)
         self._evidence(task, tool, args, ok, result)
         return False
+
+    # ---- memory & skills (Hermes-style learning loop) ------------------------
+    @staticmethod
+    def _slug(name: str) -> str:
+        slug = re.sub(r"[^\w\-]+", "-", str(name).strip().lower(), flags=re.UNICODE).strip("-")[:60]
+        if not slug:
+            raise ValueError("empty skill name")
+        return slug
+
+    def skills(self) -> list[tuple[str, str]]:
+        if not self.skills_dir.is_dir():
+            return []
+        out = []
+        for f in sorted(self.skills_dir.glob("*.md")):
+            first = f.read_text(encoding="utf-8").splitlines()[:2]
+            desc = first[1].lstrip("> ").strip() if len(first) > 1 else ""
+            out.append((f.stem, desc[:160]))
+        return out
+
+    def _internal(self, tool: str, args: dict) -> str:
+        if tool == "remember":
+            note = str(args.get("note", "")).strip()
+            if not note:
+                raise ValueError("empty note")
+            if re.search(r"(?i)(password|passwd|كلمة السر|كلمة المرور|api[_ -]?key|token|secret)", note):
+                raise ValueError("I don't store passwords or keys")
+            self.orch.memory.remember("_hassan", "profile", note[:500])
+            return "remembered"
+        if tool == "save_skill":
+            slug = self._slug(args.get("name", ""))
+            self.skills_dir.mkdir(parents=True, exist_ok=True)
+            body = f"# {slug}\n> {str(args.get('description', '')).strip()[:200]}\n\n{str(args.get('steps', '')).strip()[:8000]}\n"
+            (self.skills_dir / f"{slug}.md").write_text(body, encoding="utf-8")
+            return f"skill saved: {slug}"
+        if tool == "read_skill":
+            path = self.skills_dir / f"{self._slug(args.get('name', ''))}.md"
+            return path.read_text(encoding="utf-8") if path.exists() else "no such skill"
+        if tool == "search_history":
+            return json.dumps(self.orch.memory.search_tasks(str(args.get("query", "")), 8), ensure_ascii=False)
+        raise ValueError(tool)
 
     def _evidence(self, task: TaskRecord, tool: str, args: dict, ok: bool, result: str) -> None:
         target = (args.get("path") or args.get("target") or args.get("src") or args.get("command") or args.get("root")

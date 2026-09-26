@@ -40,6 +40,7 @@ class TaskCreate(BaseModel):
     execute: bool = False
     project: str | None = None
     kind: Literal["project", "operate"] = "project"
+    origin: str | None = None  # e.g. "telegram:<chat id>" or "schedule:<id>"
 
 
 class AgentOutput(BaseModel):
@@ -103,6 +104,7 @@ class TaskRecord(BaseModel):
     execute: bool = False
     project: str | None = None
     kind: str = "project"
+    origin: str | None = None
     status: TaskStatus = TaskStatus.queued
     phase: str = "queued"
     outputs: list[AgentOutput] = Field(default_factory=list)

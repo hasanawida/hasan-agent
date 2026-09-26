@@ -35,11 +35,12 @@ class Orchestrator:
         self._waiters: dict[str, asyncio.Future] = {}  # operator approvals being waited on
         self._cancelled: set[str] = set()
         self.operator = None  # set by the server (Operator mode)
+        self.listeners: list = []  # callables(task, kind, message, data)
 
     # ------------------------------------------------------------------ API
     def submit(self, req: TaskCreate) -> TaskRecord:
         task = TaskRecord(prompt=req.prompt, mode=req.mode, workspace=req.workspace,
-                          execute=req.execute, project=req.project, kind=req.kind)
+                          execute=req.execute, project=req.project, kind=req.kind, origin=req.origin)
         self.memory.save_task(task)
         self._emit(task, "created", "Task received", {"mode": task.mode.value, "execute": task.execute})
         self._spawn(self.run(task.id))
@@ -409,6 +410,11 @@ class Orchestrator:
 
     def _emit(self, task: TaskRecord, kind: str, message: str, data: dict | None = None) -> None:
         self.memory.add_event(Event(task_id=task.id, kind=kind, message=message, data=data or {}))
+        for listener in list(self.listeners):  # e.g. the Telegram bot
+            try:
+                listener(task, kind, message, data or {})
+            except Exception:  # noqa: BLE001 - a notifier must never break a task
+                pass
 
     def _load(self, task_id: str) -> TaskRecord:
         task = self.memory.get_task(task_id)

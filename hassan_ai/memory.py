@@ -53,6 +53,16 @@ CREATE TABLE IF NOT EXISTS usage (
 );
 CREATE INDEX IF NOT EXISTS usage_ts ON usage(ts);
 CREATE INDEX IF NOT EXISTS usage_task ON usage(task_id);
+CREATE TABLE IF NOT EXISTS schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    spec TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    origin TEXT,
+    next_run REAL NOT NULL,
+    last_run REAL,
+    created_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS model_stats (
     model TEXT NOT NULL,
     agent TEXT NOT NULL,
@@ -158,6 +168,48 @@ class Memory:
                 (project, limit),
             ).fetchall()
         return [dict(r) for r in rows]
+
+    def forget(self, project: str, content: str) -> int:
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM project_memory WHERE project=? AND content=?", (project, content))
+            self._conn.commit()
+            return cur.rowcount
+
+    def search_tasks(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
+        like = f"%{query}%"
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT body FROM tasks WHERE body LIKE ? ORDER BY created_at DESC LIMIT ?", (like, limit)).fetchall()
+        out = []
+        for r in rows:
+            t = TaskRecord.model_validate_json(r["body"])
+            out.append({"id": t.id, "when": t.created_at, "prompt": t.prompt[:300], "status": t.status.value,
+                        "result": (t.decision or "")[:600]})
+        return out
+
+    # --- schedules ----------------------------------------------------------
+    def add_schedule(self, spec: str, prompt: str, kind: str, origin: str | None, next_run: float) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO schedules(spec,prompt,kind,origin,next_run,created_at) VALUES(?,?,?,?,?,?)",
+                (spec, prompt, kind, origin, next_run, now()))
+            self._conn.commit()
+            return int(cur.lastrowid)
+
+    def schedules(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return [dict(r) for r in self._conn.execute("SELECT * FROM schedules ORDER BY next_run").fetchall()]
+
+    def update_schedule_run(self, schedule_id: int, last_run: float, next_run: float) -> None:
+        with self._lock:
+            self._conn.execute("UPDATE schedules SET last_run=?, next_run=? WHERE id=?", (last_run, next_run, schedule_id))
+            self._conn.commit()
+
+    def delete_schedule(self, schedule_id: int) -> bool:
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM schedules WHERE id=?", (schedule_id,))
+            self._conn.commit()
+            return cur.rowcount > 0
 
     # --- capability registry (measured, not guessed) ----------------------
     def record_model_call(self, model: str, agent: str, ok: bool, duration: float) -> None:

@@ -144,6 +144,10 @@ class MockLLM:
             history = _section(user, "HISTORY")
             if "(nothing yet)" in history:
                 ops = [json.loads(m.group(1)) for m in re.finditer(r"^OP (\{.*\})\s*$", task, re.MULTILINE)]
+                if not ops and "### ABOUT HASSAN" in user:
+                    about = _section(user, "ABOUT HASSAN").strip()
+                    return json.dumps({"done": True, "answer": f"[{model}] Done: {short}\nI know: {about[:200]}"},
+                                      ensure_ascii=False)
                 return json.dumps({"thought": "look first", "actions": ops or [{"tool": "system_info", "args": {}}]},
                                   ensure_ascii=False)
             return json.dumps({"done": True, "answer": f"[{model}] Done: {short}"}, ensure_ascii=False)

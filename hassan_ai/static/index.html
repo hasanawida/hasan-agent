@@ -127,6 +127,23 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <h2>المهام السابقة</h2>
     <div class="hist" id="history"></div>
   </div>
+  <div class="card" id="tgCard" style="display:none">
+    <h2>✈️ تيليجرام</h2>
+    <div id="tg" class="muted">…</div>
+  </div>
+  <div class="card">
+    <h2>⏰ مهام مجدولة</h2>
+    <div id="sched" class="muted">…</div>
+    <div class="row" style="margin-top:8px"><input id="schedText" placeholder="daily 08:00 ابعتلي ملخص التنزيلات الجديدة">
+      <button class="ghost small" style="flex:0 0 auto" id="schedAdd">أضف</button></div>
+    <p class="muted" style="font-size:11px;margin:6px 0 0" dir="ltr">daily 08:00 … · weekly sun 09:00 … · every 2h …</p>
+  </div>
+  <div class="card">
+    <h2>🧠 شو بعرف عنك</h2>
+    <div id="prof" class="muted">…</div>
+    <div class="row" style="margin-top:8px"><input id="profText" placeholder="مثلاً: بفضّل التقارير قصيرة">
+      <button class="ghost small" style="flex:0 0 auto" id="profAdd">احفظ</button></div>
+  </div>
   <div class="card" id="keysCard" style="display:none">
     <h2>🔑 APIs مجانية (احتياط)</h2>
     <p class="muted" style="font-size:12px;margin-top:0">إذا خلصت حصة Claude وChatGPT، الشغل بيكمل على هدول. المفاتيح بتنحفظ على الكمبيوتر بس.</p>
@@ -216,7 +233,7 @@ async function boot() {
       return `${ok ? "🟢" : "🔴"} <b>${esc(name)}</b> <small dir="ltr">${esc(detail)}</small>`;
     }).join("<br>");
   }).catch(() => {});
-  loadUsage(); setInterval(loadUsage, 30000);
+  loadUsage(); setInterval(loadUsage, 30000); loadSchedules(); loadProfile();
   loadPhone();
   const wanted = new URLSearchParams(location.search).get("task");
   if (wanted) openTask(wanted);
@@ -266,10 +283,68 @@ async function loadKeys() {
     out.style.color = r.ok ? "var(--ok)" : "var(--bad)";
   });
 }
+async function loadTelegram() {
+  const t = await api("/api/telegram").catch(() => null);
+  if (!t) return;
+  $("tgCard").style.display = "";
+  const steps = `<ol style="padding-inline-start:18px;margin:4px 0">
+      <li>بتيليجرام افتح <a href="https://t.me/BotFather" target="_blank" rel="noopener" style="color:var(--accent)">@BotFather</a> وابعت <bdi dir="ltr"><b>/newbot</b></bdi></li>
+      <li>اختار اسم، وانسخ الـ<b>token</b> اللي بيعطيك ياه</li><li>الصقه هون واضغط حفظ</li></ol>`;
+  const tokenRow = `<div class="row"><input type="password" dir="ltr" id="tgToken" placeholder="${t.configured ? "محفوظ ✓" : "123456789:ABC..."}">
+      <button class="ghost small" style="flex:0 0 auto" id="tgSave">حفظ</button></div>`;
+  let body = t.configured ? "" : steps;
+  if (t.configured) {
+    body += t.running ? `<p>🟢 شغّال: <b dir="ltr">@${esc(t.username || "")}</b></p>` : `<p>🔴 مش شغّال ${esc(t.error || "")}</p>`;
+    body += t.paired_chats.length
+      ? `<p>المحادثات المربوطة: ${t.paired_chats.map(c => `<span dir="ltr">${c}</span> <a href="#" data-unpair="${c}" style="color:var(--bad)">فك الربط</a>`).join(" · ")}</p>`
+      : `<p>لسا ما ربطت تلفونك. اضغط الزر وابعت الرمز للبوت:</p>`;
+    body += `<button class="ghost small" id="tgPair">أعطيني رمز ربط</button><div id="tgCode"></div>`;
+    if (t.error && t.running) body += `<p style="color:var(--warn);font-size:12px">${esc(t.error)}</p>`;
+  }
+  $("tg").innerHTML = body + `<details style="margin-top:8px" ${t.configured ? "" : "open"}><summary>التوكن</summary>${tokenRow}</details>`;
+  $("tgSave").onclick = async () => {
+    try { await api("/api/telegram/token", {method: "POST", body: JSON.stringify({token: $("tgToken").value})}); loadTelegram(); }
+    catch (e) { alert(e.message); }
+  };
+  if ($("tgPair")) $("tgPair").onclick = async () => {
+    const c = await api("/api/telegram/pair-code", {method: "POST"});
+    $("tgCode").innerHTML = `<p>افتح <a href="https://t.me/${esc(c.bot || "")}" target="_blank" rel="noopener" style="color:var(--accent)" dir="ltr">@${esc(c.bot || "")}</a> وابعت:</p>
+      <div class="pair"><bdi dir="ltr">/pair ${c.code}</bdi></div><p style="font-size:12px">صالح 10 دقائق.</p>`;
+    setTimeout(loadTelegram, 15000);
+  };
+  $("tg").querySelectorAll("[data-unpair]").forEach(a => a.onclick = async ev => {
+    ev.preventDefault(); if (!confirm("فك ربط هاي المحادثة؟")) return;
+    await api("/api/telegram/unpair", {method: "POST", body: JSON.stringify({chat_id: +a.dataset.unpair})}); loadTelegram();
+  });
+}
+async function loadSchedules() {
+  const list = await api("/api/schedules").catch(() => []);
+  $("sched").innerHTML = list.map(x => `<div style="margin-bottom:6px">⏰ <b dir="ltr">${esc(x.spec)}</b> — ${esc(x.prompt)}
+      <br><small>الجاي: <span dir="ltr">${esc(x.next_human)}</span></small> <a href="#" data-del="${x.id}" style="color:var(--bad);font-size:12px">حذف</a></div>`).join("") || "ما في مهام مجدولة.";
+  $("sched").querySelectorAll("[data-del]").forEach(a => a.onclick = async ev => {
+    ev.preventDefault(); await api(`/api/schedules/${a.dataset.del}`, {method: "DELETE"}); loadSchedules();
+  });
+}
+$("schedAdd").onclick = async () => {
+  try { await api("/api/schedules", {method: "POST", body: JSON.stringify({text: $("schedText").value})}); $("schedText").value = ""; loadSchedules(); }
+  catch (e) { alert(e.message); }
+};
+async function loadProfile() {
+  const p = await api("/api/profile").catch(() => ({notes: [], skills: []}));
+  $("prof").innerHTML = (p.notes.map(n => `<div>• ${esc(n.content)} <a href="#" data-forget="${esc(n.content)}" style="color:var(--bad);font-size:12px">انسَ</a></div>`).join("") || "لسا ما حكيتلي إشي عنك.")
+    + (p.skills.length ? `<p style="margin:8px 0 2px"><b>مهارات تعلمتها:</b></p>` + p.skills.map(s => `<div>🛠 ${esc(s.name)} <small>${esc(s.description)}</small></div>`).join("") : "");
+  $("prof").querySelectorAll("[data-forget]").forEach(a => a.onclick = async ev => {
+    ev.preventDefault(); await api("/api/profile/forget", {method: "POST", body: JSON.stringify({content: a.dataset.forget})}); loadProfile();
+  });
+}
+$("profAdd").onclick = async () => {
+  const v = $("profText").value.trim(); if (!v) return;
+  await api("/api/profile", {method: "POST", body: JSON.stringify({content: v})}); $("profText").value = ""; loadProfile();
+};
 async function loadPhone() {
   const who = await api("/api/whoami").catch(() => ({local: false}));
   if (!who.local) return;             // the pairing card is only shown on the PC itself
-  loadKeys();
+  loadKeys(); loadTelegram();
   $("phoneCard").style.display = "";
   const r = await api("/api/remote");
   if (!r.enabled) {
