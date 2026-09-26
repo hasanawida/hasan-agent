@@ -597,6 +597,15 @@ class PCTools:
             raise RuntimeError(f"No {kind} device found:\n{out[-600:]}")
         return m.group(1)
 
+    async def live_camera_argv(self, device: str = "") -> list[str]:
+        """ffmpeg reading the webcam and writing a multipart MJPEG stream (boundary "ffmpeg") to stdout."""
+        if os.name == "nt":
+            src = ["-f", "dshow", "-rtbufsize", "64M", "-i", f"video={device or await self._dshow_device('video')}"]
+        else:
+            src = ["-f", "v4l2", "-i", device or "/dev/video0"]
+        return [self._ffmpeg(), "-hide_banner", "-loglevel", "error", *src, "-vf", "scale=960:-2",
+                "-r", "12", "-q:v", "6", "-f", "mpjpeg", "pipe:1"]
+
     async def _t_camera_photo(self, device: str = "") -> dict:
         path = self._media_path("camera", ".jpg")
         if os.name == "nt":

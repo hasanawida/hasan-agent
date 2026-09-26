@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import secrets
 import shutil
 import subprocess
 import time
@@ -10,14 +12,14 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import __version__, openhands, remote
 from .agents import Roster
 from .config import PACKAGE_DIR, Settings
-from .execution import CheckpointManager, ExecutionManager, SafeLocalRunner
+from .execution import NO_WINDOW, CheckpointManager, ExecutionManager, SafeLocalRunner
 from .llm import MockLLM
 from .mcp_bus import MCPRegistry
 from .memory import Memory
@@ -108,6 +110,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
         await telegram.start()
         yield
         await telegram.stop()
+        await stop_camera()
         await scheduler.stop()
         await orchestrator.drain()
         if hasattr(llm, "aclose"):
@@ -379,6 +382,56 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
         except KeyError as exc:
             raise HTTPException(404, "Task not found") from exc
         return {"ok": True}
+
+    # ---- live webcam (Hassan presses the button; one viewer at a time) --------
+    live: dict = {"token": None, "expires": 0.0, "proc": None}
+
+    async def stop_camera() -> None:
+        proc, live["proc"] = live["proc"], None
+        if proc and proc.returncode is None:
+            proc.kill()
+            await proc.wait()
+
+    @app.post("/api/live/camera")
+    async def live_camera_start():
+        # POST first (cross-site pages can't POST here), then the <img> GETs the stream with the token
+        live["token"], live["expires"] = secrets.token_urlsafe(18), time.time() + 60
+        return {"url": f"/api/live/camera?token={live['token']}"}
+
+    @app.post("/api/live/camera/stop")
+    async def live_camera_stop():
+        await stop_camera()
+        return {"ok": True}
+
+    @app.get("/api/live/camera")
+    async def live_camera(request: Request, token: str = ""):
+        if not live["token"] or time.time() > live["expires"] or not secrets.compare_digest(token, live["token"]):
+            raise HTTPException(403, "Press the camera button again")
+        live["token"] = None
+        await stop_camera()
+        try:
+            argv = await pc.live_camera_argv()
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        proc = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE,
+                                                    stderr=asyncio.subprocess.DEVNULL,
+                                                    stdin=asyncio.subprocess.DEVNULL, **NO_WINDOW)
+        live["proc"] = proc
+
+        async def frames():
+            try:
+                while chunk := await proc.stdout.read(65536):
+                    if await request.is_disconnected():
+                        break
+                    yield chunk
+            finally:  # the viewer closed the page or pressed stop: the camera turns off
+                if live["proc"] is proc:
+                    await stop_camera()
+                elif proc.returncode is None:
+                    proc.kill()
+
+        return StreamingResponse(frames(), media_type="multipart/x-mixed-replace;boundary=ffmpeg",
+                                 headers={"Cache-Control": "no-store"})
 
     @app.get("/api/media/{name}")
     async def media(name: str):

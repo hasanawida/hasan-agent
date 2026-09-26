@@ -201,3 +201,22 @@ def test_make_video_with_arabic_slides(tmp_path):
     assert not any(p.name.startswith(".") for p in out.parent.iterdir())  # temp slides cleaned up
     with pytest.raises(PolicyError):  # pictures must come from the allowed folders
         asyncio.run(t.execute("make_video", {"slides": [{"text": "x", "image": "/etc/passwd"}]}))
+
+
+@pytest.mark.skipif(not __import__("shutil").which("ffmpeg"), reason="ffmpeg not installed")
+def test_live_camera_stream_needs_a_fresh_token(client):
+    tools = client.app.state.orchestrator.operator.tools
+
+    async def fake_argv(device=""):
+        return [tools._ffmpeg(), "-hide_banner", "-loglevel", "error", "-re", "-f", "lavfi", "-i",
+                "testsrc=size=320x240:rate=10:duration=1", "-f", "mpjpeg", "pipe:1"]
+
+    tools.live_camera_argv = fake_argv
+    assert client.get("/api/live/camera?token=guess").status_code == 403
+    url = client.post("/api/live/camera").json()["url"]
+    with client.stream("GET", url) as resp:
+        assert resp.headers["content-type"].startswith("multipart/x-mixed-replace")
+        first = next(resp.iter_bytes())
+        assert b"--ffmpeg" in first and b"image/jpeg" in first
+    assert client.get(url).status_code == 403  # a token works once
+    client.post("/api/live/camera/stop")

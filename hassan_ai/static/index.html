@@ -110,6 +110,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
       </select>
       <label><input type="checkbox" id="autoSend"> أرسل لما أسكت</label>
       <label><input type="checkbox" id="speakReply"> 🔊 اقرألي الرد</label>
+      <label title="بتحكي، بيرد بالصوت، وبيرجع يسمعك لحاله"><input type="checkbox" id="voiceChat"> 🗣️ محادثة صوتية</label>
     </div>
     <div id="projectFields">
     <label>الوضع</label>
@@ -138,6 +139,13 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   <div class="card">
     <h2>المهام السابقة</h2>
     <div class="hist" id="history"></div>
+  </div>
+  <div class="card" id="camCard">
+    <h2>📷 كاميرا الكمبيوتر مباشرة</h2>
+    <p class="muted" style="font-size:12px;margin-top:0">بتشتغل بس لما تكبس، وبتطفى لما تكبس وقّف أو تسكّر الصفحة.</p>
+    <button class="ghost small" id="camBtn">▶ شغّل الكاميرا</button>
+    <div id="camErr" style="color:var(--bad);font-size:12px"></div>
+    <img id="camView" alt="" style="display:none;width:100%;border-radius:8px;margin-top:8px;background:#000">
   </div>
   <div class="card" id="tgCard" style="display:none">
     <h2>✈️ تيليجرام</h2>
@@ -415,8 +423,10 @@ $("mic").onclick = () => {
   rec = new SR();
   rec.lang = $("lang").value; rec.continuous = true; rec.interimResults = true;
   const base = $("prompt").value.trim();
-  let finalText = "";
+  let finalText = "", silence = null;
   rec.onresult = ev => {
+    clearTimeout(silence);  // hands-free: 2 s of quiet after speaking = send
+    if ($("autoSend").checked || $("voiceChat").checked) silence = setTimeout(() => rec.stop(), 2000);
     let interim = "";
     for (let i = ev.resultIndex; i < ev.results.length; i++) {
       const r = ev.results[i];
@@ -428,7 +438,7 @@ $("mic").onclick = () => {
   rec.onerror = ev => { $("interim").textContent = ev.error === "not-allowed" ? "اسمح للمتصفح يستخدم المايكروفون" : "خطأ بالصوت: " + ev.error; };
   rec.onend = () => {
     listening = false; $("mic").classList.remove("on"); $("mic").textContent = "🎤"; $("interim").textContent = "";
-    if ($("autoSend").checked && finalText.trim()) $("run").click();
+    if (($("autoSend").checked || $("voiceChat").checked) && finalText.trim()) $("run").click();
   };
   rec.start(); listening = true; $("mic").classList.add("on"); $("mic").textContent = "⏹";
   remember();
@@ -442,10 +452,31 @@ function speak(text) {
   const voices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith(lang));
   u.voice = voices.find(v => /natural|online/i.test(v.name)) || voices[0] || null;
   u.lang = u.voice?.lang || {ar: "ar-SA", he: "he-IL", en: "en-US"}[lang];
+  u.onend = () => { if ($("voiceChat").checked && !listening) $("mic").click(); };  // listen again
   speechSynthesis.speak(u);
 }
+$("voiceChat").addEventListener("change", () => {
+  if (!$("voiceChat").checked) return;
+  $("speakReply").checked = true; if (taskKind !== "operate") setKind("operate");
+  if (!listening) $("mic").click();
+});
+// ---- live webcam ----
+let camOn = false;
+function camStop() {
+  camOn = false; $("camView").src = ""; $("camView").style.display = "none"; $("camBtn").textContent = "▶ شغّل الكاميرا";
+  api("/api/live/camera/stop", {method: "POST"}).catch(() => {});
+}
+$("camBtn").onclick = async () => {
+  if (camOn) return camStop();
+  $("camErr").textContent = "";
+  try {
+    const r = await api("/api/live/camera", {method: "POST"});
+    camOn = true; $("camView").style.display = ""; $("camView").src = r.url; $("camBtn").textContent = "⏹ وقّف الكاميرا";
+  } catch (e) { $("camErr").textContent = e.message; }
+};
+$("camView").onerror = () => { if (camOn) { camStop(); $("camErr").textContent = "ما قدرت أفتح الكاميرا (ffmpeg مثبت؟ برنامج تاني ماسكها؟)"; } };
 $("speakBtn").onclick = () => speechSynthesis?.speaking ? speechSynthesis.cancel() : speak(currentTask?.decision);
-for (const id of ["lang", "autoSend", "speakReply"]) $(id).onchange = remember;
+for (const id of ["lang", "autoSend", "speakReply", "voiceChat"]) $(id).addEventListener("change", remember);
 
 function renderAgents(task) {
   const done = new Set((task?.outputs || []).filter(o => o.ok).map(o => o.agent));
