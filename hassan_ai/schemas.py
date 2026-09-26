@@ -113,6 +113,7 @@ class TaskRecord(BaseModel):
     tier: str | None = None  # simple | medium | complex (decides which brains are used)
     paid_ok: bool | None = None  # may this task use paid brains? (None = not decided yet)
     paid_asked: bool = False
+    free_skip: int = 0  # free brains passed over after they answered badly
     status: TaskStatus = TaskStatus.queued
     phase: str = "queued"
     outputs: list[AgentOutput] = Field(default_factory=list)

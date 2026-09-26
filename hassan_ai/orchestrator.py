@@ -27,7 +27,8 @@ COMPLEX_WORDS = ("برمج", "كود", "code", "مشروع", "project", "build",
                  "plan", "تحليل", "حلل", "analy", "blender", "بلندر", "رندر", "render", "refactor", "debug", "bug",
                  "خلل", "اصلح", "أصلح", "صلح", "fix", "architecture", "معمارية", "قارن", "مقارنة", "compare",
                  "research", "بحث معمق", "ابحث عن", "تقرير مفصل", "استراتيجية", "strategy", "api", "database")
-SIMPLE_WORDS = ("افتح", "open", "قديش", "كم ", "شو في", "list", "screenshot", "صورة للشاشة", "صور الشاشة", "وين",
+SIMPLE_WORDS = ("افتح", "open", "كاميرا", "كميرا", "camera", "مايك", "ميكروفون", "مايكروفون", "mic", "سجّل",
+                "سجل ", "صوّر", "صور ", "قديش", "كم ", "شو في", "list", "screenshot", "صورة للشاشة", "صور الشاشة", "وين",
                 "where", "الساعة", "مساحة", "space", "اعرض", "show", "شغّل", "شغل ", "سكّر", "close", "ترجم",
                 "translate", "ذكرني", "remind", "اسم", "حجم", "size", "كم الساعة", "what time")
 TRIAGE_SYSTEM = ("ROLE: triage\nClassify how much thinking this task needs. Answer ONLY JSON: "
@@ -419,7 +420,13 @@ class Orchestrator:
     async def escalate(self, task: TaskRecord, why: str) -> bool:
         """Move the task to a stronger brain. With paid gating, that means asking for paid brains."""
         if self.gated and not task.paid_ok:
-            if not await self.ask_paid(task, f"العقل المجاني ما قدر: {why}"):
+            free = self.llm.free_brains() if hasattr(self.llm, "free_brains") else []
+            if task.free_skip + 1 < len(free):  # another free brain first, paid only as the last resort
+                task.free_skip += 1
+                self._emit(task, "tier", f"🔁 {why} — بجرّب عقل مجاني تاني ({free[task.free_skip]})")
+                self.memory.save_task(task)
+                return True
+            if not await self.ask_paid(task, f"العقول المجانية ما قدرت: {why}"):
                 return False
             if task.tier in TIER_ORDER and task.tier != "complex":
                 task.tier = TIER_ORDER[TIER_ORDER.index(task.tier) + 1]
@@ -451,7 +458,7 @@ class Orchestrator:
         chain = list(dict.fromkeys(chain))  # dedupe, keep order
         if self.gated and not task.paid_ok:
             # free brains only; the router refuses paid ones and says so (PaidRequired)
-            chain = [f"{spec.model}@{task.tier or 'simple'}#free"]
+            chain = [f"{spec.model}@{task.tier or 'simple'}#free" + (f"~{task.free_skip}" if task.free_skip else "")]
         elif self.tiered and self.llm.tier_uses_list(task.tier):
             # cheap tiers: one call; the router walks the tier's brain list itself
             chain = [f"{spec.model}@{task.tier}"]

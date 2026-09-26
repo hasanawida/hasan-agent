@@ -387,15 +387,17 @@ class RouterLLM:
     def tier_uses_list(self, tier: str | None) -> bool:
         return bool(tier and self.tiers.get(tier))
 
-    def free_brain(self) -> str | None:
-        """The free brain that answers first when paid brains are not allowed."""
+    def _usable(self, name: str) -> bool:
+        backend = self.backends.get(name)
+        return backend is not None and not (isinstance(backend, APIBackend) and not backend.configured)
+
+    def free_brains(self) -> list[str]:
+        """Free brains in the order they are tried when paid brains are not allowed."""
         order = [n for lst in self.tiers.values() if lst for n in lst] + self.fallback + list(self.backends)
-        for name in dict.fromkeys(order):
-            backend = self.backends.get(name)
-            if name in self.paid or backend is None or (isinstance(backend, APIBackend) and not backend.configured):
-                continue
-            return name
-        return None
+        return [n for n in dict.fromkeys(order) if n not in self.paid and self._usable(n)]
+
+    def free_brain(self) -> str | None:
+        return next(iter(self.free_brains()), None)
 
     def route_for(self, alias: str) -> Route:
         return self.routes.get(alias, self.default)
@@ -411,6 +413,7 @@ class RouterLLM:
         # "alias@tier" picks brains by task difficulty; "…#free" forbids paid brains.
         model, _, rest = model.partition("@")
         tier, _, flag = rest.partition("#")
+        flag, _, skip = flag.partition("~")  # "#free~1": start from the 2nd free brain
         free_only = flag == "free"
         errors: list[str] = []
         if self.tier_uses_list(tier):
@@ -421,7 +424,8 @@ class RouterLLM:
             chain = [(route.backend, route.model)] + [(b, None) for b in self.fallback if b != route.backend]
         if free_only:
             order = [n for n, _ in chain] + [n for lst in self.tiers.values() if lst for n in lst] + list(self.backends)
-            chain = [(n, None) for n in dict.fromkeys(order) if n not in self.paid]
+            chain = [(n, None) for n in dict.fromkeys(order) if n not in self.paid and self._usable(n)]
+            chain = chain[min(int(skip or 0), max(len(chain) - 1, 0)):]
         tried = 0
         for name, backend_model in chain:
             backend = self.backends[name]

@@ -113,3 +113,23 @@ def test_default_config_marks_subscriptions_paid():
     from pathlib import Path
     r = RouterLLM.from_config(Path(__file__).resolve().parents[1] / "configs" / "providers.yaml", "http://x", "", 10)
     assert r.paid == {"claude", "chatgpt", "gemini-sub"}
+
+
+class Babbler(Labeled):
+    """A free brain that answers, but never with usable JSON."""
+
+    async def complete(self, model, system, user, *, json_mode=False):
+        comp = await super().complete(model, system, user, json_mode=json_mode)
+        comp.text = "sorry, I cannot access cameras"
+        return comp
+
+
+def test_bad_free_brain_hands_over_to_the_next_free_one_before_asking_paid(tmp_path):
+    paid, bad, good = Labeled("paid"), Babbler("bad"), Labeled("good")
+    r = RouterLLM({"paid": paid, "bad": bad, "good": good}, routes={}, default=Route("paid"), fallback=["bad", "good"],
+                  tiers={"simple": ["bad", "good", "paid"], "medium": ["paid"], "complex": None}, paid={"paid"})
+    with app(tmp_path, r) as c:
+        t = c.post("/api/tasks", json={"prompt": "افتح الكاميرا وصوّرني", "kind": "operate"}).json()
+        task = wait(c, t["id"], {"completed", "failed"})
+    assert task["status"] == "completed" and task["approvals"] == [] and paid.calls == 0
+    assert task["tier"] == "simple" and task["outputs"][-1]["model"] == "good"
