@@ -29,10 +29,11 @@ Model-agnostic multi-agent control plane — many models think, evidence decides
 | صلاحيات ثلاثية: auto / approval / forbidden + منع ملفات الأسرار (.env, مفاتيح…) + منع الخروج من المجلد | ✅ |
 | MCP v2: عميل stdio / HTTP + خادم Hassan Local Project MCP | ✅ |
 | واجهة عربية كاملة | ✅ |
+| **Claude (Claude Code CLI) + ChatGPT (Codex CLI) باشتراكك** كعقول للوكلاء | ✅ |
 | اكتشاف OpenHands | ✅ (قراءة فقط) |
 | Visual Studio / Blender الحقيقيين | ⚙️ الموصل جاهز — تحتاج تثبيت خادم MCP لكل برنامج على جهازك وتفعيله في `configs/mcp_servers.yaml` |
 
-الاختبارات: **19 اختبار ناجح**، منها دورة كاملة حقيقية: مهمة → Diff → موافقة → كتابة الملف → pytest → قرار → Rollback.
+الاختبارات: **23 اختبار ناجح**، منها دورة كاملة حقيقية: مهمة → Diff → موافقة → كتابة الملف → pytest → قرار → Rollback.
 
 ## التشغيل على Windows
 
@@ -50,7 +51,24 @@ start-full.bat     :: مع دعم MCP
 
 Linux/macOS: `./start.sh`
 
-## تشغيل النماذج الحقيقية (ChatGPT + Claude + Grok + محلي)
+## تشغيل Claude و ChatGPT الموجودين عندك (باشتراكك، بدون API)
+
+النظام يشغّل **Claude Code** و **Codex (ChatGPT)** على جهازك كـ"عقول" للوكلاء، باستخدام تسجيل الدخول باشتراكك.
+
+```text
+npm i -g @anthropic-ai/claude-code   ثم  claude        (سجّل دخول بحساب Claude Pro/Max مرة واحدة)
+npm i -g @openai/codex               ثم  codex login   (Sign in with ChatGPT)
+start-live.bat
+```
+
+توزيع الوكلاء في `configs/providers.yaml` (افتراضياً: Claude يبرمج ويحكم، ChatGPT يخطط ويراجع، وكل واحد احتياط للثاني).
+
+- العقول تعمل في مجلد مؤقت فارغ، بدون أدوات (Claude: `--tools ""`، Codex: `--sandbox read-only`) — **تفكر وتجاوب فقط**؛ أي تعديل على مشروعك يمر عبر Diff وموافقتك.
+- `use_subscription: true` يخفي `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` عن الـCLI حتى يُحسب الاستخدام على اشتراكك وليس على API.
+- الاشتراك له حدود استخدام؛ وضع Consensus يستهلك أسرع. إذا وصل Claude للحد، النظام ينتقل تلقائياً لـChatGPT والعكس.
+- حالة العقول ظاهرة في الواجهة وفي `/api/providers`.
+
+## تشغيل النماذج عبر API (Grok + DeepSeek + محلي …)
 
 1. `copy configs\litellm.example.yaml configs\litellm.yaml` وعدّل أسماء النماذج (الموجودة placeholders).
 2. ضع المفاتيح في متغيرات البيئة: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`.

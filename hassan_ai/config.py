@@ -35,6 +35,7 @@ class Settings:
     policy_file: Path = POLICIES_DIR / "default.yaml"
     mcp_config: Path = CONFIGS_DIR / "mcp_servers.yaml"
     agents_config: Path = CONFIGS_DIR / "agents.yaml"
+    providers_config: Path = CONFIGS_DIR / "providers.yaml"
     openhands_url: str = "http://127.0.0.1:3000"
     max_repair_rounds: int = 2
     command_timeout: float = 900.0
@@ -63,6 +64,7 @@ class Settings:
             policy_file=Path(os.environ.get("HASSAN_POLICY_FILE", POLICIES_DIR / "default.yaml")),
             mcp_config=Path(os.environ.get("HASSAN_MCP_CONFIG", CONFIGS_DIR / "mcp_servers.yaml")),
             agents_config=Path(os.environ.get("HASSAN_AGENTS_CONFIG", CONFIGS_DIR / "agents.yaml")),
+            providers_config=Path(os.environ.get("HASSAN_PROVIDERS_CONFIG", CONFIGS_DIR / "providers.yaml")),
             openhands_url=os.environ.get("HASSAN_OPENHANDS_URL", "http://127.0.0.1:3000").rstrip("/"),
             max_repair_rounds=int(os.environ.get("HASSAN_MAX_REPAIR_ROUNDS", "2")),
             command_timeout=float(os.environ.get("HASSAN_COMMAND_TIMEOUT", "900")),

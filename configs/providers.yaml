@@ -1,0 +1,41 @@
+# Which "brain" answers for each agent alias when HASSAN_AI_MODE=live.
+#
+# claude_cli -> Claude Code CLI on this PC, logged in with your Claude Pro/Max
+#               subscription  (install: npm i -g @anthropic-ai/claude-code ; then run `claude` once and log in)
+# codex_cli  -> OpenAI Codex CLI on this PC, logged in with "Sign in with ChatGPT"
+#               (install: npm i -g @openai/codex ; then run `codex login`)
+# gateway    -> LiteLLM / OpenRouter / Ollama or any OpenAI-compatible URL (API keys)
+#
+# CLI brains run in an empty temp folder with tools off / read-only sandbox:
+# they only think and answer. Hassan does all file changes after your approval.
+
+backends:
+  claude:
+    type: claude_cli
+    command: claude
+    # model: opus            # optional: opus | sonnet | full model name
+    use_subscription: true    # ignore ANTHROPIC_API_KEY so your subscription is used
+  chatgpt:
+    type: codex_cli
+    command: codex
+    # model: gpt-5.5         # optional; default is whatever your Codex login offers
+    use_subscription: true    # ignore OPENAI_API_KEY so your ChatGPT plan is used
+  gateway:
+    type: gateway             # uses HASSAN_GATEWAY_URL (LiteLLM on :4000 by default)
+
+# Aliases not listed here go to `default`.
+default: claude
+
+aliases:
+  manager: claude
+  analyst: claude
+  planner: chatgpt
+  researcher: chatgpt
+  coder: claude
+  coder-backup: chatgpt       # consensus: a second, independent coder
+  coder-third: gateway        # consensus: third opinion (e.g. Grok/DeepSeek via LiteLLM)
+  reviewer: chatgpt           # Claude writes, ChatGPT reviews ...
+  cross-reviewer: claude      # ... and Claude cross-checks
+  judge: claude
+  decision: chatgpt
+  general: chatgpt            # shared fallback for every agent

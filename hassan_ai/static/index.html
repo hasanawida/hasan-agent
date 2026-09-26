@@ -73,6 +73,10 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <div class="hist" id="history"></div>
   </div>
   <div class="card">
+    <h2>العقول (Claude / ChatGPT)</h2>
+    <div id="brains" class="muted">…</div>
+  </div>
+  <div class="card">
     <h2>الموصلات (MCP)</h2>
     <div id="mcp" class="muted">…</div>
   </div>
@@ -125,6 +129,13 @@ async function boot() {
   agents = await api("/api/agents");
   renderAgents(null);
   loadHistory();
+  api("/api/providers").then(p => {
+    $("brains").innerHTML = Object.entries(p.backends).map(([name, b]) => {
+      const ok = b.type === "mock" || b.type === "gateway" || b.installed;
+      const detail = b.type.endsWith("_cli") ? (b.installed ? (b["login status"] || b.version || "") : "غير مثبت") : b.type;
+      return `${ok ? "🟢" : "🔴"} <b>${esc(name)}</b> <small dir="ltr">${esc(detail)}</small>`;
+    }).join("<br>");
+  }).catch(() => {});
   api("/api/mcp").then(m => {
     $("mcp").innerHTML = (m.sdk_installed ? "" : "⚠️ MCP SDK غير مثبت<br>") +
       m.servers.map(s => `${s.enabled ? "🟢" : "⚪"} <b>${esc(s.name)}</b> <small>${esc(s.description)}</small>`).join("<br>");
@@ -136,7 +147,7 @@ function renderAgents(task) {
   const active = {manager:"manager",analyst:"analyst",planner:"planner",specialists:"coder",review:"reviewer",judge:"judge",decision:"decision"}[phase];
   $("agents").innerHTML = agents.map(a => {
     const cls = done.has(a.name) ? "done" : (a.name === active || (phase === "specialists" && a.name === "researcher") ? "active" : "");
-    return `<div class="agent ${cls}"><b>${esc(a.title)}</b><small>${esc(a.name)} → ${esc(a.model)}</small></div>`;
+    return `<div class="agent ${cls}"><b>${esc(a.title)}</b><small>${esc(a.brain || a.model)}</small></div>`;
   }).join("");
 }
 async function loadHistory() {

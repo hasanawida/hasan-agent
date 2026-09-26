@@ -14,11 +14,12 @@ from . import __version__, openhands
 from .agents import Roster
 from .config import PACKAGE_DIR, Settings
 from .execution import CheckpointManager, ExecutionManager, SafeLocalRunner
-from .llm import GatewayLLM, MockLLM
+from .llm import MockLLM
 from .mcp_bus import MCPRegistry
 from .memory import Memory
 from .orchestrator import Orchestrator
 from .policy import Policy, PolicyError, resolve_workspace
+from .providers import RouterLLM
 from .schemas import TaskCreate
 
 STATIC = PACKAGE_DIR / "static"
@@ -45,7 +46,8 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     execution = ExecutionManager(policy, runner, CheckpointManager(settings.checkpoints_dir, runner))
     roster = Roster.load(settings.agents_config)
     if llm is None:
-        llm = (GatewayLLM(settings.gateway_url, settings.gateway_key, settings.request_timeout)
+        llm = (RouterLLM.from_config(settings.providers_config, settings.gateway_url,
+                                     settings.gateway_key, settings.request_timeout)
                if settings.mode == "live" else MockLLM())
     orchestrator = Orchestrator(settings, memory, llm, roster, execution)
     mcp = MCPRegistry(settings.mcp_config, policy)
@@ -73,11 +75,25 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
         return {"name": "Hassan AI OS", "version": __version__, "mode": settings.mode,
                 "agents": len(roster.agents), "gateway": settings.gateway_url if settings.mode == "live" else None}
 
+    def brain(alias: str) -> str:
+        if isinstance(llm, RouterLLM):
+            route = llm.route_for(alias)
+            return route.backend + (f":{route.model}" if route.model else "")
+        return "mock" if isinstance(llm, MockLLM) else alias
+
     @app.get("/api/agents")
     async def agents():
-        return [{"name": a.name, "title": a.title, "model": a.model, "fallbacks": a.fallbacks}
-                for a in roster.agents.values()] + [
-            {"name": "cross_reviewer", "title": "المراجع المستقل", "model": roster.cross_reviewer, "fallbacks": []}]
+        rows = [{"name": a.name, "title": a.title, "model": a.model, "fallbacks": a.fallbacks}
+                for a in roster.agents.values()]
+        rows.append({"name": "cross_reviewer", "title": "المراجع المستقل", "model": roster.cross_reviewer,
+                     "fallbacks": []})
+        return [{**r, "brain": brain(r["model"])} for r in rows]
+
+    @app.get("/api/providers")
+    async def providers():
+        if isinstance(llm, RouterLLM):
+            return {"mode": settings.mode, **await llm.status()}
+        return {"mode": settings.mode, "backends": {"mock": {"type": "mock"}}}
 
     @app.post("/api/tasks", status_code=201)
     async def create_task(req: TaskCreate):
