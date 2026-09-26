@@ -46,9 +46,12 @@ class MCPRegistry:
         self.policy = policy
         self.timeout = timeout
         self.servers: dict[str, ServerSpec] = {}
+        # Local switch (hassan.env) so enabling a connector never edits the shared config file.
+        extra = {n.strip() for n in os.environ.get("HASSAN_MCP_ENABLE", "").split(",") if n.strip()}
         for name, cfg in (load_yaml(config_path).get("servers") or {}).items():
             self.servers[name] = ServerSpec(
-                name=name, transport=cfg.get("transport", "stdio"), enabled=bool(cfg.get("enabled", False)),
+                name=name, transport=cfg.get("transport", "stdio"),
+                enabled=bool(cfg.get("enabled", False)) or name in extra,
                 description=cfg.get("description", ""), command=cfg.get("command"),
                 args=[os.path.expandvars(a) for a in cfg.get("args", [])],
                 env={k: os.path.expandvars(str(v)) for k, v in (cfg.get("env") or {}).items()},

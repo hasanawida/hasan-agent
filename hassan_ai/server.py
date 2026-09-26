@@ -34,6 +34,7 @@ STATIC = PACKAGE_DIR / "static"
 
 class Decision(BaseModel):
     approve: bool
+    trust_similar: bool = False
 
 
 class McpCall(BaseModel):
@@ -93,7 +94,7 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     orchestrator = Orchestrator(settings, memory, llm, roster, execution)
     mcp = MCPRegistry(settings.mcp_config, policy)
     pc = PCTools(policy, settings.allowed_roots, settings.data_dir / "trash",
-                 protected_dirs=[settings.data_dir, PACKAGE_DIR.parent], mcp=mcp)
+                 protected_dirs=[settings.data_dir, PACKAGE_DIR.parent], mcp=mcp, media_dir=settings.data_dir / "media")
     orchestrator.operator = Operator(orchestrator, pc)
     roster.agents["operator"].extra_system = orchestrator.operator.system_prompt()
 
@@ -306,6 +307,16 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
             raise HTTPException(404, "Task not found") from exc
         return {"ok": True}
 
+    @app.get("/api/media/{name}")
+    async def media(name: str):
+        """Photos, screenshots, recordings and renders made by the Operator."""
+        if "/" in name or "\\" in name or name.startswith("."):
+            raise HTTPException(400, "Bad name")
+        path = settings.data_dir / "media" / name
+        if not path.is_file():
+            raise HTTPException(404, "Not found")
+        return FileResponse(path, headers={"Cache-Control": "private, max-age=3600"})
+
     @app.get("/api/approvals")
     async def pending_approvals():
         return [a.model_dump() for a in memory.approvals(status="pending")]
@@ -313,7 +324,7 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     @app.post("/api/approvals/{approval_id}")
     async def decide(approval_id: str, body: Decision):
         try:
-            return (await orchestrator.decide_approval(approval_id, body.approve)).model_dump()
+            return (await orchestrator.decide_approval(approval_id, body.approve, body.trust_similar)).model_dump()
         except KeyError as exc:
             raise HTTPException(404, "Approval not found") from exc
         except ValueError as exc:

@@ -23,6 +23,15 @@ auto:
   - pc.info
   - pc.mkdir
   - pc.open        # documents, folders, URLs (programs/scripts count as pc.launch)
+  - pc.web         # read a public web page (private/local addresses are blocked)
+  - pc.websearch
+  - pc.screenshot  # saved on the PC, shown only to Hassan
+  # Windows-MCP (control any app): looking at the screen is automatic
+  - mcp.windows.State*
+  - mcp.windows.Snapshot*
+  - mcp.windows.Screenshot*
+  - mcp.windows.Wait*
+  - mcp.windows.DisplayInventory*
 
 approval:
   - files.write
@@ -40,6 +49,11 @@ approval:
   - pc.delete      # goes to Hassan's recoverable trash
   - pc.run         # exact command shown before it runs
   - pc.launch
+  - pc.camera      # webcam photo
+  - pc.mic         # microphone recording
+  - pc.blender     # runs a Blender Python script
+  - pc.ffmpeg      # video/audio editing command
+  - pc.web_query   # web request carrying a long query string (possible data leak)
   - mcp.*.*   # mutating MCP verbs; read-like verbs are auto-classified
 
 forbidden:
@@ -48,6 +62,10 @@ forbidden:
   - registry.write
   - disk.format
   - system.shutdown
+  # Windows-MCP tools that would bypass Hassan's own guarded tools
+  - mcp.windows.Registry*
+  - mcp.windows.PowerShell*
+  - mcp.windows.FileSystem*
 
 # Files agents may never read or write, even inside the workspace.
 secret_files:

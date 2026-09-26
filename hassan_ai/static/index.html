@@ -64,6 +64,8 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px sol
   header{padding:10px 12px}header h1{font-size:17px}.agents{grid-template-columns:repeat(3,1fr)}
   .agent small{display:none}.log{max-height:180px}textarea{min-height:90px;font-size:16px}
   input,select{font-size:16px}.mic{width:54px;font-size:22px}}
+#mediaStrip img{max-width:100%;border-radius:8px;margin-top:8px;display:block}
+#mediaStrip audio{width:100%;margin-top:8px}
 .kinds{display:flex;gap:6px;margin-bottom:10px}.kinds button{flex:1;background:transparent;border:1px solid var(--line);color:var(--muted)}
 .kinds button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 html,body{overflow-x:hidden}
@@ -166,7 +168,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
       <div id="errorBox" style="color:var(--bad)"></div>
     </div>
     <div id="approvals"></div>
-    <div class="card"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><pre id="evDetail" style="display:none"></pre></div>
+    <div class="card"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><div id="mediaStrip"></div><pre id="evDetail" style="display:none"></pre></div>
     <div class="card"><h2>القرار النهائي <button class="ghost small" id="speakBtn" title="اقرأ بصوت">🔊</button></h2><div class="decision" id="decision"><span class="muted">بانتظار الفريق…</span></div></div>
     <div class="card"><h2>خطة التنفيذ</h2><ol id="plan" class="muted"></ol></div>
     <div class="card"><h2>مخرجات الوكلاء</h2><div id="outputs"></div></div>
@@ -452,6 +454,9 @@ function render(t) {
   $("plan").innerHTML = t.plan.map(s => `<li>${esc(s.title)} <small>(${esc(s.owner || "")})</small></li>`).join("");
   $("evidence").innerHTML = t.evidence.map((e, i) =>
     `<span class="chip ${e.ok ? "ok" : "bad"}" data-i="${i}">${e.ok ? "✓" : "✗"} ${esc(e.title)} — ${esc(e.summary)}</span>`).join("") || '<span class="muted">لا أدلة (Workspace غير محدد)</span>';
+  $("mediaStrip").innerHTML = t.evidence.filter(e => e.media).slice(-6).map(e =>
+    /\.(png|jpe?g|webp)$/i.test(e.media) ? `<a href="/api/media/${encodeURIComponent(e.media)}" target="_blank"><img src="/api/media/${encodeURIComponent(e.media)}" alt=""></a>`
+    : `<audio controls src="/api/media/${encodeURIComponent(e.media)}"></audio>`).join("");
   $("evidence").querySelectorAll(".chip").forEach(c => c.onclick = () => {
     const e = t.evidence[c.dataset.i]; $("evDetail").style.display = ""; $("evDetail").textContent = e.detail || e.summary;
   });
@@ -469,11 +474,12 @@ function render(t) {
         `<span class="chip" data-open="${esc(t.workspace + sep + c.path)}">${esc(c.path)} · VS Code ↗</span>`).join("")}</div>
       <pre class="diff">${esc(a.diff).split("\n").map(l => l.startsWith("+") ? `<span class="add">${l}</span>` : l.startsWith("-") ? `<span class="del">${l}</span>` : l).join("\n")}</pre>
       <div class="row"><button class="ok" data-a="${a.id}" data-v="1">موافقة وتنفيذ ✓</button><button class="bad" data-a="${a.id}" data-v="">رفض ✗</button></div>
+      ${a.payload.trustable ? `<button class="ghost small" style="width:100%;margin-top:8px" data-a="${a.id}" data-v="1" data-trust="1">✓✓ وافق على كل الخطوات المشابهة بهاي المهمة</button>` : ""}
     </div>`).join("");
   $("approvals").querySelectorAll("[data-open]").forEach(c => c.onclick = () => openInEditor(c.dataset.open));
   $("approvals").querySelectorAll("button[data-a]").forEach(b => b.onclick = async () => {
     b.disabled = true;
-    try { await api(`/api/approvals/${b.dataset.a}`, {method: "POST", body: JSON.stringify({approve: !!b.dataset.v})}); }
+    try { await api(`/api/approvals/${b.dataset.a}`, {method: "POST", body: JSON.stringify({approve: !!b.dataset.v, trust_similar: !!b.dataset.trust})}); }
     catch (e) { alert(e.message); }
     approvalKey = ""; clearInterval(timer); timer = setInterval(poll, 1200); poll();
   });

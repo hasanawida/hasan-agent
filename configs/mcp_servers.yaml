@@ -27,3 +27,12 @@ servers:
     # Example; replace with the command documented by the Blender MCP you install.
     command: uvx
     args: ["blender-mcp"]
+
+  windows:
+    description: Windows-MCP — click, type and read the screen of ANY app (CapCut, browsers, settings…)
+    transport: stdio
+    enabled: false          # scripts\enable-apps.bat installs uv and turns this on (HASSAN_MCP_ENABLE=windows)
+    command: uvx
+    # PowerShell / Registry / FileSystem are switched off in the server itself: Hassan's own
+    # guarded tools (with folder limits and approvals) do those jobs.
+    args: ["windows-mcp", "serve", "--exclude-tools", "PowerShell,Registry,FileSystem"]

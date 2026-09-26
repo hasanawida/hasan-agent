@@ -17,8 +17,13 @@ from __future__ import annotations
 
 import asyncio
 import fnmatch
+import glob
+import html
+import ipaddress
 import json
 import os
+import re
+import socket
 import platform
 import shutil
 import subprocess
@@ -28,6 +33,9 @@ import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlsplit
+
+import httpx
 
 from .execution import NO_WINDOW
 from .policy import AUTO, FORBIDDEN, Policy, PolicyError
@@ -66,7 +74,20 @@ TOOLS: list[ToolSpec] = [
     ToolSpec("delete", "pc.delete", "Delete a file/folder (goes to Hassan's recoverable trash).", {"path": "path"}),
     ToolSpec("run", "pc.run", "Run a command (PowerShell on Windows). Always shown to Hassan first.",
              {"command": "the exact command", "cwd": "optional working folder"}),
-    ToolSpec("mcp", "pc.mcp", "Call a tool on a connected MCP server (Blender, Visual Studio…).",
+    ToolSpec("web_fetch", "pc.web", "Read a public web page as text.", {"url": "https:// URL"}),
+    ToolSpec("web_search", "pc.websearch", "Search the web; returns titles, links and snippets.", {"query": "text"}),
+    ToolSpec("screenshot", "pc.screenshot", "Take a screenshot of the PC screen (saved and shown to Hassan).", {}),
+    ToolSpec("camera_photo", "pc.camera", "Take a photo with the PC webcam (needs ffmpeg).", {"device": "optional camera name"}),
+    ToolSpec("mic_record", "pc.mic", "Record the PC microphone (needs ffmpeg).", {"seconds": "1-60", "device": "optional"}),
+    ToolSpec("blender", "pc.blender", "Run a Blender Python (bpy) script in background Blender. Use it to build, "
+             "edit, export or render scenes; print() what you need back. To render, set "
+             "bpy.context.scene.render.filepath to the given OUTPUT path.",
+             {"script": "python code using bpy", "blend_file": "optional .blend to open first",
+              "save": "true to save the .blend after the script", "render": "true to render a still image"}),
+    ToolSpec("ffmpeg", "pc.ffmpeg", "Edit/convert video or audio with ffmpeg (cut, join, resize, subtitles, "
+             "extract audio…). Give the arguments after `ffmpeg`.", {"args": "list of arguments"}),
+    ToolSpec("mcp", "pc.mcp", "Call a tool on a connected MCP server (e.g. `windows` to click/type in any app "
+             "like CapCut, `blender`, `visual-studio`).",
              {"server": "server name", "tool": "tool name", "arguments": "object"}),
 ]
 TOOL_BY_NAME = {t.name: t for t in TOOLS}
@@ -82,13 +103,16 @@ def tools_prompt() -> str:
 
 class PCTools:
     def __init__(self, policy: Policy, allowed_roots: list[Path], trash_dir: Path, protected_dirs: list[Path],
-                 mcp=None, command_timeout: float = 180.0):
+                 mcp=None, command_timeout: float = 180.0, media_dir: Path | None = None, http_transport=None):
         self.policy = policy
         self.allowed_roots = allowed_roots
         self.trash_dir = trash_dir
         self.protected_dirs = [p.resolve() for p in protected_dirs]
         self.mcp = mcp
         self.command_timeout = command_timeout
+        self.media_dir = media_dir or trash_dir.parent / "media"
+        self.http_transport = http_transport
+        self.last_media: str | None = None
 
     # ------------------------------------------------------------ policy
     def access(self, tool: str, args: dict) -> str:
@@ -98,6 +122,8 @@ class PCTools:
         if tool == "mcp":
             return self.policy.decide_mcp(str(args.get("server", "")), str(args.get("tool", "")))
         decision = self.policy.decide(spec.action)
+        if tool == "web_fetch" and decision == AUTO and len(urlsplit(str(args.get("url", ""))).query) > 300:
+            return self.policy.decide("pc.web_query")  # a long query string could smuggle data out
         if tool == "open" and decision == AUTO:
             target = str(args.get("target", ""))
             if not target.lower().startswith(("http://", "https://")):
@@ -138,7 +164,12 @@ class PCTools:
             "delete": f"احذف (لسلة Hassan): {a.get('path')}",
             "run": f"شغّل أمر: {a.get('command')}",
             "open": f"شغّل برنامج: {a.get('target')}",
-            "mcp": f"MCP {a.get('server')}.{a.get('tool')}",
+            "mcp": f"MCP {a.get('server')}.{a.get('tool')} {json.dumps(a.get('arguments') or {}, ensure_ascii=False)[:160]}",
+            "camera_photo": "صوّر بكاميرا الكمبيوتر",
+            "mic_record": f"سجّل من المايكروفون {a.get('seconds', 10)} ثانية",
+            "blender": f"شغّل سكربت Blender{(' على ' + str(a.get('blend_file'))) if a.get('blend_file') else ''}",
+            "ffmpeg": f"ffmpeg {' '.join(map(str, a.get('args') or []))[:200]}",
+            "web_fetch": f"افتح رابط: {a.get('url')}",
         }.get(tool, f"{tool} {json.dumps(a, ensure_ascii=False)[:200]}")
 
     def preview(self, tool: str, args: dict) -> str:
@@ -152,6 +183,10 @@ class PCTools:
                                                     fromfile=str(p), tofile=str(p)))[:100_000]
             if tool == "run":
                 return f"$ {args.get('command')}\n(cwd: {args.get('cwd') or self.allowed_roots[0]})"
+            if tool == "blender":
+                return str(args.get("script", ""))[:20_000]
+            if tool == "ffmpeg":
+                return "ffmpeg " + " ".join(map(str, args.get("args") or []))
             if tool in ("move", "copy", "delete"):
                 p = self.path(args.get("src") or args.get("path") or "")
                 if p.is_dir():
@@ -311,6 +346,190 @@ class PCTools:
             return f"timed out after {self.command_timeout:.0f}s\n{out.decode('utf-8', 'replace')[-4000:]}"
         text = out.decode("utf-8", "replace") + (("\n[stderr]\n" + err.decode("utf-8", "replace")) if err else "")
         return f"exit {proc.returncode}\n{text.strip()}"
+
+    # ---- internet -------------------------------------------------------
+    @staticmethod
+    def _public_host(host: str) -> None:
+        """Refuse local/private addresses: otherwise a web page could make us call
+        Hassan's own API or the router (SSRF)."""
+        if not host:
+            raise PolicyError("URL without host")
+        try:
+            infos = socket.getaddrinfo(host, None)
+        except OSError as exc:
+            raise PolicyError(f"Cannot resolve {host}") from exc
+        for info in infos:
+            ip = ipaddress.ip_address(info[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast \
+                    or ip.is_unspecified or (ip.version == 6 and ip.ipv4_mapped and ip.ipv4_mapped.is_private):
+                raise PolicyError(f"{host} is a local/private address")
+
+    async def _get(self, url: str, method: str = "GET", data: dict | None = None) -> httpx.Response:
+        async with httpx.AsyncClient(timeout=25, transport=self.http_transport,
+                                     headers={"User-Agent": "Mozilla/5.0 HassanAI/0.3"}) as client:
+            for _ in range(5):
+                parts = urlsplit(url)
+                if parts.scheme not in ("http", "https"):
+                    raise PolicyError("Only http(s) URLs")
+                self._public_host(parts.hostname or "")
+                resp = await client.request(method, url, data=data, follow_redirects=False)
+                if resp.status_code in (301, 302, 303, 307, 308) and resp.headers.get("location"):
+                    url = str(httpx.URL(url).join(resp.headers["location"]))
+                    method, data = "GET", None
+                    continue
+                return resp
+        raise RuntimeError("Too many redirects")
+
+    @staticmethod
+    def _html_to_text(markup: str) -> str:
+        markup = re.sub(r"(?is)<(script|style|noscript|svg|head)[^>]*>.*?</\1>", " ", markup)
+        markup = re.sub(r"(?i)<br\s*/?>|</(p|div|li|h[1-6]|tr|section|article)>", "\n", markup)
+        text = html.unescape(re.sub(r"<[^>]+>", " ", markup))
+        text = re.sub(r"[ \t\r\f\v]+", " ", text)
+        return re.sub(r"\n\s*\n+", "\n\n", text).strip()
+
+    async def _t_web_fetch(self, url: str) -> str:
+        resp = await self._get(url)
+        ctype = resp.headers.get("content-type", "")
+        body = resp.text if ("text" in ctype or "json" in ctype or "xml" in ctype) else f"({ctype}, {len(resp.content)} bytes)"
+        text = self._html_to_text(body) if "html" in ctype else body
+        return f"HTTP {resp.status_code} {resp.request.url}\n\n{text[:20_000]}"
+
+    async def _t_web_search(self, query: str) -> list[dict]:
+        resp = await self._get("https://html.duckduckgo.com/html/", "POST", {"q": query})
+        results = []
+        for m in re.finditer(r'(?s)<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>(.*?)(?=<a[^>]+class="result__a"|$)',
+                             resp.text):
+            href, title, rest = m.group(1), m.group(2), m.group(3)
+            if "uddg=" in href:
+                href = unquote(parse_qs(urlsplit(html.unescape(href)).query).get("uddg", [href])[0])
+            snip = re.search(r'(?s)class="result__snippet"[^>]*>(.*?)</a>', rest)
+            results.append({"title": self._html_to_text(title), "url": href,
+                            "snippet": self._html_to_text(snip.group(1)) if snip else ""})
+            if len(results) >= 8:
+                break
+        return results or [{"note": "no results parsed (search page format may have changed); try web_fetch"}]
+
+    # ---- screen / camera / mic -------------------------------------------
+    def _media_path(self, prefix: str, ext: str) -> Path:
+        self.media_dir.mkdir(parents=True, exist_ok=True)
+        return self.media_dir / f"{prefix}-{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid() % 1000}{ext}"
+
+    def _saved(self, path: Path, what: str) -> dict:
+        self.last_media = path.name
+        return {"saved": str(path), "media": path.name, "note": f"{what} saved; Hassan can see it in the dashboard"}
+
+    async def _proc(self, argv: list[str], timeout: float) -> tuple[int, str]:
+        proc = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+                                                    stdin=asyncio.subprocess.DEVNULL, **NO_WINDOW)
+        try:
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            out, _ = await proc.communicate()
+            return -1, out.decode("utf-8", "replace") + "\n(timed out)"
+        return proc.returncode or 0, out.decode("utf-8", "replace")
+
+    async def _t_screenshot(self) -> dict:
+        path = self._media_path("screen", ".png")
+        if os.name == "nt":
+            ps = ("Add-Type -AssemblyName System.Windows.Forms,System.Drawing;"
+                  "$b=[System.Windows.Forms.SystemInformation]::VirtualScreen;"
+                  "$bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height;"
+                  "$g=[System.Drawing.Graphics]::FromImage($bmp);$g.CopyFromScreen($b.Left,$b.Top,0,0,$bmp.Size);"
+                  f"$bmp.Save('{path}',[System.Drawing.Imaging.ImageFormat]::Png)")
+            code, out = await self._proc(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps], 30)
+        else:
+            tool = shutil.which("gnome-screenshot") or shutil.which("scrot") or shutil.which("import")
+            if not tool:
+                raise RuntimeError("No screenshot tool found on this system")
+            argv = {"gnome-screenshot": [tool, "-f", str(path)], "scrot": [tool, str(path)],
+                    "import": [tool, "-window", "root", str(path)]}[Path(tool).name]
+            code, out = await self._proc(argv, 30)
+        if code != 0 or not path.exists():
+            raise RuntimeError(f"screenshot failed: {out[-400:]}")
+        return self._saved(path, "Screenshot")
+
+    @staticmethod
+    def _ffmpeg() -> str:
+        exe = shutil.which("ffmpeg")
+        if not exe:
+            raise RuntimeError("ffmpeg is not installed. On Windows run:  winget install Gyan.FFmpeg  (then restart Hassan)")
+        return exe
+
+    async def _dshow_device(self, kind: str) -> str:
+        code, out = await self._proc([self._ffmpeg(), "-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"], 20)
+        m = re.search(rf'"([^"]+)"\s*\({kind}\)', out)
+        if not m:
+            raise RuntimeError(f"No {kind} device found:\n{out[-600:]}")
+        return m.group(1)
+
+    async def _t_camera_photo(self, device: str = "") -> dict:
+        path = self._media_path("camera", ".jpg")
+        if os.name == "nt":
+            dev = device or await self._dshow_device("video")
+            argv = [self._ffmpeg(), "-hide_banner", "-y", "-f", "dshow", "-i", f"video={dev}", "-frames:v", "1", str(path)]
+        else:
+            argv = [self._ffmpeg(), "-hide_banner", "-y", "-f", "v4l2", "-i", device or "/dev/video0", "-frames:v", "1", str(path)]
+        code, out = await self._proc(argv, 30)
+        if code != 0 or not path.exists():
+            raise RuntimeError(f"camera failed: {out[-500:]}")
+        return self._saved(path, "Photo")
+
+    async def _t_mic_record(self, seconds: Any = 10, device: str = "") -> dict:
+        secs = max(1, min(60, int(float(seconds or 10))))
+        path = self._media_path("mic", ".m4a")
+        if os.name == "nt":
+            dev = device or await self._dshow_device("audio")
+            src = ["-f", "dshow", "-i", f"audio={dev}"]
+        else:
+            src = ["-f", "pulse", "-i", device or "default"]
+        code, out = await self._proc([self._ffmpeg(), "-hide_banner", "-y", *src, "-t", str(secs), str(path)], secs + 30)
+        if code != 0 or not path.exists():
+            raise RuntimeError(f"recording failed: {out[-500:]}")
+        return self._saved(path, f"{secs}s recording")
+
+    # ---- Blender / ffmpeg ---------------------------------------------------
+    @staticmethod
+    def _blender() -> str:
+        exe = shutil.which("blender")
+        if exe:
+            return exe
+        for pattern in (r"C:\Program Files\Blender Foundation\Blender*\blender.exe",
+                        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Blender Foundation\Blender*\blender.exe"),
+                        r"C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe"):
+            found = sorted(glob.glob(pattern))
+            if found:
+                return found[-1]
+        raise RuntimeError("Blender not found. Install it from blender.org (or add blender to PATH).")
+
+    async def _t_blender(self, script: str, blend_file: str = "", save: Any = False, render: Any = False) -> dict:
+        exe = self._blender()
+        out_png = self._media_path("render", ".png")
+        header = (f"import bpy\nOUTPUT = {str(out_png)!r}\n"
+                  "bpy.context.scene.render.filepath = OUTPUT\n")
+        footer = ""
+        if str(save).lower() in ("true", "1", "yes"):
+            footer += "\nbpy.ops.wm.save_mainfile()\n" if blend_file else ""
+        if str(render).lower() in ("true", "1", "yes"):
+            footer += "\nbpy.context.scene.render.filepath = OUTPUT\nbpy.ops.render.render(write_still=True)\n"
+        self.media_dir.mkdir(parents=True, exist_ok=True)
+        script_path = self.media_dir / f"script-{time.strftime('%Y%m%d-%H%M%S')}.py"
+        script_path.write_text(header + str(script) + footer, encoding="utf-8")
+        argv = [exe, "-b"]
+        if blend_file:
+            argv.append(str(self.path(blend_file, must_exist=True)))
+        argv += ["--python-exit-code", "1", "--python", str(script_path)]
+        code, out = await self._proc(argv, max(self.command_timeout, 900))
+        result: dict = {"exit": code, "output": out[-6000:]}
+        if out_png.exists():
+            result.update(self._saved(out_png, "Render"))
+        return result
+
+    async def _t_ffmpeg(self, args: Any) -> str:
+        argv = args if isinstance(args, list) else str(args).split()
+        code, out = await self._proc([self._ffmpeg(), "-hide_banner", "-y", *map(str, argv)], max(self.command_timeout, 1800))
+        return f"exit {code}\n{out[-4000:]}"
 
     async def _t_mcp(self, server: str, tool: str, arguments: dict | None = None) -> Any:
         if self.mcp is None:

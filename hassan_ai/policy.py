@@ -54,10 +54,11 @@ class Policy:
         name = f"mcp.{server}.{tool}"
         if any(fnmatch.fnmatchcase(name, pat) for pat in self.forbidden):
             return FORBIDDEN
-        # An exact per-tool entry beats the generic mcp.*.* rule.
-        if name in self.auto:
+        # Server-specific entries (exact or glob, e.g. mcp.windows.State*) beat the generic mcp.*.* rule.
+        prefix = f"mcp.{server}."
+        if any(p.startswith(prefix) and fnmatch.fnmatchcase(name, p) for p in self.auto):
             return AUTO
-        if name in self.approval:
+        if any(p.startswith(prefix) and fnmatch.fnmatchcase(name, p) for p in self.approval):
             return APPROVAL
         return AUTO if READ_VERB.match(tool) else APPROVAL
 

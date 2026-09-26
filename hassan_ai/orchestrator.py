@@ -61,7 +61,7 @@ class Orchestrator:
                 count += 1
         return count
 
-    async def decide_approval(self, approval_id: str, approve: bool) -> Approval:
+    async def decide_approval(self, approval_id: str, approve: bool, trust_similar: bool = False) -> Approval:
         async with self._approval_lock:
             approval = self.memory.get_approval(approval_id)
             if approval is None:
@@ -74,6 +74,8 @@ class Orchestrator:
         task = self._load(approval.task_id)
         self._emit(task, "approval", f"{approval.title}: {approval.status}", {"approval_id": approval.id})
         if approval.payload.get("operator"):
+            if approve and trust_similar and self.operator is not None:
+                self.operator.trust(task.id, approval.payload)
             waiter = self._waiters.get(approval.id)
             if waiter and not waiter.done():
                 waiter.set_result(approve)

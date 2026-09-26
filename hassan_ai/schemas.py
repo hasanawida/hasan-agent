@@ -64,6 +64,7 @@ class Evidence(BaseModel):
     command: list[str] | None = None
     exit_code: int | None = None
     duration: float | None = None
+    media: str | None = None  # file name under data/media (photo, screenshot, recording, render)
 
 
 class FileChange(BaseModel):
