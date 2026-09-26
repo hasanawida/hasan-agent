@@ -28,7 +28,7 @@ class FakeTelegram:
         else:
             msg = {"chat": {"id": chat_id}, "message_id": self.uid}
             if voice:
-                msg["voice"] = {"file_id": "v1"}
+                msg["video_note" if voice == "round" else "voice"] = {"file_id": "v1"}
             else:
                 msg["text"] = text
             self.updates.append({"update_id": self.uid, "message": msg})
@@ -129,6 +129,9 @@ def test_telegram_full_flow(bot_env):
     fake.push(HASSAN, voice=True)
     until(lambda: any("سمعتك: شو في على سطح المكتب" in t for t in fake.texts(HASSAN)))
     until(lambda: any(t["prompt"] == "شو في على سطح المكتب" for t in client.get("/api/tasks").json()))
+    heard = sum("سمعتك" in t for t in fake.texts(HASSAN))
+    fake.push(HASSAN, voice="round")  # a round video note is understood the same way
+    until(lambda: sum("سمعتك" in t for t in fake.texts(HASSAN)) > heard)
 
     # memory and schedules from the chat
     fake.push(HASSAN, "/remember بفضّل التقارير قصيرة وبالعربي")

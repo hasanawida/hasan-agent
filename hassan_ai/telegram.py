@@ -224,8 +224,10 @@ class TelegramBot:
                 await self.send(chat_id, "🔒 هاد بوت خاص. للربط: من واجهة Hassan على الكمبيوتر اطلب رمز، "
                                          "وابعت هون: /pair 123456")
             return
-        if msg.get("voice") or msg.get("audio"):
-            text = await self._transcribe(chat_id, msg.get("voice") or msg.get("audio"))
+        # round video notes too: Telegram's mic button easily flips to the camera
+        media = msg.get("voice") or msg.get("audio") or msg.get("video_note")
+        if media:
+            text = await self._transcribe(chat_id, media)
             if not text:
                 return
             await self.send(chat_id, f"🎤 سمعتك: {text}")
