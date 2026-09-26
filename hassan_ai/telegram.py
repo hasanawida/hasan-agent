@@ -170,7 +170,8 @@ class TelegramBot:
         if not path.is_file():
             return
         method, field = ("sendPhoto", "photo") if path.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp") \
-            else ("sendAudio", "audio") if path.suffix.lower() in (".m4a", ".mp3", ".ogg", ".wav") else ("sendDocument", "document")
+            else ("sendAudio", "audio") if path.suffix.lower() in (".m4a", ".mp3", ".ogg", ".wav") \
+            else ("sendVideo", "video") if path.suffix.lower() in (".mp4", ".mov", ".webm") else ("sendDocument", "document")
         with path.open("rb") as fh:
             await self._api(method, chat_id=chat_id, caption=caption[:900], _files={field: (path.name, fh.read())})
 

@@ -87,6 +87,10 @@ TOOLS: list[ToolSpec] = [
     ToolSpec("make_dir", "pc.mkdir", "Create a folder (and parents).", {"path": "folder path"}),
     ToolSpec("open", "pc.open", "Open a folder, document or http(s) URL with its default app. "
              "Programs/scripts need approval.", {"target": "path or URL"}),
+    ToolSpec("find_apps", "pc.apps", "List installed programs whose name matches (Start menu).",
+             {"query": "part of the name, e.g. cap"}),
+    ToolSpec("open_app", "pc.launch", "Start an installed program by its name (CapCut, Word, Spotify, Blender…). "
+             "Use this to open apps; then the `windows` MCP server can click inside them.", {"name": "app name"}),
     ToolSpec("write_file", "pc.write", "Create or overwrite a text file.", {"path": "file path", "content": "full text"}),
     ToolSpec("move", "pc.move", "Move or rename a file/folder.", {"src": "path", "dst": "new path"}),
     ToolSpec("copy", "pc.copy", "Copy a file/folder.", {"src": "path", "dst": "destination path"}),
@@ -105,6 +109,13 @@ TOOLS: list[ToolSpec] = [
              "bpy.context.scene.render.filepath to the given OUTPUT path.",
              {"script": "python code using bpy", "blend_file": "optional .blend to open first",
               "save": "true to save the .blend after the script", "render": "true to render a still image"}),
+    ToolSpec("make_video", "pc.video", "Make a finished MP4 from slides of text (Arabic works) and optional "
+             "pictures/music — use this for 'make me a video about…' instead of raw ffmpeg. Write the "
+             "content yourself: 5-12 short slides, 3-6 s each.",
+             {"slides": 'list of {"text": "…", "seconds": 4, "image": "optional picture path", '
+                        '"bg": "optional #hex color"}',
+              "size": "vertical (reels/tiktok, default) | horizontal (youtube) | square",
+              "music": "optional audio file path", "name": "optional short file name"}),
     ToolSpec("ffmpeg", "pc.ffmpeg", "Edit/convert video or audio with ffmpeg (cut, join, resize, subtitles, "
              "extract audio…). Give the arguments after `ffmpeg`.", {"args": "list of arguments"}),
     ToolSpec("mcp", "pc.mcp", "Call a tool on a connected MCP server (e.g. `windows` to click/type in any app "
@@ -192,6 +203,7 @@ class PCTools:
             "delete": f"احذف (لسلة Hassan): {a.get('path')}",
             "run": f"شغّل أمر: {a.get('command')}",
             "open": f"شغّل برنامج: {a.get('target')}",
+            "open_app": f"افتح برنامج: {a.get('name')}",
             "mcp": self._describe_mcp(a),
             "camera_photo": "صوّر بكاميرا الكمبيوتر",
             "mic_record": f"سجّل من المايكروفون {a.get('seconds', 10)} ثانية",
@@ -337,6 +349,73 @@ class PCTools:
             subprocess.Popen(["xdg-open" if sys.platform != "darwin" else "open", str(p)],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return f"opened {p}"
+
+    # ---- installed programs -------------------------------------------------
+    APPS_TTL = 600
+
+    async def installed_apps(self) -> list[dict]:
+        """Programs from the Start menu: [{"name", "id"}]. Windows: Get-StartApps (classic and Store apps)."""
+        cached = getattr(self, "_apps_cache", None)
+        if cached and time.time() - cached[0] < self.APPS_TTL:
+            return cached[1]
+        apps: list[dict] = []
+        if os.name == "nt":
+            code, out = await self._proc(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+                                          "[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                                          "Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress"], 40)
+            try:
+                data = json.loads(out[out.find("["):] if "[" in out else out)
+            except ValueError:
+                data = []
+            for row in data if isinstance(data, list) else [data]:
+                if isinstance(row, dict) and row.get("Name") and row.get("AppID"):
+                    apps.append({"name": row["Name"], "id": row["AppID"]})
+        else:
+            for d in (Path("/usr/share/applications"), Path.home() / ".local/share/applications"):
+                for f in d.glob("*.desktop") if d.is_dir() else []:
+                    m = re.search(r"^Name=(.+)$", f.read_text(errors="replace"), re.M)
+                    apps.append({"name": m.group(1).strip() if m else f.stem, "id": f.stem})
+        self._apps_cache = (time.time(), apps)
+        return apps
+
+    @staticmethod
+    def _squash(text: str) -> str:
+        return re.sub(r"[\s_\-.]+", "", text.lower())
+
+    def match_apps(self, apps: list[dict], query: str) -> list[dict]:
+        q = self._squash(query)
+        if not q:
+            return apps
+        scored = []
+        for app in apps:
+            n = self._squash(app["name"])
+            score = 0 if n == q else 1 if n.startswith(q) else 2 if q in n else \
+                3 if all(self._squash(w) in n for w in query.split()) else None
+            if score is not None:
+                scored.append((score, len(n), app))
+        return [a for _, _, a in sorted(scored, key=lambda s: (s[0], s[1]))]
+
+    async def _t_find_apps(self, query: str = "") -> list[str]:
+        return [a["name"] for a in self.match_apps(await self.installed_apps(), query)][:40]
+
+    async def _t_open_app(self, name: str) -> str:
+        apps = await self.installed_apps()
+        found = self.match_apps(apps, name)
+        if not found:
+            import difflib
+            close = difflib.get_close_matches(name, [a["name"] for a in apps], n=6, cutoff=0.4)
+            raise RuntimeError(f"No installed program called {name!r}." +
+                               (f" Did you mean: {', '.join(close)}?" if close else " Try find_apps with part of the name."))
+        app = found[0]
+        self._launch_app(app["id"])
+        return f"started {app['name']} (it may take a few seconds to show up)"
+
+    @staticmethod
+    def _launch_app(app_id: str) -> None:
+        if os.name == "nt":
+            subprocess.Popen(["explorer.exe", f"shell:AppsFolder\\{app_id}"], **NO_WINDOW)
+        else:
+            subprocess.Popen(["gtk-launch", app_id], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def _t_write_file(self, path: str, content: str) -> str:
         p = self.path(path)
@@ -579,6 +658,115 @@ class PCTools:
         if out_png.exists():
             result.update(self._saved(out_png, "Render"))
         return result
+
+    # ---- slide videos ---------------------------------------------------------
+    VIDEO_SIZES = {"vertical": (1080, 1920), "horizontal": (1920, 1080), "square": (1080, 1080)}
+    PALETTE = ["#1e3a8a", "#7c2d12", "#065f46", "#6b21a8", "#9d174d", "#0f766e", "#92400e", "#1f2937"]
+
+    @staticmethod
+    def _font(size: int):
+        from PIL import ImageFont
+
+        windir = os.environ.get("WINDIR", r"C:\Windows")
+        for name in (rf"{windir}\Fonts\tahomabd.ttf", rf"{windir}\Fonts\tahoma.ttf", rf"{windir}\Fonts\segoeuib.ttf",
+                     rf"{windir}\Fonts\arialbd.ttf", "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf",
+                     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
+            if Path(name).is_file():
+                return ImageFont.truetype(name, size)
+        return ImageFont.load_default(size)
+
+    @staticmethod
+    def _visual(line: str) -> str:
+        """Arabic/Hebrew in display order with joined letters (Pillow without libraqm can't shape)."""
+        from PIL import features
+
+        if features.check_feature("raqm") or not re.search(r"[\u0590-\u06ff\u0750-\u08ff\ufb50-\ufeff]", line):
+            return line
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+
+        return get_display(arabic_reshaper.reshape(line))
+
+    def _slide_png(self, slide: dict, index: int, size: tuple[int, int], out: Path) -> None:
+        from PIL import Image, ImageDraw, ImageOps
+
+        w, h = size
+        bg = str(slide.get("bg") or self.PALETTE[index % len(self.PALETTE)])
+        img = Image.new("RGB", size, bg if re.fullmatch(r"#[0-9a-fA-F]{6}", bg) else self.PALETTE[0])
+        if slide.get("image"):
+            pic = Image.open(self.path(str(slide["image"]), must_exist=True)).convert("RGB")
+            img = ImageOps.fit(pic, size)
+            img = Image.blend(img, Image.new("RGB", size, "black"), 0.45)  # keep text readable
+        draw = ImageDraw.Draw(img)
+        text = str(slide.get("text", "")).strip()
+        font_size = w // 11
+        while True:
+            font = self._font(font_size)
+            lines: list[str] = []
+            for para in text.splitlines() or [""]:
+                cur = ""
+                for word in para.split():
+                    cand = f"{cur} {word}".strip()
+                    if cur and draw.textlength(self._visual(cand), font=font) > w * 0.84:
+                        lines.append(cur)
+                        cur = word
+                    else:
+                        cur = cand
+                lines.append(cur)
+            line_h = int(font_size * 1.45)
+            if line_h * len(lines) <= h * 0.8 or font_size <= 28:
+                break
+            font_size = int(font_size * 0.88)
+        y = (h - line_h * len(lines)) // 2
+        for line in lines:
+            vis = self._visual(line)
+            x = (w - draw.textlength(vis, font=font)) // 2
+            draw.text((x, y), vis, font=font, fill="white", stroke_width=max(2, font_size // 18), stroke_fill="black")
+            y += line_h
+        img.save(out)
+
+    async def _t_make_video(self, slides: Any, size: str = "vertical", music: str = "", name: str = "") -> dict:
+        try:
+            import arabic_reshaper  # noqa: F401
+            import bidi  # noqa: F401
+            from PIL import Image  # noqa: F401
+        except ImportError:
+            raise RuntimeError("Missing video packages. Run update.bat (installs pillow, arabic-reshaper, python-bidi).")
+        if isinstance(slides, str):
+            slides = json.loads(slides)
+        slides = [s if isinstance(s, dict) else {"text": str(s)} for s in (slides or [])][:40]
+        if not slides:
+            raise ValueError("slides is empty: give a list like [{\"text\": \"…\", \"seconds\": 4}]")
+        dims = self.VIDEO_SIZES.get(str(size).lower(), self.VIDEO_SIZES["vertical"])
+        stem = re.sub(r"[^\w\-]+", "-", str(name or "video"), flags=re.U).strip("-")[:40] or "video"
+        out = self._media_path(stem, ".mp4")
+        work = self.media_dir / f".{out.stem}"
+        work.mkdir(parents=True, exist_ok=True)
+        argv, chains, total = [self._ffmpeg(), "-hide_banner", "-y"], [], 0.0
+        try:
+            for i, slide in enumerate(slides):
+                png = work / f"{i:03d}.png"
+                await asyncio.to_thread(self._slide_png, slide, i, dims, png)
+                secs = max(1.5, min(15.0, float(slide.get("seconds") or 4)))
+                total += secs
+                argv += ["-loop", "1", "-framerate", "30", "-t", f"{secs:.2f}", "-i", str(png)]
+                chains.append(f"[{i}:v]format=yuv420p,fade=t=in:st=0:d=0.4,"
+                              f"fade=t=out:st={secs - 0.4:.2f}:d=0.4,setsar=1[v{i}]")
+            graph = ";".join(chains) + ";" + "".join(f"[v{i}]" for i in range(len(slides))) + \
+                f"concat=n={len(slides)}:v=1:a=0[v]"
+            if music:
+                argv += ["-stream_loop", "-1", "-i", str(self.path(music, must_exist=True))]
+                graph += f";[{len(slides)}:a]afade=t=out:st={max(0.0, total - 1.5):.2f}:d=1.5[a]"
+            argv += ["-filter_complex", graph, "-map", "[v]"]
+            argv += ["-map", "[a]", "-c:a", "aac"] if music else []
+            argv += ["-t", f"{total:.2f}", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                     "-r", "30", "-movflags", "+faststart", str(out)]
+            code, log = await self._proc(argv, max(self.command_timeout, 900))
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+        if code != 0 or not out.exists():
+            raise RuntimeError(f"video failed (exit {code}): {log[-1500:]}")
+        return {**self._saved(out, f"{total:.0f}s video"), "seconds": round(total, 1), "slides": len(slides)}
 
     async def _t_ffmpeg(self, args: Any) -> str:
         argv = args if isinstance(args, list) else str(args).split()

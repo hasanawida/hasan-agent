@@ -15,6 +15,9 @@ dependencies = [
   "pydantic>=2.6",
   "pyyaml>=6",
   "segno>=1.5",
+  "pillow>=10",
+  "arabic-reshaper>=3",
+  "python-bidi>=0.4",
 ]
 
 [project.optional-dependencies]

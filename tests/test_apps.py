@@ -170,3 +170,34 @@ def test_vscode_tool_opens_without_approval(tmp_path, monkeypatch):
     assert launched[-1] == ["/usr/bin/code", "-g", f"{(tmp_path / 'proj' / 'main.py').resolve()}:3"]
     with pytest.raises(PolicyError):
         asyncio.run(t.execute("vscode", {"path": "/etc"}))
+
+
+def test_open_app_by_name(tmp_path, monkeypatch):
+    t = tools(tmp_path)
+    t._apps_cache = (__import__("time").time(), [
+        {"name": "CapCut", "id": "C:\\Users\\h\\AppData\\Local\\CapCut\\Apps\\CapCut.exe"},
+        {"name": "CapCut Uninstall", "id": "uninst"}, {"name": "Microsoft Word", "id": "word"}])
+    launched = []
+    monkeypatch.setattr(PCTools, "_launch_app", staticmethod(launched.append))
+    assert t.access("open_app", {"name": "capcut"}) == APPROVAL  # starting a program waits for Hassan
+    assert t.access("find_apps", {"query": "cap"}) == AUTO
+    assert asyncio.run(t.execute("find_apps", {"query": "cap cut"})) .startswith('[\n "CapCut"')
+    assert "started CapCut" in asyncio.run(t.execute("open_app", {"name": "Cap Cut"}))
+    assert "started Microsoft Word" in asyncio.run(t.execute("open_app", {"name": "word"}))
+    assert launched == ["C:\\Users\\h\\AppData\\Local\\CapCut\\Apps\\CapCut.exe", "word"]
+    with pytest.raises(RuntimeError, match="Did you mean: CapCut"):
+        asyncio.run(t.execute("open_app", {"name": "CapCat"}))
+
+
+@pytest.mark.skipif(not __import__("shutil").which("ffmpeg"), reason="ffmpeg not installed")
+def test_make_video_with_arabic_slides(tmp_path):
+    t = tools(tmp_path)
+    assert t.access("make_video", {"slides": []}) == AUTO
+    res = json.loads(asyncio.run(t.execute("make_video", {
+        "slides": [{"text": "تربية الأطفال", "seconds": 2}, {"text": "اسمع لطفلك", "seconds": 2, "bg": "#224466"}],
+        "size": "square", "name": "kids"})))
+    out = Path(res["saved"])
+    assert out.suffix == ".mp4" and out.stat().st_size > 1000 and res["seconds"] == 4.0
+    assert not any(p.name.startswith(".") for p in out.parent.iterdir())  # temp slides cleaned up
+    with pytest.raises(PolicyError):  # pictures must come from the allowed folders
+        asyncio.run(t.execute("make_video", {"slides": [{"text": "x", "image": "/etc/passwd"}]}))

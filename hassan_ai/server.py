@@ -326,7 +326,10 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
                 for a in roster.agents.values()]
         rows.append({"name": "cross_reviewer", "title": "المراجع المستقل", "model": roster.cross_reviewer,
                      "fallbacks": []})
-        return [{**r, "brain": brain(r["model"])} for r in rows]
+        free = llm.free_brain() if isinstance(llm, RouterLLM) else None
+        paid = llm.paid if isinstance(llm, RouterLLM) else set()
+        return [{**r, "brain": brain(r["model"]), "free": free,
+                 "paid": brain(r["model"]).split(":")[0] in paid} for r in rows]
 
     @app.get("/api/providers")
     async def providers():

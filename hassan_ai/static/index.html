@@ -66,6 +66,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px sol
   input,select{font-size:16px}.mic{width:54px;font-size:22px}}
 #mediaStrip img{max-width:100%;border-radius:8px;margin-top:8px;display:block}
 #mediaStrip audio{width:100%;margin-top:8px}
+#mediaStrip video{max-width:100%;max-height:70vh;border-radius:8px;margin-top:8px;display:block}
 .kinds{display:flex;gap:6px;margin-bottom:10px}.kinds button{flex:1;background:transparent;border:1px solid var(--line);color:var(--muted)}
 .kinds button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 html,body{overflow-x:hidden}
@@ -452,7 +453,12 @@ function renderAgents(task) {
   const active = {manager:"manager",analyst:"analyst",planner:"planner",specialists:"coder",review:"reviewer",judge:"judge",decision:"decision"}[phase];
   $("agents").innerHTML = agents.map(a => {
     const cls = done.has(a.name) ? "done" : (a.name === active || (phase === "specialists" && a.name === "researcher") ? "active" : "");
-    return `<div class="agent ${cls}"><b>${esc(a.title)}</b><small>${esc(a.brain || a.model)}</small></div>`;
+    // Budget "auto"/"free": a free brain works first; the paid one only after Hassan approves.
+    const b = $("budget")?.value || "auto";
+    const label = a.paid && a.free && (b === "auto" || b === "free")
+      ? `🆓 ${a.free}` + (b === "auto" ? ` · 💳 ${a.brain.split(":")[0]} بموافقتك` : "")
+      : (a.brain || a.model);
+    return `<div class="agent ${cls}"><b>${esc(a.title)}</b><small>${esc(label)}</small></div>`;
   }).join("");
 }
 async function loadHistory() {
@@ -505,6 +511,7 @@ function showChat() {
   $("chatInfo").textContent = on ? "💬 محادثة شغّالة — رسالتك الجاي بتكمّل على اللي قبلها" : "💬 محادثة جديدة";
 }
 showChat();
+$("budget").addEventListener("change", () => renderAgents(null));
 $("newChat").onclick = () => {
   try { localStorage.removeItem("hassanChat"); } catch (e) {}
   showChat(); $("prompt").focus();
@@ -571,6 +578,7 @@ function render(t) {
     `<span class="chip ${e.ok ? "ok" : "bad"}" data-i="${i}">${e.ok ? "✓" : "✗"} ${esc(e.title)} — ${esc(e.summary)}</span>`).join("") || '<span class="muted">لا أدلة (Workspace غير محدد)</span>';
   $("mediaStrip").innerHTML = t.evidence.filter(e => e.media).slice(-6).map(e =>
     /\.(png|jpe?g|webp)$/i.test(e.media) ? `<a href="/api/media/${encodeURIComponent(e.media)}" target="_blank"><img src="/api/media/${encodeURIComponent(e.media)}" alt=""></a>`
+    : /\.(mp4|webm|mov)$/i.test(e.media) ? `<video controls playsinline src="/api/media/${encodeURIComponent(e.media)}"></video>`
     : `<audio controls src="/api/media/${encodeURIComponent(e.media)}"></audio>`).join("");
   $("evidence").querySelectorAll(".chip").forEach(c => c.onclick = () => {
     const e = t.evidence[c.dataset.i]; $("evDetail").style.display = ""; $("evDetail").textContent = e.detail || e.summary;

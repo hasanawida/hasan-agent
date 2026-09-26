@@ -387,6 +387,16 @@ class RouterLLM:
     def tier_uses_list(self, tier: str | None) -> bool:
         return bool(tier and self.tiers.get(tier))
 
+    def free_brain(self) -> str | None:
+        """The free brain that answers first when paid brains are not allowed."""
+        order = [n for lst in self.tiers.values() if lst for n in lst] + self.fallback + list(self.backends)
+        for name in dict.fromkeys(order):
+            backend = self.backends.get(name)
+            if name in self.paid or backend is None or (isinstance(backend, APIBackend) and not backend.configured):
+                continue
+            return name
+        return None
+
     def route_for(self, alias: str) -> Route:
         return self.routes.get(alias, self.default)
 

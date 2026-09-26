@@ -27,6 +27,8 @@ auto:
   - pc.websearch
   - pc.screenshot  # saved on the PC, shown only to Hassan
   - pc.vscode      # open a folder/file in VS Code
+  - pc.apps        # list installed programs
+  - pc.video       # build a slide video into Hassan's media folder (new file only)
   # Windows-MCP (control any app): looking at the screen is automatic
   - mcp.windows.State*
   - mcp.windows.Snapshot*
