@@ -195,7 +195,9 @@ def main() -> None:
     import uvicorn
 
     settings = Settings.from_env()
-    uvicorn.run(create_app(settings), host=settings.host, port=settings.port)
+    # Quiet console: the dashboard polls every second, so per-request access logs are noise.
+    uvicorn.run(create_app(settings), host=settings.host, port=settings.port,
+                access_log=False, use_colors=False)
 
 
 if __name__ == "__main__":
