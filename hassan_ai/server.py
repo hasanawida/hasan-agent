@@ -95,6 +95,7 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
 
     access_key = remote.load_or_create_key(settings.data_dir)
     app.state.access_key = access_key
+    pairing = remote.PairingCodes()
     PUBLIC_PATHS = {"/login", "/manifest.webmanifest", "/static/icon.svg"}
 
     @app.middleware("http")
@@ -116,6 +117,8 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
         return await call_next(request)
 
     def login_response(key: str | None, request: Request):
+        if key and key.strip().isdigit() and len(key.strip()) == 6 and pairing.redeem(key):
+            key = app.state.access_key
         if remote.key_ok(key, app.state.access_key):
             resp = RedirectResponse("/", status_code=303)
             resp.set_cookie(remote.COOKIE, app.state.access_key, max_age=400 * 86400, httponly=True,
@@ -159,8 +162,13 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
             urls += [{"kind": "wifi", "base": f"http://{ip}:{port}"} for ip in remote.lan_addresses()]
         for u in urls:
             u["pair_url"] = f"{u['base']}/login?key={app.state.access_key}"
-            u["qr_svg"] = remote.qr_svg(u["pair_url"])
+            u["qr_html"] = remote.qr_html(u["pair_url"])
         return {"enabled": bool(urls), "urls": urls, "public_url": settings.public_url, "bind": settings.host}
+
+    @app.post("/api/remote/pair-code")
+    async def remote_pair_code(request: Request):
+        require_local(request)
+        return pairing.new()
 
     @app.post("/api/remote/rotate")
     async def remote_rotate(request: Request):

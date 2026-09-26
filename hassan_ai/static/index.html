@@ -58,7 +58,8 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px sol
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}
 .stats b{display:block;font-size:17px;color:var(--text)}
 .qr{background:#fff;border-radius:10px;padding:8px;display:inline-block;margin:8px 0}
-.qr svg{display:block;width:210px;height:210px}
+.qr{width:260px;max-width:100%}
+.pair{font-size:30px;letter-spacing:8px;font-weight:700;color:var(--text);direction:ltr;text-align:center}
 @media(max-width:600px){main{padding:8px;gap:8px}.card{padding:11px;margin-bottom:10px}
   header{padding:10px 12px}header h1{font-size:17px}.agents{grid-template-columns:repeat(3,1fr)}
   .agent small{display:none}.log{max-height:180px}textarea{min-height:90px;font-size:16px}
@@ -224,11 +225,18 @@ async function loadPhone() {
   $("phone").innerHTML = r.urls.map(u => `
     <p><b>${u.kind === "tailscale" ? "من أي مكان (Tailscale)" : "نفس الـWi-Fi فقط"}</b></p>
     <p>افتح كاميرا التلفون وامسح الرمز:</p>
-    <div class="qr">${u.qr_svg}</div>
+    <div class="qr">${u.qr_html}</div>
     <p dir="ltr" style="font-size:11px;word-break:break-all">${esc(u.base)}</p>
     ${u.kind === "wifi" ? "<p>⚠️ بدون HTTPS: المايكروفون ما بيشتغل على التلفون. استخدم Tailscale.</p>" : ""}`).join("") +
-    `<p>بعدها من قائمة المتصفح اختار <b>Add to Home screen</b> عشان يصير تطبيق.</p>
+    `<details style="margin:8px 0"><summary>الكاميرا مش راضية تمسح؟</summary>
+       <p>1) على التلفون افتح: <span dir="ltr">${esc(r.urls[0].base)}</span><br>2) اضغط الزر واكتب الرمز:</p>
+       <button class="ghost small" id="pairBtn">أعطيني رمز من 6 أرقام</button><div id="pairCode"></div></details>
+     <p>بعدها من قائمة المتصفح اختار <b>Add to Home screen</b> عشان يصير تطبيق.</p>
      <button class="ghost small" id="rotateKey">🔑 تغيير المفتاح (يفصل كل التلفونات)</button>`;
+  $("pairBtn").onclick = async () => {
+    const c = await api("/api/remote/pair-code", {method: "POST"});
+    $("pairCode").innerHTML = `<div class="pair">${c.code}</div><p style="font-size:12px">صالح 10 دقائق ولمرة وحدة.</p>`;
+  };
   $("rotateKey").onclick = async () => {
     if (!confirm("أي تلفون متصل رح ينفصل ولازم تمسح الرمز من جديد. متأكد؟")) return;
     await api("/api/remote/rotate", {method: "POST"}); loadPhone();

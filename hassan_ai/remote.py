@@ -91,12 +91,50 @@ def lan_addresses() -> list[str]:
     return sorted(a for a in addrs if not a.startswith("127."))
 
 
-def qr_svg(text: str) -> str:
+def qr_html(text: str) -> str:
     try:
         import segno
     except ImportError:
         return ""
-    return segno.make(text, error="m").svg_inline(scale=5, border=2, dark="#000", light="#fff")
+    # A crisp PNG at a whole-pixel scale (vector strokes leave hairline seams that cameras
+    # misread), with the 4-module quiet zone the QR spec requires.
+    uri = segno.make(text, error="m").png_data_uri(scale=6, border=4, dark="#000", light="#fff")
+    return f'<img src="{uri}" alt="QR" width="100%" style="image-rendering:pixelated;display:block">'
+
+
+class PairingCodes:
+    """Short one-time codes as a fallback when the camera can't scan the QR.
+    6 digits, valid 10 minutes, single use, locked after 5 wrong tries."""
+
+    TTL = 600
+    MAX_TRIES = 5
+
+    def __init__(self) -> None:
+        self.code: str | None = None
+        self.expires = 0.0
+        self.tries = 0
+
+    def new(self) -> dict:
+        import time
+
+        self.code = f"{secrets.randbelow(10**6):06d}"
+        self.expires = time.time() + self.TTL
+        self.tries = 0
+        return {"code": self.code, "expires_in": self.TTL}
+
+    def redeem(self, candidate: str) -> bool:
+        import time
+
+        if not self.code or time.time() > self.expires:
+            self.code = None
+            return False
+        if hmac.compare_digest(candidate.strip().encode(), self.code.encode()):
+            self.code = None
+            return True
+        self.tries += 1
+        if self.tries >= self.MAX_TRIES:
+            self.code = None
+        return False
 
 
 LOGIN_PAGE = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
@@ -108,5 +146,6 @@ border:1px solid #243052;background:#0e1427;color:#e7ecf7;font:inherit;direction
 margin-top:12px;padding:12px;border:0;border-radius:8px;background:#4f8cff;color:#fff;font:inherit}
 p{color:#8d9bbd;font-size:14px;line-height:1.7}.err{color:#ef5b5b}</style></head><body>
 <form method="post" action="/login"><h2>🧠 Hassan AI OS</h2>
-<p>امسح رمز الـQR من شاشة الكمبيوتر (كرت 📱 التلفون)، أو الصق مفتاح الدخول هون.</p>__ERR__
-<input name="key" placeholder="access key" autocomplete="off"><button>دخول</button></form></body></html>"""
+<p>امسح رمز الـQR من شاشة الكمبيوتر (كرت 📱 التلفون)،<br>أو اكتب <b>الرمز من 6 أرقام</b> اللي بيظهر هناك.</p>__ERR__
+<input name="key" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" style="font-size:26px;
+letter-spacing:6px;text-align:center"><button>دخول</button></form></body></html>"""

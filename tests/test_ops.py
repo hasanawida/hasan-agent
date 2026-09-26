@@ -46,7 +46,7 @@ def test_phone_needs_key_then_works(client):
     assert client.get("/api/tasks", headers=PHONE).status_code == 401
     r = client.get("/", headers=PHONE, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/login"
-    assert "access key" in client.get("/login", headers=PHONE).text
+    assert "6 أرقام" in client.get("/login", headers=PHONE).text
     assert client.get("/login?key=wrong", headers=PHONE).status_code == 401
     # scanning the QR = GET /login?key=... sets a long-lived, HttpOnly, Secure cookie
     r = client.get(f"/login?key={key}", headers=PHONE, follow_redirects=False)
@@ -80,6 +80,33 @@ def test_bearer_key_and_rotation(client, tmp_path):
     assert client.get("/api/tasks", headers={**PHONE, "authorization": f"Bearer {key}"}).status_code == 401
 
 
+def test_six_digit_pairing_code(client):
+    code = client.post("/api/remote/pair-code").json()["code"]
+    assert len(code) == 6
+    assert client.post("/api/remote/pair-code", headers=PHONE).status_code == 401  # PC only
+    wrong = "000000" if code != "000000" else "111111"
+    assert client.post("/login", content=f"key={wrong}", headers={**PHONE, "content-type": "application/x-www-form-urlencoded"},
+                       follow_redirects=False).status_code == 401
+    r = client.post("/login", content=f"key={code}", headers={**PHONE, "content-type": "application/x-www-form-urlencoded"},
+                    follow_redirects=False)
+    assert r.status_code == 303 and client.app.state.access_key in r.headers["set-cookie"]
+    # single use
+    again = client.post("/login", content=f"key={code}", headers={**PHONE, "content-type": "application/x-www-form-urlencoded"},
+                        follow_redirects=False)
+    assert again.status_code == 401
+    client.cookies.clear()
+
+
+def test_pairing_code_locks_after_wrong_tries():
+    from hassan_ai.remote import PairingCodes
+    p = PairingCodes()
+    code = p.new()["code"]
+    wrong = "000000" if code != "000000" else "111111"
+    for _ in range(5):
+        assert not p.redeem(wrong)
+    assert not p.redeem(code)  # locked
+
+
 def test_pairing_qr_when_public_url_set(tmp_path):
     from fastapi.testclient import TestClient
     from hassan_ai.server import create_app
@@ -90,7 +117,7 @@ def test_pairing_qr_when_public_url_set(tmp_path):
         info = c.get("/api/remote").json()
         (url,) = info["urls"]
         assert url["pair_url"].startswith("https://my-pc.tail1234.ts.net/login?key=")
-        assert url["qr_svg"].startswith("<svg")
+        assert url["qr_html"].startswith('<img src="data:image/png;base64,')
         assert c.get("/manifest.webmanifest", headers=PHONE).json()["short_name"] == "Hassan AI"
 
 
