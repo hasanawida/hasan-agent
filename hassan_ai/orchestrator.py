@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from .agents import Roster
 from .config import Settings
 from .execution import ExecutionManager, ProjectInfo
-from .llm import LLM, LLMError, extract_json
+from .llm import LLM, LLMError, PaidRequired, extract_json
 from .memory import Memory
 from .policy import PolicyError, resolve_workspace
 from .schemas import (AgentOutput, Approval, ChangePlan, Event, Evidence, Mode, TaskCreate,
@@ -63,6 +63,7 @@ class Orchestrator:
         self._cancelled: set[str] = set()
         self.operator = None  # set by the server (Operator mode)
         self.listeners: list = []  # callables(task, kind, message, data)
+        self._paid_locks: dict[str, asyncio.Lock] = {}
 
     # ------------------------------------------------------------------ API
     def submit(self, req: TaskCreate) -> TaskRecord:
@@ -78,7 +79,9 @@ class Orchestrator:
         """Tasks cut off by a restart are marked failed (awaiting-approval tasks survive)."""
         count = 0
         for task in self.memory.list_tasks(500):
-            if task.kind == "operate" and task.status == TaskStatus.awaiting_approval:
+            waiting = [a for a in self.memory.approvals(task.id, status="pending")
+                       if a.payload.get("operator") or a.payload.get("wait")]
+            if task.status == TaskStatus.awaiting_approval and (task.kind == "operate" or waiting):
                 # the operator loop that was waiting is gone; don't leave a live-looking approval
                 for a in self.memory.approvals(task.id, status="pending"):
                     a.status, a.decided_at = "rejected", now()
@@ -102,7 +105,7 @@ class Orchestrator:
             self.memory.save_approval(approval)
         task = self._load(approval.task_id)
         self._emit(task, "approval", f"{approval.title}: {approval.status}", {"approval_id": approval.id})
-        if approval.payload.get("operator"):
+        if approval.payload.get("operator") or approval.payload.get("wait"):
             if approve and trust_similar and self.operator is not None:
                 self.operator.trust(task.id, approval.payload)
             waiter = self._waiters.get(approval.id)
@@ -367,10 +370,61 @@ class Orchestrator:
         task.tier = tier
         icon = {"simple": "🆓", "medium": "⚖️", "complex": "🧠"}[tier]
         self._emit(task, "tier", f"{icon} مستوى المهمة: {tier} — {reason}", {"tier": tier})
+        if self.gated:
+            task.paid_ok = task.budget in ("balanced", "best")
+            if not task.paid_ok:
+                self._emit(task, "tier", "🆓 شغّال على العقول المجانية" +
+                           (" بس (اختيارك)" if task.budget == "free" else " — وبسألك قبل أي عقل مدفوع"))
         self.memory.save_task(task)
+        if self.gated and not task.paid_ok and tier == "complex":
+            await self.ask_paid(task, "المهمة صعبة (تخطيط/برمجة/تحليل) والعقول المجانية ممكن تطلع نتيجة أضعف")
 
-    def escalate(self, task: TaskRecord, why: str) -> bool:
-        """Move the task to the next, stronger tier. False when already at the top."""
+    @property
+    def gated(self) -> bool:
+        """True when the brains include paid ones that need Hassan's OK."""
+        return bool(getattr(self.llm, "paid", None))
+
+    async def ask_paid(self, task: TaskRecord, reason: str) -> bool:
+        """Ask Hassan (dashboard / phone / Telegram) before spending paid brains. Once per task."""
+        lock = self._paid_locks.setdefault(task.id, asyncio.Lock())
+        async with lock:
+            if task.paid_ok or task.paid_asked:
+                return bool(task.paid_ok)
+            if task.budget == "free":
+                self._emit(task, "tier", f"⛔ ما استخدمت عقل مدفوع لأنك اخترت «مجاني بس»: {reason}")
+                return False
+            paid = ", ".join(sorted(getattr(self.llm, "paid", []))) or "Claude / ChatGPT"
+            approval = Approval(task_id=task.id, action="brain.paid",
+                                title=f"💳 بدي أستخدم عقل مدفوع لهاي المهمة — {reason}",
+                                payload={"wait": True, "paid_brain": True},
+                                diff=(f"العقول المدفوعة: {paid}\nموافقتك بتسري على هاي المهمة بس. "
+                                      "إذا رفضت بكمّل بالمجاني قد ما بقدر."))
+            self.memory.save_approval(approval)
+            future: asyncio.Future = asyncio.get_running_loop().create_future()
+            self._waiters[approval.id] = future
+            previous = task.status
+            task.status = TaskStatus.awaiting_approval
+            self._emit(task, "approval_required", approval.title, {"approval_id": approval.id})
+            self.memory.save_task(task)
+            try:
+                approved = bool(await future)
+            finally:
+                self._waiters.pop(approval.id, None)
+            task.status = previous if previous != TaskStatus.awaiting_approval else TaskStatus.running
+            task.paid_asked, task.paid_ok = True, approved
+            self._emit(task, "tier", "💳 موافق على المدفوع لهاي المهمة" if approved else "🆓 رفضت المدفوع — بكمّل بالمجاني")
+            self.memory.save_task(task)
+            return approved
+
+    async def escalate(self, task: TaskRecord, why: str) -> bool:
+        """Move the task to a stronger brain. With paid gating, that means asking for paid brains."""
+        if self.gated and not task.paid_ok:
+            if not await self.ask_paid(task, f"العقل المجاني ما قدر: {why}"):
+                return False
+            if task.tier in TIER_ORDER and task.tier != "complex":
+                task.tier = TIER_ORDER[TIER_ORDER.index(task.tier) + 1]
+                self.memory.save_task(task)
+            return True
         i = TIER_ORDER.index(task.tier) if task.tier in TIER_ORDER else len(TIER_ORDER) - 1
         cap = TIER_ORDER.index(BUDGET_TIER.get(task.budget, "complex")) if task.budget in ("free", "balanced") \
             else len(TIER_ORDER) - 1  # Hassan's budget choice is a hard ceiling
@@ -395,7 +449,10 @@ class Orchestrator:
         spec = self.roster.agents[agent]
         chain = [model, *spec.chain] if model else spec.chain
         chain = list(dict.fromkeys(chain))  # dedupe, keep order
-        if self.tiered and self.llm.tier_uses_list(task.tier):
+        if self.gated and not task.paid_ok:
+            # free brains only; the router refuses paid ones and says so (PaidRequired)
+            chain = [f"{spec.model}@{task.tier or 'simple'}#free"]
+        elif self.tiered and self.llm.tier_uses_list(task.tier):
             # cheap tiers: one call; the router walks the tier's brain list itself
             chain = [f"{spec.model}@{task.tier}"]
         started = time.time()
@@ -424,7 +481,11 @@ class Orchestrator:
                           finished_at=time.time(), ok=False, error="; ".join(errors))
         task.outputs.append(out)
         self.memory.save_task(task)
-        if self.tiered and self.llm.tier_uses_list(task.tier) and self.escalate(task, f"{agent}: كل العقول الأرخص فشلت"):
+        if self.gated and not task.paid_ok:
+            if await self.ask_paid(task, f"{agent}: " + ("ما في عقل مجاني جاهز" if any("ما في عقل مجاني" in e for e in errors)
+                                                      else "العقول المجانية فشلت")):
+                return await self._call(task, agent, user, model=model, label=label)
+        elif self.tiered and self.llm.tier_uses_list(task.tier) and await self.escalate(task, f"{agent}: كل العقول الأرخص فشلت"):
             return await self._call(task, agent, user, model=model, label=label)
         raise LLMError(f"All models failed for {agent}: {'; '.join(errors)}")
 

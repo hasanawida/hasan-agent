@@ -23,7 +23,7 @@ from .mcp_bus import MCPRegistry
 from .memory import Memory
 from .operator_mode import Operator
 from .orchestrator import Orchestrator
-from .pc_tools import PCTools
+from .pc_tools import PCTools, editor_argv
 from .scheduler import Scheduler
 from .telegram import TelegramBot, groq_transcriber
 from .policy import Policy, PolicyError, resolve_workspace
@@ -77,26 +77,6 @@ class ProfileNote(BaseModel):
 class MemoryNote(BaseModel):
     kind: str = "note"
     content: str
-
-
-BATCH_UNSAFE = set('%^&|<>"!')
-
-
-def editor_argv(exe: str, args: list[str]) -> tuple[list[str], dict | None]:
-    """On Windows `code` is a .cmd batch shim, where cmd.exe would interpret characters in
-    paths. Launch Code.exe + cli.js directly (exactly what code.cmd does) to avoid cmd.exe."""
-    import os
-
-    if not exe.lower().endswith((".cmd", ".bat")):
-        return [exe, *args], None
-    bin_dir = Path(exe).parent
-    code_exe = next((p for p in (bin_dir.parent / "Code.exe", bin_dir.parent / "Code - Insiders.exe") if p.exists()), None)
-    cli_js = bin_dir.parent / "resources" / "app" / "out" / "cli.js"
-    if code_exe and cli_js.exists():
-        return [str(code_exe), str(cli_js), *args], {**os.environ, "ELECTRON_RUN_AS_NODE": "1"}
-    if any(ch in BATCH_UNSAFE for a in args for ch in a):
-        raise HTTPException(400, "Path contains characters that cannot be passed safely to code.cmd")
-    return [exe, *args], None
 
 
 def create_app(settings: Settings | None = None, llm=None, telegram_transport=None,
@@ -455,7 +435,10 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
             raise HTTPException(503, f"'{settings.editor_command}' not found. In VS Code run: "
                                      "Shell Command: Install 'code' command in PATH")
         args = ["-g", f"{target}:{req.line}"] if (req.line and target.is_file()) else [str(target)]
-        argv, env = editor_argv(exe, args)
+        try:
+            argv, env = editor_argv(exe, args)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
         subprocess.Popen(argv, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                          stdin=subprocess.DEVNULL)
         return {"opened": str(target)}

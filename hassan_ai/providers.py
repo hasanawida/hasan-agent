@@ -27,7 +27,7 @@ from pathlib import Path
 
 from .config import load_yaml
 from .execution import NO_WINDOW
-from .llm import Completion, GatewayLLM, LLMError, MockLLM
+from .llm import Completion, GatewayLLM, LLMError, MockLLM, PaidRequired
 
 # Removed from the CLI's environment when use_subscription is on, so the CLI
 # bills the logged-in subscription instead of silently using an API key.
@@ -313,7 +313,7 @@ class RouterLLM:
     TIERS = ("simple", "medium", "complex")
 
     def __init__(self, backends: dict, routes: dict[str, Route], default: Route, fallback: list[str] | None = None,
-                 tiers: dict[str, list[str] | None] | None = None):
+                 tiers: dict[str, list[str] | None] | None = None, paid: set[str] | None = None):
         self.backends = backends
         self.routes = routes
         self.default = default
@@ -321,14 +321,20 @@ class RouterLLM:
         # Cost tiers: which brains serve a task by difficulty. A list = use these first for
         # every agent (cheap/free for easy work); None = each agent's own best brain (aliases).
         self.tiers = tiers or {}
+        # Brains that spend Hassan's subscriptions/credits. Used only when he allows it.
+        self.paid = paid or set()
 
     @classmethod
     def from_config(cls, path: Path, gateway_url: str, gateway_key: str, timeout: float,
                     transport=None) -> "RouterLLM":
         data = load_yaml(path)
         backends: dict = {}
+        paid: set[str] = set()
         for name, cfg in (data.get("backends") or {"gateway": {"type": "gateway"}}).items():
             kind = cfg.get("type", name)
+            # subscriptions (CLI brains) are paid unless marked otherwise; APIs are free unless marked paid
+            if cfg.get("paid", kind in CLI_KINDS):
+                paid.add(name)
             if kind in CLI_KINDS:
                 backends[name] = CLIBackend(
                     kind=kind, command=cfg.get("command", DEFAULT_COMMAND[kind]),
@@ -376,7 +382,7 @@ class RouterLLM:
                 if b not in backends:
                     raise ValueError(f"providers.yaml tiers.{tier} lists unknown backend '{b}'")
             tiers[tier] = [str(b) for b in names]
-        return cls(backends, routes, default, fallback, tiers)
+        return cls(backends, routes, default, fallback, tiers, paid)
 
     def tier_uses_list(self, tier: str | None) -> bool:
         return bool(tier and self.tiers.get(tier))
@@ -392,8 +398,10 @@ class RouterLLM:
         return await backend.complete(model or alias, system, user, json_mode=json_mode)
 
     async def complete(self, model: str, system: str, user: str, *, json_mode: bool = False) -> Completion:
-        # "alias@tier" (e.g. "operator@simple") picks brains by task difficulty.
-        model, _, tier = model.partition("@")
+        # "alias@tier" picks brains by task difficulty; "…#free" forbids paid brains.
+        model, _, rest = model.partition("@")
+        tier, _, flag = rest.partition("#")
+        free_only = flag == "free"
         errors: list[str] = []
         if self.tier_uses_list(tier):
             names = self.tiers[tier] + [b for b in self.fallback if b not in self.tiers[tier]]
@@ -401,14 +409,22 @@ class RouterLLM:
         else:
             route = self.route_for(model)
             chain = [(route.backend, route.model)] + [(b, None) for b in self.fallback if b != route.backend]
+        if free_only:
+            order = [n for n, _ in chain] + [n for lst in self.tiers.values() if lst for n in lst] + list(self.backends)
+            chain = [(n, None) for n in dict.fromkeys(order) if n not in self.paid]
+        tried = 0
         for name, backend_model in chain:
             backend = self.backends[name]
             if isinstance(backend, APIBackend) and not backend.configured:
                 continue  # no key saved for this free API: skip silently
+            tried += 1
             try:
                 return await self._call(name, backend_model, model, system, user, json_mode)
             except LLMError as exc:
                 errors.append(str(exc)[:300])
+        if free_only:
+            why = "ما في عقل مجاني جاهز (ضيف مفتاح بكرت APIs مجانية)" if not tried else "العقول المجانية فشلت"
+            raise PaidRequired(f"{why}: " + " ; ".join(errors))
         raise LLMError(" ; ".join(errors) or f"{model}: no backend available")
 
     async def status(self) -> dict:
@@ -421,6 +437,7 @@ class RouterLLM:
             else:
                 backends[name] = {"type": "gateway" if isinstance(backend, GatewayLLM) else "mock"}
         return {"default": self.default.__dict__, "fallback": self.fallback, "tiers": self.tiers,
+                "paid": sorted(self.paid),
                 "aliases": {a: r.__dict__ for a, r in self.routes.items()},
                 "backends": backends}
 

@@ -26,6 +26,7 @@ auto:
   - pc.web         # read a public web page (private/local addresses are blocked)
   - pc.websearch
   - pc.screenshot  # saved on the PC, shown only to Hassan
+  - pc.vscode      # open a folder/file in VS Code
   # Windows-MCP (control any app): looking at the screen is automatic
   - mcp.windows.State*
   - mcp.windows.Snapshot*

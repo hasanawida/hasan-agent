@@ -26,6 +26,10 @@ class LLMError(RuntimeError):
         self.status = status
 
 
+class PaidRequired(LLMError):
+    """Only paid brains (subscriptions) could serve this call, and paid use was not allowed."""
+
+
 @dataclass
 class Completion:
     text: str
@@ -99,7 +103,7 @@ class MockLLM:
 
     async def complete(self, model: str, system: str, user: str, *, json_mode: bool = False) -> Completion:
         start = time.monotonic()
-        model = model.split("@", 1)[0]
+        model = model.split("@", 1)[0].split("#", 1)[0]
         role = _role_from_system(system)
         task = _section(user, "TASK")
         text = self._answer(role, model, task, user)

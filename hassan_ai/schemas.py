@@ -108,6 +108,8 @@ class TaskRecord(BaseModel):
     origin: str | None = None
     budget: str = "auto"
     tier: str | None = None  # simple | medium | complex (decides which brains are used)
+    paid_ok: bool | None = None  # may this task use paid brains? (None = not decided yet)
+    paid_asked: bool = False
     status: TaskStatus = TaskStatus.queued
     phase: str = "queued"
     outputs: list[AgentOutput] = Field(default_factory=list)

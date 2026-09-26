@@ -156,3 +156,17 @@ def test_windows_app_switch_is_automatic_and_titles_are_readable(tmp_path):
     assert t.describe("mcp", click) == "انقر على العنصر رقم 12"
     typ = {"server": "windows", "tool": "Type", "arguments": {"label": 3, "text": "@BotFather", "press_enter": True}}
     assert t.describe("mcp", typ) == "اكتب «@BotFather» في العنصر رقم 3 ثم Enter"
+
+
+def test_vscode_tool_opens_without_approval(tmp_path, monkeypatch):
+    launched = []
+    monkeypatch.setattr("hassan_ai.pc_tools.subprocess.Popen", lambda argv, **kw: launched.append(argv))
+    monkeypatch.setattr("hassan_ai.pc_tools.shutil.which", lambda name: "/usr/bin/code" if name == "code" else None)
+    (tmp_path / "proj").mkdir()
+    (tmp_path / "proj" / "main.py").write_text("x")
+    t = tools(tmp_path)
+    assert t.access("vscode", {"path": str(tmp_path / "proj")}) == AUTO
+    asyncio.run(t.execute("vscode", {"path": str(tmp_path / "proj" / "main.py"), "line": 3}))
+    assert launched[-1] == ["/usr/bin/code", "-g", f"{(tmp_path / 'proj' / 'main.py').resolve()}:3"]
+    with pytest.raises(PolicyError):
+        asyncio.run(t.execute("vscode", {"path": "/etc"}))

@@ -51,6 +51,25 @@ PROTECTED_NAMES = {"Login Data", "Cookies", "Web Data", "Local State", "key4.db"
                    "access_key", "hassan.env", "NTUSER.DAT", "wallet.dat"}
 
 
+BATCH_UNSAFE = set('%^&|<>"!')
+
+
+def editor_argv(exe: str, args: list[str]) -> tuple[list[str], dict | None]:
+    """On Windows `code` is a .cmd batch shim, where cmd.exe would interpret characters in
+    paths. Launch Code.exe + cli.js directly (exactly what code.cmd does) to avoid cmd.exe."""
+    if not exe.lower().endswith((".cmd", ".bat")):
+        return [exe, *args], None
+    bin_dir = Path(exe).parent
+    code_exe = next((p for p in (bin_dir.parent / "Code.exe", bin_dir.parent / "Code - Insiders.exe") if p.exists()), None)
+    cli_js = bin_dir.parent / "resources" / "app" / "out" / "cli.js"
+    if code_exe and cli_js.exists():
+        return [str(code_exe), str(cli_js), *args], {**os.environ, "ELECTRON_RUN_AS_NODE": "1"}
+    if any(ch in BATCH_UNSAFE for a in args for ch in a):
+        raise ValueError("Path contains characters that cannot be passed safely to code.cmd")
+    return [exe, *args], None
+
+
+
 @dataclass
 class ToolSpec:
     name: str
@@ -74,6 +93,8 @@ TOOLS: list[ToolSpec] = [
     ToolSpec("delete", "pc.delete", "Delete a file/folder (goes to Hassan's recoverable trash).", {"path": "path"}),
     ToolSpec("run", "pc.run", "Run a command (PowerShell on Windows). Always shown to Hassan first.",
              {"command": "the exact command", "cwd": "optional working folder"}),
+    ToolSpec("vscode", "pc.vscode", "Open a folder or file in VS Code (optionally at a line).",
+             {"path": "folder or file", "line": "optional line number"}),
     ToolSpec("web_fetch", "pc.web", "Read a public web page as text.", {"url": "https:// URL"}),
     ToolSpec("web_search", "pc.websearch", "Search the web; returns titles, links and snippets.", {"query": "text"}),
     ToolSpec("screenshot", "pc.screenshot", "Take a screenshot of the PC screen (saved and shown to Hassan).", {}),
@@ -563,6 +584,18 @@ class PCTools:
         argv = args if isinstance(args, list) else str(args).split()
         code, out = await self._proc([self._ffmpeg(), "-hide_banner", "-y", *map(str, argv)], max(self.command_timeout, 1800))
         return f"exit {code}\n{out[-4000:]}"
+
+    def _t_vscode(self, path: str, line: Any = None) -> str:
+        target = self.path(path, must_exist=True)
+        exe = shutil.which("code")
+        if exe is None:
+            raise RuntimeError("VS Code's `code` command is not on PATH. In VS Code: Ctrl+Shift+P → "
+                               "Shell Command: Install 'code' command in PATH")
+        args = ["-g", f"{target}:{int(line)}"] if (line and target.is_file()) else [str(target)]
+        argv, env = editor_argv(exe, args)
+        subprocess.Popen(argv, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         stdin=subprocess.DEVNULL, **NO_WINDOW)
+        return f"opened in VS Code: {target}"
 
     async def _t_mcp(self, server: str, tool: str, arguments: dict | None = None) -> Any:
         if self.mcp is None:

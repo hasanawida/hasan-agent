@@ -111,7 +111,7 @@ def test_claude_and_chatgpt_work_together(tmp_path, fake_clis, py_project):
         assert status["backends"]["claude"]["installed"]
         assert "ChatGPT" in status["backends"]["chatgpt"]["login status"]
 
-        t = client.post("/api/tasks", json={"prompt": "critical: review the calculator", "mode": "consensus",
+        t = client.post("/api/tasks", json={"prompt": "critical: review the calculator", "mode": "consensus", "budget": "best",
                                             "workspace": str(py_project), "execute": True}).json()
         task = wait(client, t["id"])
         assert task["status"] == "completed", task["error"]
@@ -142,7 +142,7 @@ def test_missing_claude_falls_back_to_chatgpt(tmp_path, fake_clis):
     with live_client(tmp_path, cfg) as client:
         status = client.get("/api/providers").json()
         assert status["backends"]["claude"]["installed"] is False
-        t = client.post("/api/tasks", json={"prompt": "plan something", "mode": "fast"}).json()
+        t = client.post("/api/tasks", json={"prompt": "plan something", "mode": "fast", "budget": "best"}).json()
         task = wait(client, t["id"])
         assert task["status"] == "completed", task["error"]
         manager = next(o for o in task["outputs"] if o["agent"] == "manager")
@@ -179,7 +179,7 @@ print(json.dumps({{"type": "result", "is_error": True, "api_error_status": 429,
 sys.exit(1)
 """.replace("{log!r}", repr(str(log))))
     with live_client(tmp_path, write_providers(tmp_path, limited, codex)) as client:
-        t = client.post("/api/tasks", json={"prompt": "x", "mode": "fast"}).json()
+        t = client.post("/api/tasks", json={"prompt": "x", "mode": "fast", "budget": "best"}).json()
         task = wait(client, t["id"])
         assert task["status"] == "completed", task["error"]
         assert all(o["model"].startswith("codex_cli") for o in task["outputs"])
@@ -220,7 +220,7 @@ def test_gemini_cli_brain(tmp_path, fake_clis, monkeypatch):
         default: gemini-sub
     """))
     with live_client(tmp_path, cfg) as client:
-        t = client.post("/api/tasks", json={"prompt": "research", "mode": "fast"}).json()
+        t = client.post("/api/tasks", json={"prompt": "research", "mode": "fast", "budget": "best"}).json()
         task = wait(client, t["id"])
         assert task["status"] == "completed", task["error"]
         out = task["outputs"][0]
