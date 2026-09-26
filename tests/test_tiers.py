@@ -62,9 +62,16 @@ def test_simple_task_uses_free_brain_and_fast_team(tmp_path):
         task = wait(c, t["id"], {"completed", "failed"})
         assert task["tier"] == "simple"
         assert all(o["model"] == "free/x" for o in task["outputs"])
-        t = c.post("/api/tasks", json={"prompt": "ترجم hello للعربي", "mode": "auto"}).json()
+        # a quick PC question sent to the team (no project folder) goes to the operator instead
+        t = c.post("/api/tasks", json={"prompt": "قديش المساحة الفاضية؟", "mode": "auto"}).json()
         task = wait(c, t["id"], {"completed", "failed"})
-        assert task["tier"] == "medium" and task["resolved_mode"] in ("auto", "fast")
+        assert task["tier"] == "simple" and task["kind"] == "operate"
+        assert [o["agent"] for o in task["outputs"]] == ["operator"]
+        # with a project folder it stays a team task
+        (tmp_path / "proj").mkdir()
+        t = c.post("/api/tasks", json={"prompt": "قديش ملف بالمشروع؟", "workspace": str(tmp_path / "proj")}).json()
+        task = wait(c, t["id"], {"completed", "failed"})
+        assert task["kind"] == "project" and task["tier"] == "medium"
 
 
 def test_complex_task_uses_each_role_best_brain(tmp_path):

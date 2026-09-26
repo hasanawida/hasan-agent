@@ -144,6 +144,12 @@ class Orchestrator:
         task = self._load(task_id)
         try:
             await self._triage(task)
+            if task.kind == "project" and not task.workspace and task.tier == "simple" and self.operator is not None:
+                # A quick question about the PC ("how much free space?") needs someone who can look at
+                # the machine and answer, not a team that writes a program for it.
+                task.kind = "operate"
+                self._emit(task, "route", "🖥️ سؤال سريع عن الكمبيوتر — حوّلته للمشغّل بدل الفريق")
+                self.memory.save_task(task)
             if task.kind == "operate":
                 if self.operator is None:
                     raise RuntimeError("Operator mode is not available")
@@ -344,7 +350,8 @@ class Orchestrator:
         if task.budget in BUDGET_TIER:
             tier, reason = BUDGET_TIER[task.budget], "اختيارك"
         else:
-            tier, reason = classify_heuristic(task.prompt, task.kind)
+            # classify by content; a team task without a project folder may still be a quick PC question
+            tier, reason = classify_heuristic(task.prompt, "operate" if not task.workspace else task.kind)
             if tier is None and self.tiered:
                 try:
                     comp = await self.llm.complete("triage@simple", TRIAGE_SYSTEM, task.prompt[:4000])

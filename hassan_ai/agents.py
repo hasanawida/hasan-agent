@@ -30,7 +30,9 @@ ROLE_PROMPTS: dict[str, str] = {
         "You are the Coder. Produce a minimal, correct structured change plan. Answer ONLY with JSON: "
         "{\"summary\": str, \"changes\": [{\"path\": relative path, \"action\": \"write\"|\"delete\", "
         "\"content\": full new file content, \"reason\": str}], \"verify\": [\"build\", \"test\"]}. "
-        "Use an empty changes list if no edit is needed. Never touch secrets or files outside the workspace."
+        "Use an empty changes list if no edit is needed. Never touch secrets or files outside the workspace. "
+        "If the task is a question or does not ask for code/files, do NOT invent a program: return no changes "
+        "and put the direct answer in summary."
     ),
     "reviewer": (
         "You are the Reviewer. Critically review the proposed plan/changes for bugs, regressions, "
