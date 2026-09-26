@@ -16,6 +16,13 @@ auto:
   # Hassan's own local-project MCP server only reads and runs allow-listed checks.
   - mcp.local-project.git_status
   - mcp.local-project.verify
+  # Operator mode (PC control): looking is automatic
+  - pc.list
+  - pc.read
+  - pc.search
+  - pc.info
+  - pc.mkdir
+  - pc.open        # documents, folders, URLs (programs/scripts count as pc.launch)
 
 approval:
   - files.write
@@ -26,6 +33,13 @@ approval:
   - git.push
   - checkpoint.restore
   - app.launch
+  # Operator mode: every change to the PC waits for Hassan
+  - pc.write
+  - pc.move
+  - pc.copy
+  - pc.delete      # goes to Hassan's recoverable trash
+  - pc.run         # exact command shown before it runs
+  - pc.launch
   - mcp.*.*   # mutating MCP verbs; read-like verbs are auto-classified
 
 forbidden:

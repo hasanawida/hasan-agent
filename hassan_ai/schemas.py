@@ -39,6 +39,7 @@ class TaskCreate(BaseModel):
     workspace: str | None = None
     execute: bool = False
     project: str | None = None
+    kind: Literal["project", "operate"] = "project"
 
 
 class AgentOutput(BaseModel):
@@ -100,6 +101,7 @@ class TaskRecord(BaseModel):
     workspace: str | None = None
     execute: bool = False
     project: str | None = None
+    kind: str = "project"
     status: TaskStatus = TaskStatus.queued
     phase: str = "queued"
     outputs: list[AgentOutput] = Field(default_factory=list)

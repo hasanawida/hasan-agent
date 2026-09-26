@@ -64,11 +64,19 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px sol
   header{padding:10px 12px}header h1{font-size:17px}.agents{grid-template-columns:repeat(3,1fr)}
   .agent small{display:none}.log{max-height:180px}textarea{min-height:90px;font-size:16px}
   input,select{font-size:16px}.mic{width:54px;font-size:22px}}
+.kinds{display:flex;gap:6px;margin-bottom:10px}.kinds button{flex:1;background:transparent;border:1px solid var(--line);color:var(--muted)}
+.kinds button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+html,body{overflow-x:hidden}
+main>*{min-width:0}
+.hist div,#taskPrompt,.chip,.approval p,.decision,summary{overflow-wrap:anywhere}
+#alertBar{display:none;position:sticky;top:0;z-index:10;background:var(--warn);color:#1b1300;padding:10px 16px;
+  font-weight:600;cursor:pointer;text-align:center}
 details summary{cursor:pointer;color:var(--muted);font-size:13px}
 .muted{color:var(--muted);font-size:13px}
 </style>
 </head>
 <body>
+<div id="alertBar"></div>
 <header>
   <h1>🧠 Hassan AI OS</h1>
   <div class="meta" id="health">…</div>
@@ -77,6 +85,12 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
 <aside>
   <div class="card">
     <h2>مهمة جديدة</h2>
+    <div class="kinds">
+      <button id="kindProject" class="on" title="الفريق يفكّر ويحلّل ويبرمج">🧠 الفريق</button>
+      <button id="kindOperate" title="الإيجنت يشتغل على الكمبيوتر: ملفات، برامج، أوامر">🖥️ تحكم بالكمبيوتر</button>
+    </div>
+    <p id="operateHint" class="muted" style="display:none;font-size:12px;margin-top:0">
+      بيشوف ويدوّر ويفتح لحاله. أي تغيير (كتابة، نقل، حذف، أمر، برنامج) بيستنى موافقتك — من هون أو من التلفون.</p>
     <div class="row" style="align-items:stretch">
       <textarea id="prompt" placeholder="اكتب أو اضغط 🎤 واحكي: افحص مشروع الأقصى، أصلح مشكلة الصوت، ثم اعمل Build واختبار"></textarea>
       <button class="mic" id="mic" title="احكي بدل ما تكتب">🎤</button>
@@ -90,6 +104,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
       <label><input type="checkbox" id="autoSend"> أرسل لما أسكت</label>
       <label><input type="checkbox" id="speakReply"> 🔊 اقرألي الرد</label>
     </div>
+    <div id="projectFields">
     <label>الوضع</label>
     <select id="mode">
       <option value="auto">Auto — المدير يقرر</option>
@@ -102,6 +117,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <label>اسم المشروع (للذاكرة)</label>
     <input id="project" placeholder="al-aqsa-vr" dir="ltr">
     <label class="row" style="justify-content:flex-start;gap:8px"><input type="checkbox" id="execute" style="width:auto"> Execute — Checkpoint + Build + Tests</label>
+    </div>
     <div style="margin-top:12px"><button id="run" style="width:100%">تشغيل ▶</button></div>
     <div id="formErr" class="muted" style="color:var(--bad);margin-top:8px"></div>
   </div>
@@ -142,14 +158,15 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
         <div><span class="pill" id="status"></span> <span class="muted" id="phase"></span></div>
         <div style="flex:0;display:flex;gap:6px">
           <button class="ghost small" id="openTaskWs" style="display:none">VS Code ↗</button>
-          <button class="ghost small" id="rollback" style="display:none">↩ Rollback</button></div>
+          <button class="ghost small" id="rollback" style="display:none">↩ Rollback</button>
+          <button class="bad small" id="stopTask" style="display:none">⏹ أوقف</button></div>
       </div>
       <p id="taskPrompt" class="muted"></p>
       <div id="taskUsage" class="muted" style="font-size:12px"></div>
       <div id="errorBox" style="color:var(--bad)"></div>
     </div>
     <div id="approvals"></div>
-    <div class="card"><h2>الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><pre id="evDetail" style="display:none"></pre></div>
+    <div class="card"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><pre id="evDetail" style="display:none"></pre></div>
     <div class="card"><h2>القرار النهائي <button class="ghost small" id="speakBtn" title="اقرأ بصوت">🔊</button></h2><div class="decision" id="decision"><span class="muted">بانتظار الفريق…</span></div></div>
     <div class="card"><h2>خطة التنفيذ</h2><ol id="plan" class="muted"></ol></div>
     <div class="card"><h2>مخرجات الوكلاء</h2><div id="outputs"></div></div>
@@ -159,7 +176,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
 </main>
 <script>
 const $ = id => document.getElementById(id);
-let agents = [], current = null, lastSeq = 0, timer = null, currentTask = null, approvalKey = "";
+let agents = [], current = null, lastSeq = 0, timer = null, currentTask = null, approvalKey = "", taskKind = "project";
 const spoken = new Set();
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 async function api(path, opts = {}) {
@@ -345,6 +362,37 @@ async function loadHistory() {
     `<div data-id="${t.id}"><span class="pill ${t.status}">${t.status}</span> ${esc(t.prompt)}</div>`).join("") || '<span class="muted">لا توجد مهام بعد</span>';
   $("history").querySelectorAll("div[data-id]").forEach(d => d.onclick = () => openTask(d.dataset.id));
 }
+function setKind(k) {
+  taskKind = k;
+  $("kindProject").classList.toggle("on", k === "project");
+  $("kindOperate").classList.toggle("on", k === "operate");
+  $("operateHint").style.display = k === "operate" ? "" : "none";
+  $("projectFields").style.display = k === "operate" ? "none" : "";
+  try { localStorage.setItem("hassan.kind", k); } catch {}
+}
+$("kindProject").onclick = () => setKind("project");
+$("kindOperate").onclick = () => setKind("operate");
+try { if (localStorage.getItem("hassan.kind") === "operate") setKind("operate"); } catch {}
+
+async function checkApprovals() {
+  try {
+    const list = await api("/api/approvals");
+    const bar = $("alertBar");
+    if (!list.length) { bar.style.display = "none"; return; }
+    bar.style.display = "block";
+    bar.textContent = `⚠️ في ${list.length} طلب موافقة بستناك — اضغط هون`;
+    bar.onclick = () => { openTask(list[0].task_id); setTimeout(() => $("approvals").scrollIntoView({behavior: "smooth"}), 400); };
+    if (document.hidden && "Notification" in window && Notification.permission === "granted" && !spoken.has("n" + list[0].id)) {
+      spoken.add("n" + list[0].id); new Notification("Hassan AI", {body: list[0].title});
+    }
+  } catch {}
+}
+setInterval(checkApprovals, 4000);
+$("stopTask").onclick = async () => {
+  if (!confirm("توقف المهمة؟ أي طلب موافقة معلّق رح ينرفض.")) return;
+  try { await api(`/api/tasks/${current}/cancel`, {method: "POST"}); } catch (e) { alert(e.message); }
+};
+
 $("run").onclick = async () => {
   $("formErr").textContent = "";
   const prompt = $("prompt").value.trim();
@@ -353,14 +401,17 @@ $("run").onclick = async () => {
   $("run").disabled = true;
   try {
     const t = await api("/api/tasks", {method: "POST", body: JSON.stringify({
-      prompt, mode: $("mode").value, workspace: $("workspace").value.trim() || null,
-      project: $("project").value.trim() || null, execute: $("execute").checked})});
+      prompt, kind: taskKind, mode: $("mode").value,
+      workspace: taskKind === "operate" ? null : ($("workspace").value.trim() || null),
+      project: $("project").value.trim() || null, execute: taskKind === "operate" ? false : $("execute").checked})});
+    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
     openTask(t.id); loadHistory();
   } catch (e) { $("formErr").textContent = e.message; }
   finally { $("run").disabled = false; }
 };
 function openTask(id) {
-  approvalKey = null; current = id; lastSeq = 0; $("log").innerHTML = ""; $("taskView").style.display = "";
+  approvalKey = null; current = id;
+  if (window.innerWidth < 900) setTimeout(() => $("taskView").scrollIntoView({behavior: "smooth"}), 150); lastSeq = 0; $("log").innerHTML = ""; $("taskView").style.display = "";
   clearInterval(timer); poll(); timer = setInterval(poll, 1200);
 }
 async function poll() {
@@ -376,6 +427,7 @@ async function poll() {
   }
   if (events.length) $("log").scrollTop = $("log").scrollHeight;
   render(task);
+  checkApprovals();
   if (["completed","failed","rejected","awaiting_approval"].includes(task.status) && !events.length) {
     if (task.status !== "awaiting_approval") { clearInterval(timer); loadHistory(); }
   }
@@ -386,6 +438,8 @@ function render(t) {
   const u = t.usage || {};
   $("taskUsage").textContent = u.calls ? `استهلاك المهمة: ${u.calls} طلب · ${fmtTokens(u.input_tokens + u.output_tokens)} tokens · ≈${fmtUsd(u.cost_usd)} · ${Math.round(u.seconds)} ث` : "";
   $("openTaskWs").style.display = t.workspace ? "" : "none";
+  $("stopTask").style.display = t.kind === "operate" && ["running", "awaiting_approval", "queued"].includes(t.status) ? "" : "none";
+  $("evTitle").textContent = t.kind === "operate" ? "🖥️ خطوات على الكمبيوتر" : "الأدلة (Evidence)";
   if (t.status === "completed" && t.decision && $("speakReply").checked && !spoken.has(t.id)) {
     spoken.add(t.id); speak(t.decision); loadUsage();
   }

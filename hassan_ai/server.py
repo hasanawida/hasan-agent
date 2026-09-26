@@ -21,7 +21,9 @@ from .execution import CheckpointManager, ExecutionManager, SafeLocalRunner
 from .llm import MockLLM
 from .mcp_bus import MCPRegistry
 from .memory import Memory
+from .operator_mode import Operator
 from .orchestrator import Orchestrator
+from .pc_tools import PCTools
 from .policy import Policy, PolicyError, resolve_workspace
 from .config import save_env_value
 from .providers import APIBackend, RouterLLM
@@ -90,6 +92,10 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
                if settings.mode == "live" else MockLLM())
     orchestrator = Orchestrator(settings, memory, llm, roster, execution)
     mcp = MCPRegistry(settings.mcp_config, policy)
+    pc = PCTools(policy, settings.allowed_roots, settings.data_dir / "trash",
+                 protected_dirs=[settings.data_dir, PACKAGE_DIR.parent], mcp=mcp)
+    orchestrator.operator = Operator(orchestrator, pc)
+    roster.agents["operator"].extra_system = orchestrator.operator.system_prompt()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -291,6 +297,14 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
             return {"restored": await orchestrator.rollback(task_id)}
         except (KeyError, ValueError, PolicyError) as exc:
             raise HTTPException(400, str(exc)) from exc
+
+    @app.post("/api/tasks/{task_id}/cancel")
+    async def cancel_task(task_id: str):
+        try:
+            orchestrator.cancel(task_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Task not found") from exc
+        return {"ok": True}
 
     @app.get("/api/approvals")
     async def pending_approvals():

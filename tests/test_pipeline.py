@@ -7,7 +7,7 @@ from .conftest import wait
 
 def test_health_and_agents(client):
     h = client.get("/api/health").json()
-    assert h["mode"] == "mock" and h["agents"] == 8
+    assert h["mode"] == "mock" and h["agents"] == 9
     names = {a["name"] for a in client.get("/api/agents").json()}
     assert {"manager", "analyst", "planner", "researcher", "coder", "reviewer", "judge", "decision"} <= names
     assert client.get("/").status_code == 200

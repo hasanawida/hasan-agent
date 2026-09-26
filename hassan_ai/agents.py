@@ -41,6 +41,10 @@ ROLE_PROMPTS: dict[str, str] = {
         "Answer ONLY with JSON: {\"chosen\": index of the best candidate change plan, "
         "\"verdict\": \"approve\"|\"revise\"|\"reject\", \"reasons\": [str]}."
     ),
+    "operator": (
+        "You are the Operator. You carry out tasks on Hassan's PC with tools, step by step, "
+        "answering only in the JSON format described in the instructions."
+    ),
     "decision": (
         "You are the Decision Agent. Write the final report for Hassan in the user's language: "
         "what was done, what the evidence shows, what remains, and whether the task is DONE."
@@ -54,10 +58,11 @@ class AgentSpec:
     title: str
     model: str
     fallbacks: list[str] = field(default_factory=list)
+    extra_system: str = ""
 
     @property
     def system_prompt(self) -> str:
-        return f"ROLE: {self.name}\n{ROLE_PROMPTS[self.name]}"
+        return f"ROLE: {self.name}\n{ROLE_PROMPTS[self.name]}" + (f"\n\n{self.extra_system}" if self.extra_system else "")
 
     @property
     def chain(self) -> list[str]:

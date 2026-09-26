@@ -68,4 +68,5 @@ aliases:
   cross-reviewer: claude      # ... and Claude cross-checks
   judge: claude
   decision: chatgpt
+  operator: chatgpt           # works on the PC step by step (Operator mode)
   general: chatgpt            # shared fallback for every agent

@@ -139,6 +139,14 @@ class MockLLM:
         if role == "judge":
             return json.dumps({"chosen": 0, "verdict": "approve",
                                "reasons": ["Candidate 0 is consistent with evidence", "Reviewers raised no blockers"]})
+        if role == "operator":
+            # Mock-only: task lines `OP {"tool": ..., "args": {...}}` are executed in step 1.
+            history = _section(user, "HISTORY")
+            if "(nothing yet)" in history:
+                ops = [json.loads(m.group(1)) for m in re.finditer(r"^OP (\{.*\})\s*$", task, re.MULTILINE)]
+                return json.dumps({"thought": "look first", "actions": ops or [{"tool": "system_info", "args": {}}]},
+                                  ensure_ascii=False)
+            return json.dumps({"done": True, "answer": f"[{model}] Done: {short}"}, ensure_ascii=False)
         if role == "decision":
             ev = _section(user, "EVIDENCE")
             failed = ev.count('"ok": false')

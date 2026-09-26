@@ -32,11 +32,14 @@ class Orchestrator:
         self.execution = execution
         self._running: set[asyncio.Task] = set()
         self._approval_lock = asyncio.Lock()
+        self._waiters: dict[str, asyncio.Future] = {}  # operator approvals being waited on
+        self._cancelled: set[str] = set()
+        self.operator = None  # set by the server (Operator mode)
 
     # ------------------------------------------------------------------ API
     def submit(self, req: TaskCreate) -> TaskRecord:
         task = TaskRecord(prompt=req.prompt, mode=req.mode, workspace=req.workspace,
-                          execute=req.execute, project=req.project)
+                          execute=req.execute, project=req.project, kind=req.kind)
         self.memory.save_task(task)
         self._emit(task, "created", "Task received", {"mode": task.mode.value, "execute": task.execute})
         self._spawn(self.run(task.id))
@@ -46,6 +49,12 @@ class Orchestrator:
         """Tasks cut off by a restart are marked failed (awaiting-approval tasks survive)."""
         count = 0
         for task in self.memory.list_tasks(500):
+            if task.kind == "operate" and task.status == TaskStatus.awaiting_approval:
+                # the operator loop that was waiting is gone; don't leave a live-looking approval
+                for a in self.memory.approvals(task.id, status="pending"):
+                    a.status, a.decided_at = "rejected", now()
+                    self.memory.save_approval(a)
+                task.status = TaskStatus.running
             if task.status in (TaskStatus.running, TaskStatus.queued):
                 task.status, task.error = TaskStatus.failed, "Interrupted by server restart"
                 self.memory.save_task(task)
@@ -64,8 +73,28 @@ class Orchestrator:
             self.memory.save_approval(approval)
         task = self._load(approval.task_id)
         self._emit(task, "approval", f"{approval.title}: {approval.status}", {"approval_id": approval.id})
+        if approval.payload.get("operator"):
+            waiter = self._waiters.get(approval.id)
+            if waiter and not waiter.done():
+                waiter.set_result(approve)
+            return approval
         self._spawn(self._after_approval(task.id, approval))
         return approval
+
+    def cancel(self, task_id: str) -> None:
+        """Stop an operator task: no further steps; a pending approval counts as rejected."""
+        self._cancelled.add(task_id)
+        for a in self.memory.approvals(task_id, status="pending"):
+            a.status, a.decided_at = "rejected", now()
+            self.memory.save_approval(a)
+            waiter = self._waiters.get(a.id)
+            if waiter and not waiter.done():
+                waiter.set_result(False)
+        task = self._load(task_id)
+        self._emit(task, "cancel", "Stop requested by Hassan")
+
+    def cancelled(self, task_id: str) -> bool:
+        return task_id in self._cancelled
 
     async def rollback(self, task_id: str) -> list[str]:
         task = self._load(task_id)
@@ -83,6 +112,11 @@ class Orchestrator:
     async def run(self, task_id: str) -> None:
         task = self._load(task_id)
         try:
+            if task.kind == "operate":
+                if self.operator is None:
+                    raise RuntimeError("Operator mode is not available")
+                await self.operator.run(task)
+                return
             await self._pipeline(task)
         except Exception as exc:  # noqa: BLE001 - surface every failure on the task
             task.status, task.phase, task.error = TaskStatus.failed, "failed", f"{type(exc).__name__}: {exc}"

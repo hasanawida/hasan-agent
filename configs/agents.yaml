@@ -31,6 +31,10 @@ agents:
     title: القاضي
     model: judge
     fallbacks: [general]
+  operator:
+    title: المشغّل (الكمبيوتر)
+    model: operator
+    fallbacks: [general]
   decision:
     title: صانع القرار
     model: decision
