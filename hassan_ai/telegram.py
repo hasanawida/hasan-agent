@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import secrets
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -46,6 +47,7 @@ HELP = """🧠 Hassan AI OS
 /team <مهمة> — الفريق الكامل (تحليل، برمجة، مراجعة)
 /free <مهمة> — مجاني بس (بدون أسئلة) · /best <مهمة> — أقوى عقل مدفوع
 (بدون أمر: مجاني، وبسألك بزرّين قبل أي عقل مدفوع)
+/new — محادثة جديدة (غير هيك كل رسالة بتكمّل على اللي قبلها)
 /status — المهام الشغّالة
 /stop — أوقف آخر مهمة
 /remember <معلومة> — احفظ معلومة عنك
@@ -74,6 +76,7 @@ class TelegramBot:
         self._refused: set[int] = set()
         self._approval_msgs: dict[str, list[tuple[int, int]]] = {}
         self._last_task: dict[int, str] = {}
+        self._conv: dict[int, str] = {}
 
     # ------------------------------------------------------------ config
     @property
@@ -253,6 +256,11 @@ class TelegramBot:
         rest = rest.strip()
         if cmd in ("/start", "/help"):
             await self.send(chat_id, HELP)
+        elif cmd == "/new":
+            self._conv[chat_id] = secrets.token_hex(6)
+            await self.send(chat_id, "💬 بلّشنا محادثة جديدة. شو بدك؟" + (f"\n\n{rest}" if rest else ""))
+            if rest:
+                await self._start_task(chat_id, rest, "operate")
         elif cmd == "/status":
             active = [t for t in self.orch.memory.list_tasks(30)
                       if t.status in (TaskStatus.running, TaskStatus.awaiting_approval, TaskStatus.queued)]
@@ -292,9 +300,19 @@ class TelegramBot:
             await self.send(chat_id, "اكتب المهمة بعد الأمر.")
             return
         task = self.orch.submit(TaskCreate(prompt=prompt, kind=kind, mode=Mode.auto, budget=budget,
-                                           origin=f"telegram:{chat_id}"))
+                                           origin=f"telegram:{chat_id}", conversation=self.conversation(chat_id)))
         self._last_task[chat_id] = task.id
         await self.send(chat_id, "⏳ بلّشت" + (" (الفريق)" if kind == "project" else "") + "…")
+
+    def conversation(self, chat_id: int) -> str:
+        """The chat thread messages continue, until /new. After a restart, pick up the last
+        thread of this chat if it was active in the past 6 hours."""
+        if chat_id not in self._conv:
+            origin = f"telegram:{chat_id}"
+            last = next((t for t in self.orch.memory.list_tasks(100) if t.origin == origin and t.conversation), None)
+            fresh = last and (time.time() - last.updated_at) < 6 * 3600
+            self._conv[chat_id] = last.conversation if fresh else secrets.token_hex(6)
+        return self._conv[chat_id]
 
     # ------------------------------------------------------------ approvals
     async def _on_button(self, cq: dict) -> None:

@@ -175,6 +175,18 @@ class Memory:
             self._conn.commit()
             return cur.rowcount
 
+    def conversation(self, conversation: str, before: str | None = None, limit: int = 8) -> list[TaskRecord]:
+        """Earlier tasks of one chat thread, oldest first (up to the task ``before``)."""
+        like = f'%"conversation":"{conversation}"%'  # ids are [A-Za-z0-9-] only
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT body FROM tasks WHERE body LIKE ? ORDER BY created_at DESC LIMIT 60", (like,)).fetchall()
+        tasks = [t for t in (TaskRecord.model_validate_json(r["body"]) for r in rows) if t.conversation == conversation]
+        if before is not None:
+            ids = [t.id for t in tasks]
+            tasks = tasks[ids.index(before) + 1:] if before in ids else tasks
+        return list(reversed(tasks[:limit]))
+
     def search_tasks(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         like = f"%{query}%"
         with self._lock:

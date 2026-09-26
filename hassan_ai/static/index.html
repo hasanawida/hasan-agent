@@ -98,6 +98,10 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
       <button class="mic" id="mic" title="احكي بدل ما تكتب">🎤</button>
     </div>
     <div id="interim"></div>
+    <div class="row" style="align-items:center;font-size:12px;margin:4px 0">
+      <span id="chatInfo" class="muted" style="flex:1">💬 محادثة جديدة</span>
+      <button class="ghost small" style="flex:0 0 auto" id="newChat" title="انسى الرسائل اللي قبل وابدأ موضوع جديد">➕ محادثة جديدة</button>
+    </div>
     <div class="voice" id="voiceOpts">
       <select id="lang" title="لغة الكلام">
         <option value="ar-JO">عربي</option><option value="ar-SA">عربي فصحى</option>
@@ -488,6 +492,23 @@ $("stopTask").onclick = async () => {
   try { await api(`/api/tasks/${current}/cancel`, {method: "POST"}); } catch (e) { alert(e.message); }
 };
 
+// Like a chat: each message continues the conversation until "💬 محادثة جديدة".
+function chatId() {
+  let id = null;
+  try { id = localStorage.getItem("hassanChat"); } catch (e) {}
+  if (!id) { id = crypto.getRandomValues(new Uint32Array(2)).join("-"); try { localStorage.setItem("hassanChat", id); } catch (e) {} }
+  return id;
+}
+function showChat() {
+  let on = false;
+  try { on = !!localStorage.getItem("hassanChat"); } catch (e) {}
+  $("chatInfo").textContent = on ? "💬 محادثة شغّالة — رسالتك الجاي بتكمّل على اللي قبلها" : "💬 محادثة جديدة";
+}
+showChat();
+$("newChat").onclick = () => {
+  try { localStorage.removeItem("hassanChat"); } catch (e) {}
+  showChat(); $("prompt").focus();
+};
 $("run").onclick = async () => {
   $("formErr").textContent = "";
   const prompt = $("prompt").value.trim();
@@ -496,10 +517,11 @@ $("run").onclick = async () => {
   $("run").disabled = true;
   try {
     const t = await api("/api/tasks", {method: "POST", body: JSON.stringify({
-      prompt, kind: taskKind, mode: $("mode").value, budget: $("budget").value,
+      prompt, kind: taskKind, mode: $("mode").value, budget: $("budget").value, conversation: chatId(),
       workspace: taskKind === "operate" ? null : ($("workspace").value.trim() || null),
       project: $("project").value.trim() || null, execute: taskKind === "operate" ? false : $("execute").checked})});
     if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+    showChat(); $("prompt").value = "";
     openTask(t.id); loadHistory();
   } catch (e) { $("formErr").textContent = e.message; }
   finally { $("run").disabled = false; }

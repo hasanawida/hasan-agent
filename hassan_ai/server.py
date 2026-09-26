@@ -346,7 +346,8 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     @app.get("/api/tasks")
     async def list_tasks(limit: int = Query(30, le=200)):
         return [{"id": t.id, "prompt": t.prompt[:160], "status": t.status, "phase": t.phase,
-                 "mode": t.resolved_mode or t.mode, "created_at": t.created_at, "verified": t.verified}
+                 "mode": t.resolved_mode or t.mode, "created_at": t.created_at, "verified": t.verified,
+                 "conversation": t.conversation}
                 for t in memory.list_tasks(limit)]
 
     @app.get("/api/tasks/{task_id}")

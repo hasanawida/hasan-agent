@@ -204,3 +204,32 @@ def test_telegram_pairing_is_forgiving(bot_env):
     fake.push(6, code)
     until(lambda: any("تم ربط" in t for t in fake.texts(6)))
     assert client.get("/api/telegram").json()["paired_chats"] == [5, 6]
+
+
+def test_messages_continue_one_chat_until_new(bot_env):
+    client, fake, tmp = bot_env
+    client.post("/api/telegram/token", json={"token": "123:ABC"})
+    code = client.post("/api/telegram/pair-code").json()["code"]
+    fake.push(7, f"/pair {code}")
+    until(lambda: any("تم ربط" in t for t in fake.texts(7)))
+
+    def done_tasks(n):
+        tasks = client.get("/api/tasks").json()
+        return len(tasks) >= n and all(t["status"] == "completed" for t in tasks) and tasks
+
+    fake.push(7, "اسمي حسن وبحب بلندر")
+    until(lambda: done_tasks(1))
+    fake.push(7, "شو اسمي؟")
+    tasks = until(lambda: done_tasks(2))
+    assert tasks[0]["conversation"] == tasks[1]["conversation"]
+    op = client.app.state.orchestrator.operator
+    second = client.app.state.memory.get_task(tasks[0]["id"])
+    chat = op._chat(second)
+    assert "Hassan: اسمي حسن وبحب بلندر" in chat and "شو اسمي" not in chat
+
+    fake.push(7, "/new")
+    until(lambda: any("محادثة جديدة" in t for t in fake.texts(7)))
+    fake.push(7, "مرحبا")
+    tasks = until(lambda: done_tasks(3))
+    assert tasks[0]["conversation"] != tasks[1]["conversation"]
+    assert op._chat(client.app.state.memory.get_task(tasks[0]["id"])) == "(this is the first message)"

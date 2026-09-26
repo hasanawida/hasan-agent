@@ -42,6 +42,8 @@ class TaskCreate(BaseModel):
     kind: Literal["project", "operate"] = "project"
     origin: str | None = None  # e.g. "telegram:<chat id>" or "schedule:<id>"
     budget: Literal["auto", "free", "balanced", "best"] = "auto"
+    # messages sharing a conversation id see each other, like one chat thread
+    conversation: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9-]+$")
 
 
 class AgentOutput(BaseModel):
@@ -107,6 +109,7 @@ class TaskRecord(BaseModel):
     kind: str = "project"
     origin: str | None = None
     budget: str = "auto"
+    conversation: str | None = None
     tier: str | None = None  # simple | medium | complex (decides which brains are used)
     paid_ok: bool | None = None  # may this task use paid brains? (None = not decided yet)
     paid_asked: bool = False

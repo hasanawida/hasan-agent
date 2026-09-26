@@ -69,7 +69,7 @@ class Orchestrator:
     def submit(self, req: TaskCreate) -> TaskRecord:
         task = TaskRecord(prompt=req.prompt, mode=req.mode, workspace=req.workspace,
                           execute=req.execute, project=req.project, kind=req.kind, origin=req.origin,
-                          budget=req.budget)
+                          budget=req.budget, conversation=req.conversation)
         self.memory.save_task(task)
         self._emit(task, "created", "Task received", {"mode": task.mode.value, "execute": task.execute})
         self._spawn(self.run(task.id))
