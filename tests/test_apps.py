@@ -142,3 +142,17 @@ def test_media_endpoint_serves_only_media_files(client, tmp_path):
     assert client.get("/api/media/missing.png").status_code == 404
     phone = {"host": "pc.ts.net", "x-forwarded-for": "100.64.0.9"}
     assert client.get("/api/media/screen-1.png", headers=phone).status_code == 401
+
+
+def test_windows_app_switch_is_automatic_and_titles_are_readable(tmp_path):
+    t = tools(tmp_path)
+    sw = {"server": "windows", "tool": "App", "arguments": {"mode": "switch", "name": "Microsoft Edge"}}
+    launch = {"server": "windows", "tool": "App", "arguments": {"mode": "launch", "name": "CapCut"}}
+    assert t.access("mcp", sw) == AUTO
+    assert t.access("mcp", launch) == APPROVAL
+    assert t.describe("mcp", sw) == "انتقل لبرنامج: Microsoft Edge"
+    assert t.describe("mcp", launch) == "افتح برنامج: CapCut"
+    click = {"server": "windows", "tool": "Click", "arguments": {"label": 12}}
+    assert t.describe("mcp", click) == "انقر على العنصر رقم 12"
+    typ = {"server": "windows", "tool": "Type", "arguments": {"label": 3, "text": "@BotFather", "press_enter": True}}
+    assert t.describe("mcp", typ) == "اكتب «@BotFather» في العنصر رقم 3 ثم Enter"

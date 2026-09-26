@@ -38,7 +38,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 import httpx
 
 from .execution import NO_WINDOW
-from .policy import AUTO, FORBIDDEN, Policy, PolicyError
+from .policy import APPROVAL, AUTO, FORBIDDEN, Policy, PolicyError
 
 MAX_READ = 60_000
 MAX_OUTPUT = 12_000
@@ -120,7 +120,14 @@ class PCTools:
         if spec is None:
             raise PolicyError(f"Unknown tool: {tool}")
         if tool == "mcp":
-            return self.policy.decide_mcp(str(args.get("server", "")), str(args.get("tool", "")))
+            server, mtool = str(args.get("server", "")), str(args.get("tool", ""))
+            decision = self.policy.decide_mcp(server, mtool)
+            margs = args.get("arguments") if isinstance(args.get("arguments"), dict) else {}
+            # Bringing an already-open window to the front (or resizing it) changes nothing.
+            if server == "windows" and mtool == "App" and decision == APPROVAL \
+                    and str(margs.get("mode", "launch")) in ("switch", "resize"):
+                return AUTO
+            return decision
         decision = self.policy.decide(spec.action)
         if tool == "web_fetch" and decision == AUTO and len(urlsplit(str(args.get("url", ""))).query) > 300:
             return self.policy.decide("pc.web_query")  # a long query string could smuggle data out
@@ -164,13 +171,39 @@ class PCTools:
             "delete": f"احذف (لسلة Hassan): {a.get('path')}",
             "run": f"شغّل أمر: {a.get('command')}",
             "open": f"شغّل برنامج: {a.get('target')}",
-            "mcp": f"MCP {a.get('server')}.{a.get('tool')} {json.dumps(a.get('arguments') or {}, ensure_ascii=False)[:160]}",
+            "mcp": self._describe_mcp(a),
             "camera_photo": "صوّر بكاميرا الكمبيوتر",
             "mic_record": f"سجّل من المايكروفون {a.get('seconds', 10)} ثانية",
             "blender": f"شغّل سكربت Blender{(' على ' + str(a.get('blend_file'))) if a.get('blend_file') else ''}",
             "ffmpeg": f"ffmpeg {' '.join(map(str, a.get('args') or []))[:200]}",
             "web_fetch": f"افتح رابط: {a.get('url')}",
         }.get(tool, f"{tool} {json.dumps(a, ensure_ascii=False)[:200]}")
+
+    @staticmethod
+    def _describe_mcp(a: dict) -> str:
+        server, tool = a.get("server"), a.get("tool")
+        m = a.get("arguments") if isinstance(a.get("arguments"), dict) else {}
+        where = f"العنصر رقم {m['label']}" if m.get("label") is not None else f"المكان {m.get('loc')}" if m.get("loc") else ""
+        if server == "windows":
+            if tool == "App":
+                mode = m.get("mode", "launch")
+                what = m.get("name") or m.get("executable") or ""
+                return {"launch": f"افتح برنامج: {what}", "launch_executable": f"شغّل ملف برنامج: {what}",
+                        "switch": f"انتقل لبرنامج: {what}", "resize": f"غيّر حجم نافذة: {what}"}.get(mode, f"App {mode} {what}")
+            if tool == "Click":
+                clicks = m.get("clicks", 1)
+                return f"انقر{' مرتين' if str(clicks) == '2' else ''}{' (يمين)' if m.get('button') == 'right' else ''} على {where}".strip()
+            if tool == "Type":
+                return f"اكتب «{str(m.get('text', ''))[:120]}» في {where}{' ثم Enter' if m.get('press_enter') else ''}"
+            if tool == "Shortcut":
+                return f"اختصار كيبورد: {m.get('shortcut') or m.get('keys') or m}"
+            if tool == "Scroll":
+                return f"مرّر {m.get('direction', 'down')}"
+            if tool == "Clipboard":
+                return f"الحافظة (Clipboard): {m.get('mode', '')}"
+            if tool == "Process":
+                return f"إدارة البرامج الشغّالة: {m.get('mode', '')} {m.get('name', '')}"
+        return f"MCP {server}.{tool} {json.dumps(m, ensure_ascii=False)[:160]}"
 
     def preview(self, tool: str, args: dict) -> str:
         """Extra detail for the approval card (diff, command, sizes)."""

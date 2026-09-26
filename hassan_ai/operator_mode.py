@@ -193,7 +193,9 @@ class Operator:
             approved = await self._ask(task, tool, args)
             record["approval"] = "approved" if approved else "rejected"
             if not approved:
-                record["result"] = "Hassan rejected this action. Do not retry it."
+                record["result"] = ("Hassan rejected this action. Do not retry the same action; if the task "
+                                    "cannot continue without it, finish with done and say exactly which step you "
+                                    "needed and why, so he can approve it next time.")
                 history.append(record)
                 self._evidence(task, tool, args, False, "رفضت هذه الخطوة")
                 return True
