@@ -49,6 +49,9 @@ class AgentOutput(BaseModel):
     finished_at: float
     ok: bool = True
     error: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float | None = None
 
 
 class Evidence(BaseModel):

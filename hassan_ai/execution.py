@@ -22,6 +22,8 @@ from .policy import AUTO, FORBIDDEN, Policy, PolicyError, resolve_in_workspace
 from .schemas import Evidence, FileChange
 
 MAX_OUTPUT = 12_000
+# Child processes of the windowless background server must not pop up console windows.
+NO_WINDOW: dict = {"creationflags": 0x08000000} if os.name == "nt" else {}
 SKIP_DIRS = {".git", "node_modules", "bin", "obj", ".venv", "venv", "__pycache__", ".vs", "dist", "build",
              "Library", "Temp", ".idea", ".pytest_cache", "packages"}
 
@@ -150,7 +152,7 @@ class SafeLocalRunner:
         start = time.monotonic()
         proc = await asyncio.create_subprocess_exec(
             *argv, cwd=str(cwd), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-            env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "CI": "1"},
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "CI": "1"}, **NO_WINDOW,
         )
         try:
             out, err = await asyncio.wait_for(proc.communicate(), timeout or self.timeout)

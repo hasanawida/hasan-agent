@@ -39,6 +39,8 @@ class Settings:
     openhands_url: str = "http://127.0.0.1:3000"
     max_repair_rounds: int = 2
     command_timeout: float = 900.0
+    editor_command: str = "code"
+    allowed_hosts: list[str] = field(default_factory=lambda: ["127.0.0.1", "localhost"])
 
     @property
     def db_path(self) -> Path:
@@ -50,6 +52,7 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        load_env_file(ROOT_DIR / "hassan.env")
         data_dir = Path(os.environ.get("HASSAN_DATA_DIR", ROOT_DIR / "data")).resolve()
         roots = _env_list("HASSAN_ALLOWED_ROOTS", str(Path.home()))
         return cls(
@@ -68,7 +71,20 @@ class Settings:
             openhands_url=os.environ.get("HASSAN_OPENHANDS_URL", "http://127.0.0.1:3000").rstrip("/"),
             max_repair_rounds=int(os.environ.get("HASSAN_MAX_REPAIR_ROUNDS", "2")),
             command_timeout=float(os.environ.get("HASSAN_COMMAND_TIMEOUT", "900")),
+            editor_command=os.environ.get("HASSAN_EDITOR", "code"),
         )
+
+
+def load_env_file(path: Path) -> None:
+    """Read KEY=VALUE lines (written by the Windows installer). Real env vars win."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"'))
 
 
 def load_yaml(path: Path) -> dict:

@@ -29,7 +29,9 @@ user = sys.stdin.read()
 with open(os.environ["FAKE_LOG"], "a") as log:
     log.write(json.dumps({{"cli": "claude", "cwd": os.getcwd(), "key": os.environ.get("ANTHROPIC_API_KEY")}}) + "\\n")
 text = asyncio.run(MockLLM().complete("claude", system, user)).text
-print(json.dumps({{"type": "result", "is_error": False, "result": text}}))
+print(json.dumps({{"type": "result", "is_error": False, "result": text, "total_cost_usd": 0.01,
+                  "usage": {{"input_tokens": 100, "cache_read_input_tokens": 50, "output_tokens": 20}},
+                  "modelUsage": {{"claude-opus-5-5": {{"inputTokens": 100}}}}}}))
 """
 
 FAKE_CODEX = """
@@ -48,7 +50,8 @@ with open(os.environ["FAKE_LOG"], "a") as log:
     log.write(json.dumps({{"cli": "codex", "cwd": os.getcwd(), "key": os.environ.get("OPENAI_API_KEY")}}) + "\\n")
 text = asyncio.run(MockLLM().complete("chatgpt", system, prompt)).text
 open(args[args.index("-o") + 1], "w", encoding="utf-8").write(text)
-print("thinking... done")
+print(json.dumps({{"type": "thread.started"}}))
+print(json.dumps({{"type": "turn.completed", "usage": {{"input_tokens": 70, "cached_input_tokens": 10, "output_tokens": 9}}}}))
 """
 
 
@@ -116,6 +119,12 @@ def test_claude_and_chatgpt_work_together(tmp_path, fake_clis, py_project):
         assert models["manager"].startswith("claude_cli")
         assert models["reviewer"].startswith("codex_cli")
         assert models["cross_reviewer"].startswith("claude_cli")
+        manager = next(o for o in task["outputs"] if o["agent"] == "manager")
+        assert manager["model"] == "claude_cli/claude-opus-5-5"
+        assert (manager["input_tokens"], manager["output_tokens"], manager["cost_usd"]) == (150, 20, 0.01)
+        reviewer = next(o for o in task["outputs"] if o["agent"] == "reviewer")
+        assert (reviewer["input_tokens"], reviewer["output_tokens"]) == (70, 9)
+        assert task["usage"]["calls"] == len(task["outputs"])
         coders = [o["model"] for o in task["outputs"] if o["agent"] == "coder"]
         assert any(m.startswith("claude_cli") for m in coders) and any(m.startswith("codex_cli") for m in coders)
 

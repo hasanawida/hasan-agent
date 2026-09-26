@@ -1,0 +1,31 @@
+{
+  // Copy into your project's .vscode/tasks.json (or VS Code: "Tasks: Open User Tasks").
+  // Run with Ctrl+Shift+P -> "Tasks: Run Task" -> "Hassan: ...".
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Hassan: ask about this project",
+      "type": "process",
+      "command": "hassan",
+      "args": ["ask", "${input:hassanPrompt}", "-w", "${workspaceFolder}"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Hassan: check + build + test this project",
+      "type": "process",
+      "command": "hassan",
+      "args": ["ask", "${input:hassanPrompt}", "-w", "${workspaceFolder}", "--execute"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Hassan: about the current file",
+      "type": "process",
+      "command": "hassan",
+      "args": ["ask", "${input:hassanPrompt} (file: ${relativeFile})", "-w", "${workspaceFolder}"],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    { "id": "hassanPrompt", "type": "promptString", "description": "شو بدك من Hassan؟" }
+  ]
+}

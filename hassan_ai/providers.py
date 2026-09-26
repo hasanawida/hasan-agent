@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import load_yaml
+from .execution import NO_WINDOW
 from .llm import Completion, GatewayLLM, LLMError, MockLLM
 
 # Removed from the CLI's environment when use_subscription is on, so the CLI
@@ -78,7 +79,7 @@ class CLIBackend:
             else:
                 out_file = scratch_path / "last_message.txt"
                 argv = [exe, "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--ephemeral",
-                        "--color", "never", "-C", str(scratch_path), "-o", str(out_file)]
+                        "--json", "-C", str(scratch_path), "-o", str(out_file)]
                 if model:
                     argv += ["-m", model]
                 argv.append("-")
@@ -87,7 +88,8 @@ class CLIBackend:
 
             proc = await asyncio.create_subprocess_exec(
                 *argv, cwd=scratch, env=self._env(),
-                stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                **NO_WINDOW)
             try:
                 out, err = await asyncio.wait_for(proc.communicate(stdin.encode("utf-8")), self.timeout)
             except asyncio.TimeoutError as exc:
@@ -99,16 +101,18 @@ class CLIBackend:
             label = f"{self.kind}/{model or 'default'}"
 
             if self.kind == "claude_cli":
-                text = self._parse_claude(stdout, stderr, proc.returncode)
+                completion = self._parse_claude(stdout, stderr, proc.returncode, model)
             else:
                 if proc.returncode != 0:
                     raise LLMError(f"{label}: exit {proc.returncode}: {(stderr or stdout)[-400:]}")
-                text = out_file.read_text(encoding="utf-8") if out_file.exists() else stdout
-        if not text.strip():
+                text = out_file.read_text(encoding="utf-8") if out_file.exists() else ""
+                completion = self._parse_codex(stdout, text, label)
+        if not completion.text.strip():
             raise LLMError(f"{label}: empty answer")
-        return Completion(text=text, model=label, duration=time.monotonic() - start)
+        completion.duration = time.monotonic() - start
+        return completion
 
-    def _parse_claude(self, stdout: str, stderr: str, code: int | None) -> str:
+    def _parse_claude(self, stdout: str, stderr: str, code: int | None, model: str | None) -> Completion:
         try:
             data = json.loads(stdout.strip().splitlines()[-1]) if stdout.strip() else {}
         except ValueError:
@@ -116,7 +120,37 @@ class CLIBackend:
         if data.get("is_error") or code != 0 or "result" not in data:
             detail = data.get("result") or stderr or stdout
             raise LLMError(f"claude_cli: exit {code}: {str(detail)[-400:]}")
-        return str(data["result"])
+        usage = data.get("usage") or {}
+        tokens_in = sum(int(usage.get(k) or 0) for k in
+                        ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+        used_models = list((data.get("modelUsage") or {}).keys())
+        name = used_models[0] if len(used_models) == 1 else (model or "default")
+        cost = data.get("total_cost_usd")
+        return Completion(text=str(data["result"]), model=f"claude_cli/{name}", duration=0.0,
+                          input_tokens=tokens_in, output_tokens=int(usage.get("output_tokens") or 0),
+                          cost_usd=float(cost) if cost is not None else None)
+
+    @staticmethod
+    def _parse_codex(stdout: str, text: str, label: str) -> Completion:
+        """`codex exec --json` prints JSONL events; token usage arrives on turn events."""
+        tokens_in = tokens_out = 0
+        last_message = ""
+        for line in stdout.splitlines():
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            usage = event.get("usage") or (event.get("msg") or {}).get("usage") or {}
+            if isinstance(usage, dict) and ("input_tokens" in usage or "output_tokens" in usage):
+                tokens_in += int(usage.get("input_tokens") or 0)
+                tokens_out += int(usage.get("output_tokens") or 0)
+            item = event.get("item") or {}
+            if isinstance(item, dict) and item.get("type") in ("agent_message", "assistant_message") and item.get("text"):
+                last_message = item["text"]
+        return Completion(text=text or last_message, model=label, duration=0.0,
+                          input_tokens=tokens_in, output_tokens=tokens_out, cost_usd=None)
 
     async def status(self) -> dict:
         exe = self.executable()
@@ -128,7 +162,8 @@ class CLIBackend:
         for args in checks:
             try:
                 proc = await asyncio.create_subprocess_exec(
-                    exe, *args, env=self._env(), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                    exe, *args, env=self._env(), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                    **NO_WINDOW)
                 out, err = await asyncio.wait_for(proc.communicate(), 20)
                 info[" ".join(args).lstrip("-")] = (out or err).decode("utf-8", "replace").strip()[:200]
             except (OSError, asyncio.TimeoutError) as exc:

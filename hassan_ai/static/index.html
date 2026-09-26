@@ -40,6 +40,17 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px sol
 .hist div{padding:7px;border-radius:8px;cursor:pointer;font-size:13px;border:1px solid transparent}
 .hist div:hover{border-color:var(--line)}
 .decision{white-space:pre-wrap;line-height:1.7}
+.mic{flex:0 0 auto;width:46px;font-size:18px;padding:8px}
+.mic.on{background:var(--bad);animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.6}}
+.voice{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.voice select{width:auto;padding:4px}
+.voice label{display:flex;gap:4px;align-items:center;margin:0}
+.voice input{width:auto}
+#interim{color:var(--warn);font-size:13px;min-height:18px;margin-top:4px}
+.small{padding:5px 9px;font-size:12px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}
+.stats b{display:block;font-size:17px;color:var(--text)}
 details summary{cursor:pointer;color:var(--muted);font-size:13px}
 .muted{color:var(--muted);font-size:13px}
 </style>
@@ -53,7 +64,19 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
 <aside>
   <div class="card">
     <h2>مهمة جديدة</h2>
-    <textarea id="prompt" placeholder="مثال: افحص مشروع الأقصى، أصلح مشكلة الصوت، ثم اعمل Build واختبار"></textarea>
+    <div class="row" style="align-items:stretch">
+      <textarea id="prompt" placeholder="اكتب أو اضغط 🎤 واحكي: افحص مشروع الأقصى، أصلح مشكلة الصوت، ثم اعمل Build واختبار"></textarea>
+      <button class="mic" id="mic" title="احكي بدل ما تكتب">🎤</button>
+    </div>
+    <div id="interim"></div>
+    <div class="voice" id="voiceOpts">
+      <select id="lang" title="لغة الكلام">
+        <option value="ar-JO">عربي</option><option value="ar-SA">عربي فصحى</option>
+        <option value="en-US">English</option><option value="he-IL">עברית</option>
+      </select>
+      <label><input type="checkbox" id="autoSend"> أرسل لما أسكت</label>
+      <label><input type="checkbox" id="speakReply"> 🔊 اقرألي الرد</label>
+    </div>
     <label>الوضع</label>
     <select id="mode">
       <option value="auto">Auto — المدير يقرر</option>
@@ -61,7 +84,8 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
       <option value="consensus">Consensus — عدة نماذج + قاضٍ</option>
     </select>
     <label>مجلد المشروع (Workspace)</label>
-    <input id="workspace" placeholder="C:\Users\Hassan\Projects\AlAqsaVR" dir="ltr">
+    <div class="row"><input id="workspace" placeholder="C:\Users\Hassan\Projects\AlAqsaVR" dir="ltr">
+      <button class="ghost small" id="openWs" style="flex:0 0 auto" title="افتح المجلد في VS Code">VS Code ↗</button></div>
     <label>اسم المشروع (للذاكرة)</label>
     <input id="project" placeholder="al-aqsa-vr" dir="ltr">
     <label class="row" style="justify-content:flex-start;gap:8px"><input type="checkbox" id="execute" style="width:auto"> Execute — Checkpoint + Build + Tests</label>
@@ -71,6 +95,10 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   <div class="card">
     <h2>المهام السابقة</h2>
     <div class="hist" id="history"></div>
+  </div>
+  <div class="card">
+    <h2>الاستهلاك</h2>
+    <div id="usage" class="muted">…</div>
   </div>
   <div class="card">
     <h2>العقول (Claude / ChatGPT)</h2>
@@ -90,14 +118,17 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <div><span class="pill" id="status"></span> <span class="muted" id="phase"></span></div>
-        <div style="flex:0"><button class="ghost" id="rollback" style="display:none">↩ Rollback</button></div>
+        <div style="flex:0;display:flex;gap:6px">
+          <button class="ghost small" id="openTaskWs" style="display:none">VS Code ↗</button>
+          <button class="ghost small" id="rollback" style="display:none">↩ Rollback</button></div>
       </div>
       <p id="taskPrompt" class="muted"></p>
+      <div id="taskUsage" class="muted" style="font-size:12px"></div>
       <div id="errorBox" style="color:var(--bad)"></div>
     </div>
     <div id="approvals"></div>
     <div class="card"><h2>الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><pre id="evDetail" style="display:none"></pre></div>
-    <div class="card"><h2>القرار النهائي</h2><div class="decision" id="decision"><span class="muted">بانتظار الفريق…</span></div></div>
+    <div class="card"><h2>القرار النهائي <button class="ghost small" id="speakBtn" title="اقرأ بصوت">🔊</button></h2><div class="decision" id="decision"><span class="muted">بانتظار الفريق…</span></div></div>
     <div class="card"><h2>خطة التنفيذ</h2><ol id="plan" class="muted"></ol></div>
     <div class="card"><h2>مخرجات الوكلاء</h2><div id="outputs"></div></div>
     <div class="card"><h2>السجل</h2><div class="log" id="log"></div></div>
@@ -106,7 +137,8 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
 </main>
 <script>
 const $ = id => document.getElementById(id);
-let agents = [], current = null, lastSeq = 0, timer = null;
+let agents = [], current = null, lastSeq = 0, timer = null, currentTask = null, approvalKey = "";
+const spoken = new Set();
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 async function api(path, opts = {}) {
   const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...opts});
@@ -115,11 +147,13 @@ async function api(path, opts = {}) {
   return body;
 }
 function remember() {
-  try { for (const k of ["workspace","project","mode"]) localStorage.setItem("hassan."+k, $(k).value);
+  try { for (const k of ["workspace","project","mode","lang"]) localStorage.setItem("hassan."+k, $(k).value);
+        for (const k of ["autoSend","speakReply"]) localStorage.setItem("hassan."+k, $(k).checked ? "1" : "");
         localStorage.setItem("hassan.execute", $("execute").checked ? "1" : ""); } catch {}
 }
 function restore() {
-  try { for (const k of ["workspace","project","mode"]) { const v = localStorage.getItem("hassan."+k); if (v) $(k).value = v; }
+  try { for (const k of ["workspace","project","mode","lang"]) { const v = localStorage.getItem("hassan."+k); if (v) $(k).value = v; }
+        for (const k of ["autoSend","speakReply"]) $(k).checked = !!localStorage.getItem("hassan."+k);
         $("execute").checked = !!localStorage.getItem("hassan.execute"); } catch {}
 }
 async function boot() {
@@ -137,11 +171,80 @@ async function boot() {
       return `${ok ? "🟢" : "🔴"} <b>${esc(name)}</b> <small dir="ltr">${esc(detail)}</small>`;
     }).join("<br>");
   }).catch(() => {});
+  loadUsage(); setInterval(loadUsage, 30000);
+  const wanted = new URLSearchParams(location.search).get("task");
+  if (wanted) openTask(wanted);
   api("/api/mcp").then(m => {
     $("mcp").innerHTML = (m.sdk_installed ? "" : "⚠️ MCP SDK غير مثبت<br>") +
       m.servers.map(s => `${s.enabled ? "🟢" : "⚪"} <b>${esc(s.name)}</b> <small>${esc(s.description)}</small>`).join("<br>");
   }).catch(() => {});
 }
+const fmtTokens = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(n || 0);
+const fmtUsd = n => "$" + (n || 0).toFixed(n >= 10 ? 0 : 2);
+async function loadUsage() {
+  try {
+    const u = await api("/api/usage");
+    const box = (label, x) => `<div><small>${label}</small><b>${x.tasks} مهمة · ${x.calls} طلب</b>
+      <small dir="ltr">${fmtTokens(x.input_tokens + x.output_tokens)} tokens · ≈${fmtUsd(x.cost_usd)}</small></div>`;
+    const models = u.month.by_model.slice(0, 6).map(m =>
+      `<div dir="ltr" style="text-align:left"><small>${esc(m.model)}: ${m.calls} · ${fmtTokens(m.input_tokens + m.output_tokens)}</small></div>`).join("");
+    $("usage").innerHTML = `<div class="stats">${box("اليوم", u.today)}${box("آخر 7 أيام", u.week)}</div>
+      <details style="margin-top:8px"><summary>حسب النموذج (30 يوم)</summary>${models || "—"}</details>
+      <p style="font-size:11px;margin:8px 0 0">المبلغ ≈ هو سعر الـAPI المكافئ. مع اشتراك Claude/ChatGPT ما بتدفع لكل طلب؛ الاشتراك له حدود استخدام.</p>`;
+  } catch {}
+}
+async function openInEditor(path, line) {
+  try { await api("/api/open", {method: "POST", body: JSON.stringify({path, line: line || null})}); }
+  catch (e) { alert(e.message); }
+}
+$("openWs").onclick = () => { const p = $("workspace").value.trim(); if (p) openInEditor(p); else alert("اكتب مسار المشروع أولاً"); };
+$("openTaskWs").onclick = () => currentTask?.workspace && openInEditor(currentTask.workspace);
+
+// ---- voice: speech → text (Edge/Chrome Web Speech API) and text → speech ----
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+if (!SR) {
+  $("mic").title = "المتصفح ما بيدعم الكلام — استخدم Edge أو Chrome";
+  $("mic").disabled = true;
+}
+$("mic").onclick = () => {
+  if (!SR) return;
+  if (listening) { rec.stop(); return; }
+  rec = new SR();
+  rec.lang = $("lang").value; rec.continuous = true; rec.interimResults = true;
+  const base = $("prompt").value.trim();
+  let finalText = "";
+  rec.onresult = ev => {
+    let interim = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) finalText += r[0].transcript + " "; else interim += r[0].transcript;
+    }
+    $("prompt").value = (base ? base + " " : "") + finalText.trim();
+    $("interim").textContent = interim;
+  };
+  rec.onerror = ev => { $("interim").textContent = ev.error === "not-allowed" ? "اسمح للمتصفح يستخدم المايكروفون" : "خطأ بالصوت: " + ev.error; };
+  rec.onend = () => {
+    listening = false; $("mic").classList.remove("on"); $("mic").textContent = "🎤"; $("interim").textContent = "";
+    if ($("autoSend").checked && finalText.trim()) $("run").click();
+  };
+  rec.start(); listening = true; $("mic").classList.add("on"); $("mic").textContent = "⏹";
+  remember();
+};
+function speak(text) {
+  if (!window.speechSynthesis || !text) return;
+  speechSynthesis.cancel();
+  const clean = text.replace(/```[\s\S]*?```/g, " ").replace(/[#*`>|_\-]{1,}/g, " ").replace(/\s+/g, " ").slice(0, 2500);
+  const u = new SpeechSynthesisUtterance(clean);
+  const lang = /[\u0600-\u06FF]/.test(clean) ? "ar" : /[\u0590-\u05FF]/.test(clean) ? "he" : "en";
+  const voices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith(lang));
+  u.voice = voices.find(v => /natural|online/i.test(v.name)) || voices[0] || null;
+  u.lang = u.voice?.lang || {ar: "ar-SA", he: "he-IL", en: "en-US"}[lang];
+  speechSynthesis.speak(u);
+}
+$("speakBtn").onclick = () => speechSynthesis?.speaking ? speechSynthesis.cancel() : speak(currentTask?.decision);
+for (const id of ["lang", "autoSend", "speakReply"]) $(id).onchange = remember;
+
 function renderAgents(task) {
   const done = new Set((task?.outputs || []).filter(o => o.ok).map(o => o.agent));
   const phase = task?.phase || "";
@@ -172,7 +275,7 @@ $("run").onclick = async () => {
   finally { $("run").disabled = false; }
 };
 function openTask(id) {
-  current = id; lastSeq = 0; $("log").innerHTML = ""; $("taskView").style.display = "";
+  approvalKey = null; current = id; lastSeq = 0; $("log").innerHTML = ""; $("taskView").style.display = "";
   clearInterval(timer); poll(); timer = setInterval(poll, 1200);
 }
 async function poll() {
@@ -193,7 +296,14 @@ async function poll() {
   }
 }
 function render(t) {
+  currentTask = t;
   renderAgents(t);
+  const u = t.usage || {};
+  $("taskUsage").textContent = u.calls ? `استهلاك المهمة: ${u.calls} طلب · ${fmtTokens(u.input_tokens + u.output_tokens)} tokens · ≈${fmtUsd(u.cost_usd)} · ${Math.round(u.seconds)} ث` : "";
+  $("openTaskWs").style.display = t.workspace ? "" : "none";
+  if (t.status === "completed" && t.decision && $("speakReply").checked && !spoken.has(t.id)) {
+    spoken.add(t.id); speak(t.decision); loadUsage();
+  }
   $("status").className = "pill " + t.status; $("status").textContent = t.status;
   $("phase").textContent = `${t.phase} · ${t.resolved_mode || t.mode}${t.verified === true ? " · ✓ verified" : t.verified === false ? " · ✗ checks failing" : ""}`;
   $("taskPrompt").textContent = t.prompt;
@@ -209,17 +319,24 @@ function render(t) {
   $("outputs").innerHTML = t.outputs.map(o =>
     `<details><summary>${o.ok ? "✓" : "✗"} ${esc(o.agent)} <small dir="ltr">${esc(o.model)} · ${(o.finished_at - o.started_at).toFixed(1)}s</small></summary><pre>${esc(o.content || o.error)}</pre></details>`).join("");
   const pending = (t.approvals || []).filter(a => a.status === "pending");
+  const key = pending.map(a => a.id).join(",");
+  if (key === approvalKey) return;
+  approvalKey = key;
+  const sep = (t.workspace || "").includes("\\") ? "\\" : "/";
   $("approvals").innerHTML = pending.map(a => `
     <div class="card approval"><h2>⚠️ موافقة مطلوبة — <span dir="ltr">${esc(a.action)}</span></h2>
       <p>${esc(a.title)}</p>
+      <div class="chips">${(a.payload.changes || []).map(c =>
+        `<span class="chip" data-open="${esc(t.workspace + sep + c.path)}">${esc(c.path)} · VS Code ↗</span>`).join("")}</div>
       <pre class="diff">${esc(a.diff).split("\n").map(l => l.startsWith("+") ? `<span class="add">${l}</span>` : l.startsWith("-") ? `<span class="del">${l}</span>` : l).join("\n")}</pre>
       <div class="row"><button class="ok" data-a="${a.id}" data-v="1">موافقة وتنفيذ ✓</button><button class="bad" data-a="${a.id}" data-v="">رفض ✗</button></div>
     </div>`).join("");
+  $("approvals").querySelectorAll("[data-open]").forEach(c => c.onclick = () => openInEditor(c.dataset.open));
   $("approvals").querySelectorAll("button[data-a]").forEach(b => b.onclick = async () => {
     b.disabled = true;
     try { await api(`/api/approvals/${b.dataset.a}`, {method: "POST", body: JSON.stringify({approve: !!b.dataset.v})}); }
     catch (e) { alert(e.message); }
-    clearInterval(timer); timer = setInterval(poll, 1200); poll();
+    approvalKey = ""; clearInterval(timer); timer = setInterval(poll, 1200); poll();
   });
 }
 $("rollback").onclick = async () => {

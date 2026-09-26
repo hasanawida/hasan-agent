@@ -24,6 +24,7 @@ def make_settings(tmp_path: Path) -> Settings:
         mcp_config=CONFIGS_DIR / "mcp_servers.yaml",
         agents_config=CONFIGS_DIR / "agents.yaml",
         command_timeout=120,
+        allowed_hosts=["127.0.0.1", "localhost", "testserver"],
     )
 
 

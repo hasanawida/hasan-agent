@@ -29,6 +29,11 @@ class Completion:
     text: str
     model: str
     duration: float
+    input_tokens: int = 0
+    output_tokens: int = 0
+    # API list-price equivalent in USD. For subscription CLIs this is an estimate of
+    # what the call would cost on the API, not money actually charged.
+    cost_usd: float | None = None
 
 
 class LLM(Protocol):
@@ -62,7 +67,15 @@ class GatewayLLM:
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError) as exc:
             raise LLMError(f"{model}: malformed response") from exc
-        return Completion(text=text, model=data.get("model", model), duration=time.monotonic() - start)
+        usage = data.get("usage") or {}
+        cost = resp.headers.get("x-litellm-response-cost")
+        try:
+            cost_usd = float(cost) if cost else None
+        except ValueError:
+            cost_usd = None
+        return Completion(text=text, model=data.get("model", model), duration=time.monotonic() - start,
+                          input_tokens=int(usage.get("prompt_tokens") or 0),
+                          output_tokens=int(usage.get("completion_tokens") or 0), cost_usd=cost_usd)
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -84,7 +97,8 @@ class MockLLM:
         role = _role_from_system(system)
         task = _section(user, "TASK")
         text = self._answer(role, model, task, user)
-        return Completion(text=text, model=f"mock/{model}", duration=time.monotonic() - start)
+        return Completion(text=text, model=f"mock/{model}", duration=time.monotonic() - start,
+                          input_tokens=len(system + user) // 4, output_tokens=len(text) // 4, cost_usd=0.0)
 
     def _answer(self, role: str, model: str, task: str, user: str) -> str:
         short = task.strip().splitlines()[0][:140] if task.strip() else "the task"

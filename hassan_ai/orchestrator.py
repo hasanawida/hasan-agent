@@ -284,8 +284,12 @@ class Orchestrator:
                 comp = await self.llm.complete(alias, spec.system_prompt, user,
                                                json_mode=agent in ("manager", "planner", "coder", "judge"))
                 self.memory.record_model_call(alias, agent, True, comp.duration)
+                self.memory.record_usage(task.id, label or agent, comp.model, comp.input_tokens,
+                                         comp.output_tokens, comp.cost_usd, comp.duration)
                 out = AgentOutput(agent=label or agent, model=comp.model, content=comp.text,
-                                  started_at=started, finished_at=time.time())
+                                  started_at=started, finished_at=time.time(),
+                                  input_tokens=comp.input_tokens, output_tokens=comp.output_tokens,
+                                  cost_usd=comp.cost_usd)
                 task.outputs.append(out)
                 self._emit(task, "agent", f"{label or agent} ✓ ({comp.model})", {"agent": label or agent})
                 self.memory.save_task(task)

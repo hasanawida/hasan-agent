@@ -1,0 +1,12 @@
+{
+  // Optional: lets VS Code's own agent chat read the project through Hassan's
+  // read/verify MCP server. Copy into your project's .vscode/mcp.json and fix the path.
+  "servers": {
+    "hassan-local-project": {
+      "type": "stdio",
+      "command": "C:\\hassan-ai\\hasan-agent\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\hassan-ai\\hasan-agent\\connectors\\local-project-mcp\\server.py"],
+      "env": { "HASSAN_MCP_WORKSPACE": "${workspaceFolder}" }
+    }
+  }
+}

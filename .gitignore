@@ -7,3 +7,4 @@ data/
 .env
 configs/litellm.yaml
 .pytest_cache/
+hassan.env

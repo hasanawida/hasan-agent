@@ -41,6 +41,18 @@ CREATE TABLE IF NOT EXISTS project_memory (
     ts REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS memory_project ON project_memory(project, kind);
+CREATE TABLE IF NOT EXISTS usage (
+    task_id TEXT NOT NULL,
+    agent TEXT NOT NULL,
+    model TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL,
+    output_tokens INTEGER NOT NULL,
+    cost_usd REAL,
+    duration REAL NOT NULL,
+    ts REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS usage_ts ON usage(ts);
+CREATE INDEX IF NOT EXISTS usage_task ON usage(task_id);
 CREATE TABLE IF NOT EXISTS model_stats (
     model TEXT NOT NULL,
     agent TEXT NOT NULL,
@@ -155,6 +167,38 @@ class Memory:
                 (model, agent, int(ok), duration, now()),
             )
             self._conn.commit()
+
+    # --- usage / spend ------------------------------------------------------
+    def record_usage(self, task_id: str, agent: str, model: str, input_tokens: int, output_tokens: int,
+                     cost_usd: float | None, duration: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO usage(task_id,agent,model,input_tokens,output_tokens,cost_usd,duration,ts) "
+                "VALUES(?,?,?,?,?,?,?,?)",
+                (task_id, agent, model, input_tokens, output_tokens, cost_usd, duration, now()),
+            )
+            self._conn.commit()
+
+    def usage_summary(self, since: float) -> dict[str, Any]:
+        sql_total = ("SELECT COUNT(*) AS calls, COALESCE(SUM(input_tokens),0) AS input_tokens, "
+                     "COALESCE(SUM(output_tokens),0) AS output_tokens, COALESCE(SUM(cost_usd),0) AS cost_usd, "
+                     "COALESCE(SUM(duration),0) AS seconds FROM usage WHERE ts>=?")
+        sql_model = ("SELECT model, COUNT(*) AS calls, SUM(input_tokens) AS input_tokens, "
+                     "SUM(output_tokens) AS output_tokens, COALESCE(SUM(cost_usd),0) AS cost_usd, "
+                     "SUM(duration) AS seconds FROM usage WHERE ts>=? GROUP BY model ORDER BY calls DESC")
+        with self._lock:
+            total = dict(self._conn.execute(sql_total, (since,)).fetchone())
+            by_model = [dict(r) for r in self._conn.execute(sql_model, (since,)).fetchall()]
+            tasks = self._conn.execute("SELECT COUNT(DISTINCT task_id) FROM usage WHERE ts>=?", (since,)).fetchone()[0]
+        return {**total, "tasks": tasks, "by_model": by_model}
+
+    def task_usage(self, task_id: str) -> dict[str, Any]:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS calls, COALESCE(SUM(input_tokens),0) AS input_tokens, "
+                "COALESCE(SUM(output_tokens),0) AS output_tokens, COALESCE(SUM(cost_usd),0) AS cost_usd, "
+                "COALESCE(SUM(duration),0) AS seconds FROM usage WHERE task_id=?", (task_id,)).fetchone()
+        return dict(row)
 
     def model_stats(self) -> list[dict[str, Any]]:
         with self._lock:

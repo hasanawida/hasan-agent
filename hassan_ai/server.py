@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -33,9 +37,34 @@ class McpCall(BaseModel):
     arguments: dict = {}
 
 
+class OpenRequest(BaseModel):
+    path: str
+    line: int | None = None
+
+
 class MemoryNote(BaseModel):
     kind: str = "note"
     content: str
+
+
+BATCH_UNSAFE = set('%^&|<>"!')
+
+
+def editor_argv(exe: str, args: list[str]) -> tuple[list[str], dict | None]:
+    """On Windows `code` is a .cmd batch shim, where cmd.exe would interpret characters in
+    paths. Launch Code.exe + cli.js directly (exactly what code.cmd does) to avoid cmd.exe."""
+    import os
+
+    if not exe.lower().endswith((".cmd", ".bat")):
+        return [exe, *args], None
+    bin_dir = Path(exe).parent
+    code_exe = next((p for p in (bin_dir.parent / "Code.exe", bin_dir.parent / "Code - Insiders.exe") if p.exists()), None)
+    cli_js = bin_dir.parent / "resources" / "app" / "out" / "cli.js"
+    if code_exe and cli_js.exists():
+        return [str(code_exe), str(cli_js), *args], {**os.environ, "ELECTRON_RUN_AS_NODE": "1"}
+    if any(ch in BATCH_UNSAFE for a in args for ch in a):
+        raise HTTPException(400, "Path contains characters that cannot be passed safely to code.cmd")
+    return [exe, *args], None
 
 
 def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
@@ -63,6 +92,19 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     app = FastAPI(title="Hassan AI OS", version=__version__, lifespan=lifespan)
     app.state.orchestrator = orchestrator
     app.state.memory = memory
+
+    @app.middleware("http")
+    async def local_only(request: Request, call_next):
+        # Block DNS-rebinding (foreign Host) and cross-site requests from other web
+        # pages (foreign Origin) — otherwise any website could approve changes.
+        host = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]")
+        if host not in settings.allowed_hosts:
+            return JSONResponse({"detail": "Host not allowed"}, status_code=403)
+        origin = request.headers.get("origin")
+        if origin and request.method not in ("GET", "HEAD", "OPTIONS"):
+            if (urlsplit(origin).hostname or "") not in settings.allowed_hosts:
+                return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
+        return await call_next(request)
 
     @app.get("/", include_in_schema=False)
     async def index():
@@ -115,7 +157,8 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
         task = memory.get_task(task_id)
         if task is None:
             raise HTTPException(404, "Task not found")
-        return {**task.model_dump(), "approvals": [a.model_dump() for a in memory.approvals(task_id)]}
+        return {**task.model_dump(), "approvals": [a.model_dump() for a in memory.approvals(task_id)],
+                "usage": memory.task_usage(task_id)}
 
     @app.get("/api/tasks/{task_id}/events")
     async def task_events(task_id: str, after: int = 0):
@@ -149,6 +192,38 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     async def remember(project: str, note: MemoryNote):
         memory.remember(project, note.kind, note.content)
         return {"ok": True}
+
+    @app.get("/api/usage")
+    async def usage():
+        now = time.time()
+        local = time.localtime(now)
+        midnight = time.mktime((local.tm_year, local.tm_mon, local.tm_mday, 0, 0, 0, 0, 0, -1))
+        return {"today": memory.usage_summary(midnight),
+                "week": memory.usage_summary(now - 7 * 86400),
+                "month": memory.usage_summary(now - 30 * 86400),
+                "note": "cost_usd is the API list-price equivalent; subscription CLIs are not billed per call."}
+
+    @app.get("/api/editor")
+    async def editor_status():
+        return {"command": settings.editor_command, "installed": shutil.which(settings.editor_command) is not None}
+
+    @app.post("/api/open")
+    async def open_in_editor(req: OpenRequest):
+        """Open a file or folder in VS Code (only inside HASSAN_ALLOWED_ROOTS)."""
+        target = Path(req.path).expanduser().resolve()
+        if not target.exists():
+            raise HTTPException(404, "Path not found")
+        if not any(target == r or r in target.parents for r in settings.allowed_roots):
+            raise HTTPException(403, "Path is outside HASSAN_ALLOWED_ROOTS")
+        exe = shutil.which(settings.editor_command)
+        if exe is None:
+            raise HTTPException(503, f"'{settings.editor_command}' not found. In VS Code run: "
+                                     "Shell Command: Install 'code' command in PATH")
+        args = ["-g", f"{target}:{req.line}"] if (req.line and target.is_file()) else [str(target)]
+        argv, env = editor_argv(exe, args)
+        subprocess.Popen(argv, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         stdin=subprocess.DEVNULL)
+        return {"opened": str(target)}
 
     @app.get("/api/models/stats")
     async def model_stats():
@@ -192,12 +267,9 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
 
 
 def main() -> None:
-    import uvicorn
+    from .cli import serve
 
-    settings = Settings.from_env()
-    # Quiet console: the dashboard polls every second, so per-request access logs are noise.
-    uvicorn.run(create_app(settings), host=settings.host, port=settings.port,
-                access_log=False, use_colors=False)
+    serve(Settings.from_env())
 
 
 if __name__ == "__main__":
