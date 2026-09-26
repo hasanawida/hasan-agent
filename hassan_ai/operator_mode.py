@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .llm import extract_json
+from .llm import LLMError, extract_json
 from .pc_tools import TOOL_BY_NAME, PCTools, tools_prompt
 from .policy import APPROVAL, FORBIDDEN, PolicyError
 from .schemas import Approval, Evidence, TaskRecord, TaskStatus
@@ -130,12 +130,18 @@ class Operator:
         task.resolved_mode = task.mode
         history: list[dict] = []
         mcp = await self.mcp_overview()
+        bad_replies = 0
         for step in range(MAX_STEPS):
             if orch.cancelled(task.id):
                 task.decision = "أوقفت المهمة بطلب منك."
                 break
             orch._phase(task, f"operator_step_{step + 1}")
-            out = await orch._call(task, "operator", self._context(task, history, step, mcp))
+            try:
+                out = await orch._call(task, "operator", self._context(task, history, step, mcp))
+            except LLMError as exc:
+                if orch.escalate(task, "العقل ما ردّ"):
+                    continue
+                raise exc
             data = extract_json(out.content) or {}
             if data.get("done"):
                 task.decision = str(data.get("answer") or "تم.")
@@ -143,7 +149,11 @@ class Operator:
             actions = data.get("actions")
             if not isinstance(actions, list) or not actions:
                 history.append({"error": "Your reply was not valid JSON with actions or done. Answer with JSON only."})
+                bad_replies += 1
+                if bad_replies >= 2 and orch.escalate(task, "ردود غير مفهومة من العقل الحالي"):
+                    bad_replies = 0
                 continue
+            bad_replies = 0
             if data.get("thought"):
                 orch._emit(task, "thought", str(data["thought"])[:300])
             for act in actions[:MAX_ACTIONS_PER_STEP]:

@@ -99,6 +99,7 @@ class MockLLM:
 
     async def complete(self, model: str, system: str, user: str, *, json_mode: bool = False) -> Completion:
         start = time.monotonic()
+        model = model.split("@", 1)[0]
         role = _role_from_system(system)
         task = _section(user, "TASK")
         text = self._answer(role, model, task, user)

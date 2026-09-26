@@ -50,6 +50,16 @@ backends:
     models: [openrouter/free]
     headers: {X-Title: Hassan AI OS}
 
+# Cost-aware routing: every task is sorted (for free) into a level, and the level decides
+# which brains are tried first. Free APIs without a saved key are skipped automatically.
+#   simple  → quick questions and small PC actions: free first
+#   medium  → several steps / research: your Gemini subscription, then free, then ChatGPT
+#   complex → planning, coding, analysis: `roles` = each agent's best brain from `aliases` below
+tiers:
+  simple: [groq, gemini, openrouter, gemini-sub, chatgpt, claude]
+  medium: [gemini-sub, groq, gemini, chatgpt, openrouter, claude]
+  complex: roles
+
 # When an agent's brain fails (limit reached, not installed, no key…) try these in order.
 fallback: [chatgpt, claude, gemini-sub, groq, gemini, openrouter]
 

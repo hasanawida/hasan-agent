@@ -310,11 +310,17 @@ class RouterLLM:
     """Sends each alias to the backend configured in configs/providers.yaml, and when that
     backend fails (limit reached, not installed, no key…) walks the global `fallback` list."""
 
-    def __init__(self, backends: dict, routes: dict[str, Route], default: Route, fallback: list[str] | None = None):
+    TIERS = ("simple", "medium", "complex")
+
+    def __init__(self, backends: dict, routes: dict[str, Route], default: Route, fallback: list[str] | None = None,
+                 tiers: dict[str, list[str] | None] | None = None):
         self.backends = backends
         self.routes = routes
         self.default = default
         self.fallback = fallback or []
+        # Cost tiers: which brains serve a task by difficulty. A list = use these first for
+        # every agent (cheap/free for easy work); None = each agent's own best brain (aliases).
+        self.tiers = tiers or {}
 
     @classmethod
     def from_config(cls, path: Path, gateway_url: str, gateway_key: str, timeout: float,
@@ -359,7 +365,21 @@ class RouterLLM:
         for b in fallback:
             if b not in backends:
                 raise ValueError(f"providers.yaml fallback lists unknown backend '{b}'")
-        return cls(backends, routes, default, fallback)
+        tiers: dict[str, list[str] | None] = {}
+        for tier, names in (data.get("tiers") or {}).items():
+            if tier not in cls.TIERS:
+                raise ValueError(f"providers.yaml tiers: unknown level '{tier}' (use {', '.join(cls.TIERS)})")
+            if names in (None, "roles", "aliases"):
+                tiers[tier] = None
+                continue
+            for b in names:
+                if b not in backends:
+                    raise ValueError(f"providers.yaml tiers.{tier} lists unknown backend '{b}'")
+            tiers[tier] = [str(b) for b in names]
+        return cls(backends, routes, default, fallback, tiers)
+
+    def tier_uses_list(self, tier: str | None) -> bool:
+        return bool(tier and self.tiers.get(tier))
 
     def route_for(self, alias: str) -> Route:
         return self.routes.get(alias, self.default)
@@ -372,9 +392,15 @@ class RouterLLM:
         return await backend.complete(model or alias, system, user, json_mode=json_mode)
 
     async def complete(self, model: str, system: str, user: str, *, json_mode: bool = False) -> Completion:
-        route = self.route_for(model)
+        # "alias@tier" (e.g. "operator@simple") picks brains by task difficulty.
+        model, _, tier = model.partition("@")
         errors: list[str] = []
-        chain = [(route.backend, route.model)] + [(b, None) for b in self.fallback if b != route.backend]
+        if self.tier_uses_list(tier):
+            names = self.tiers[tier] + [b for b in self.fallback if b not in self.tiers[tier]]
+            chain = [(b, None) for b in names]
+        else:
+            route = self.route_for(model)
+            chain = [(route.backend, route.model)] + [(b, None) for b in self.fallback if b != route.backend]
         for name, backend_model in chain:
             backend = self.backends[name]
             if isinstance(backend, APIBackend) and not backend.configured:
@@ -394,7 +420,7 @@ class RouterLLM:
                 backends[name] = backend.status()
             else:
                 backends[name] = {"type": "gateway" if isinstance(backend, GatewayLLM) else "mock"}
-        return {"default": self.default.__dict__, "fallback": self.fallback,
+        return {"default": self.default.__dict__, "fallback": self.fallback, "tiers": self.tiers,
                 "aliases": {a: r.__dict__ for a, r in self.routes.items()},
                 "backends": backends}
 

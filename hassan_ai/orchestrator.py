@@ -21,6 +21,33 @@ from .schemas import (AgentOutput, Approval, ChangePlan, Event, Evidence, Mode, 
                       TaskRecord, TaskStatus, now)
 
 MAX_FILE_CONTEXT = 40_000
+TIER_ORDER = ("simple", "medium", "complex")
+BUDGET_TIER = {"free": "simple", "balanced": "medium", "best": "complex"}
+COMPLEX_WORDS = ("برمج", "كود", "code", "مشروع", "project", "build", "بناء", "صمم", "تصميم", "design", "خطة", "خطط",
+                 "plan", "تحليل", "حلل", "analy", "blender", "بلندر", "رندر", "render", "refactor", "debug", "bug",
+                 "خلل", "اصلح", "أصلح", "صلح", "fix", "architecture", "معمارية", "قارن", "مقارنة", "compare",
+                 "research", "بحث معمق", "ابحث عن", "تقرير مفصل", "استراتيجية", "strategy", "api", "database")
+SIMPLE_WORDS = ("افتح", "open", "قديش", "كم ", "شو في", "list", "screenshot", "صورة للشاشة", "صور الشاشة", "وين",
+                "where", "الساعة", "مساحة", "space", "اعرض", "show", "شغّل", "شغل ", "سكّر", "close", "ترجم",
+                "translate", "ذكرني", "remind", "اسم", "حجم", "size", "كم الساعة", "what time")
+TRIAGE_SYSTEM = ("ROLE: triage\nClassify how much thinking this task needs. Answer ONLY JSON: "
+                 '{"level": "simple"|"medium"|"complex"}. simple = a quick answer or one/two small PC actions; '
+                 "medium = several steps, light research or file organising; complex = planning, coding, "
+                 "analysis, design, 3D work or anything important and long.")
+
+
+def classify_heuristic(prompt: str, kind: str) -> tuple[str | None, str]:
+    """Free first pass. Returns (tier or None when unsure, reason)."""
+    text = prompt.lower()
+    complex_hit = next((w for w in COMPLEX_WORDS if w in text), None)
+    simple_hit = next((w for w in SIMPLE_WORDS if w in text), None)
+    if len(prompt) > 500 or text.count("\n") > 6:
+        return "complex", "مهمة طويلة"
+    if complex_hit and not simple_hit:
+        return "complex", f"فيها «{complex_hit.strip()}»"
+    if simple_hit and not complex_hit and len(prompt) < 160:
+        return ("medium" if kind == "project" else "simple"), f"مهمة قصيرة («{simple_hit.strip()}»)"
+    return None, ""
 
 
 class Orchestrator:
@@ -40,7 +67,8 @@ class Orchestrator:
     # ------------------------------------------------------------------ API
     def submit(self, req: TaskCreate) -> TaskRecord:
         task = TaskRecord(prompt=req.prompt, mode=req.mode, workspace=req.workspace,
-                          execute=req.execute, project=req.project, kind=req.kind, origin=req.origin)
+                          execute=req.execute, project=req.project, kind=req.kind, origin=req.origin,
+                          budget=req.budget)
         self.memory.save_task(task)
         self._emit(task, "created", "Task received", {"mode": task.mode.value, "execute": task.execute})
         self._spawn(self.run(task.id))
@@ -115,6 +143,7 @@ class Orchestrator:
     async def run(self, task_id: str) -> None:
         task = self._load(task_id)
         try:
+            await self._triage(task)
             if task.kind == "operate":
                 if self.operator is None:
                     raise RuntimeError("Operator mode is not available")
@@ -139,6 +168,8 @@ class Orchestrator:
         manager = await self._call(task, "manager", self._context(task))
         brief = extract_json(manager.content) or {}
         task.resolved_mode = self._route(task.mode, brief)
+        if task.mode == Mode.auto and task.tier == "simple":
+            task.resolved_mode = Mode.fast  # an easy task doesn't need the whole team
         self._emit(task, "route", f"Mode resolved to {task.resolved_mode.value}", {"brief": brief})
         fast = task.resolved_mode == Mode.fast
         consensus = task.resolved_mode == Mode.consensus
@@ -302,6 +333,49 @@ class Orchestrator:
         self.memory.save_task(task)
 
     # -------------------------------------------------------------- helpers
+    # ---- cost-aware triage ---------------------------------------------------
+    @property
+    def tiered(self) -> bool:
+        return bool(getattr(self.llm, "tiers", None))
+
+    async def _triage(self, task: TaskRecord) -> None:
+        if task.tier:  # already decided (e.g. resumed)
+            return
+        if task.budget in BUDGET_TIER:
+            tier, reason = BUDGET_TIER[task.budget], "اختيارك"
+        else:
+            tier, reason = classify_heuristic(task.prompt, task.kind)
+            if tier is None and self.tiered:
+                try:
+                    comp = await self.llm.complete("triage@simple", TRIAGE_SYSTEM, task.prompt[:4000])
+                    level = str((extract_json(comp.text) or {}).get("level", "")).lower()
+                    self.memory.record_usage(task.id, "triage", comp.model, comp.input_tokens, comp.output_tokens,
+                                             comp.cost_usd, comp.duration)
+                    if level in TIER_ORDER:
+                        tier, reason = level, f"فرز سريع ({comp.model})"
+                except LLMError:
+                    pass
+            if tier is None:
+                tier, reason = "medium", "افتراضي"
+        task.tier = tier
+        icon = {"simple": "🆓", "medium": "⚖️", "complex": "🧠"}[tier]
+        self._emit(task, "tier", f"{icon} مستوى المهمة: {tier} — {reason}", {"tier": tier})
+        self.memory.save_task(task)
+
+    def escalate(self, task: TaskRecord, why: str) -> bool:
+        """Move the task to the next, stronger tier. False when already at the top."""
+        i = TIER_ORDER.index(task.tier) if task.tier in TIER_ORDER else len(TIER_ORDER) - 1
+        cap = TIER_ORDER.index(BUDGET_TIER.get(task.budget, "complex")) if task.budget in ("free", "balanced") \
+            else len(TIER_ORDER) - 1  # Hassan's budget choice is a hard ceiling
+        if i >= cap:
+            if i < len(TIER_ORDER) - 1:
+                self._emit(task, "tier", f"⛔ ما رقّيت لعقل أغلى لأنك اخترت «{task.budget}»: {why}")
+            return False
+        task.tier = TIER_ORDER[i + 1]
+        self._emit(task, "tier", f"⬆️ ترقية لعقل أقوى ({task.tier}): {why}", {"tier": task.tier})
+        self.memory.save_task(task)
+        return True
+
     @staticmethod
     def _route(requested: Mode, brief: dict) -> Mode:
         if requested != Mode.auto:
@@ -314,6 +388,9 @@ class Orchestrator:
         spec = self.roster.agents[agent]
         chain = [model, *spec.chain] if model else spec.chain
         chain = list(dict.fromkeys(chain))  # dedupe, keep order
+        if self.tiered and self.llm.tier_uses_list(task.tier):
+            # cheap tiers: one call; the router walks the tier's brain list itself
+            chain = [f"{spec.model}@{task.tier}"]
         started = time.time()
         errors: list[str] = []
         for alias in chain:
@@ -340,6 +417,8 @@ class Orchestrator:
                           finished_at=time.time(), ok=False, error="; ".join(errors))
         task.outputs.append(out)
         self.memory.save_task(task)
+        if self.tiered and self.llm.tier_uses_list(task.tier) and self.escalate(task, f"{agent}: كل العقول الأرخص فشلت"):
+            return await self._call(task, agent, user, model=model, label=label)
         raise LLMError(f"All models failed for {agent}: {'; '.join(errors)}")
 
     def _parse_plan(self, text: str) -> ChangePlan | None:

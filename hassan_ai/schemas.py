@@ -41,6 +41,7 @@ class TaskCreate(BaseModel):
     project: str | None = None
     kind: Literal["project", "operate"] = "project"
     origin: str | None = None  # e.g. "telegram:<chat id>" or "schedule:<id>"
+    budget: Literal["auto", "free", "balanced", "best"] = "auto"
 
 
 class AgentOutput(BaseModel):
@@ -105,6 +106,8 @@ class TaskRecord(BaseModel):
     project: str | None = None
     kind: str = "project"
     origin: str | None = None
+    budget: str = "auto"
+    tier: str | None = None  # simple | medium | complex (decides which brains are used)
     status: TaskStatus = TaskStatus.queued
     phase: str = "queued"
     outputs: list[AgentOutput] = Field(default_factory=list)

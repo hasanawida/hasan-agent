@@ -37,6 +37,8 @@ HELP = """🧠 Hassan AI OS
 
 الأوامر:
 /team <مهمة> — الفريق الكامل (تحليل، برمجة، مراجعة)
+/free <مهمة> — بالعقول المجانية بس · /best <مهمة> — بأقوى عقل
+(بدون أمر: النظام بيختار حسب صعوبة المهمة)
 /status — المهام الشغّالة
 /stop — أوقف آخر مهمة
 /remember <معلومة> — احفظ معلومة عنك
@@ -259,14 +261,17 @@ class TelegramBot:
             await self.send(chat_id, "🗑 انحذفت." if ok else "ما لقيتها.")
         elif cmd == "/team":
             await self._start_task(chat_id, rest, "project")
+        elif cmd in ("/free", "/best"):
+            await self._start_task(chat_id, rest, "operate", "free" if cmd == "/free" else "best")
         else:
             await self._start_task(chat_id, text, "operate")
 
-    async def _start_task(self, chat_id: int, prompt: str, kind: str) -> None:
+    async def _start_task(self, chat_id: int, prompt: str, kind: str, budget: str = "auto") -> None:
         if not prompt:
             await self.send(chat_id, "اكتب المهمة بعد الأمر.")
             return
-        task = self.orch.submit(TaskCreate(prompt=prompt, kind=kind, mode=Mode.auto, origin=f"telegram:{chat_id}"))
+        task = self.orch.submit(TaskCreate(prompt=prompt, kind=kind, mode=Mode.auto, budget=budget,
+                                           origin=f"telegram:{chat_id}"))
         self._last_task[chat_id] = task.id
         await self.send(chat_id, "⏳ بلّشت" + (" (الفريق)" if kind == "project" else "") + "…")
 

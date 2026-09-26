@@ -120,6 +120,13 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <input id="project" placeholder="al-aqsa-vr" dir="ltr">
     <label class="row" style="justify-content:flex-start;gap:8px"><input type="checkbox" id="execute" style="width:auto"> Execute — Checkpoint + Build + Tests</label>
     </div>
+    <label>العقل (التكلفة)</label>
+    <select id="budget">
+      <option value="auto">💡 تلقائي — حسب صعوبة المهمة</option>
+      <option value="free">🆓 مجاني بس</option>
+      <option value="balanced">⚖️ متوازن</option>
+      <option value="best">🧠 أقوى عقل</option>
+    </select>
     <div style="margin-top:12px"><button id="run" style="width:100%">تشغيل ▶</button></div>
     <div id="formErr" class="muted" style="color:var(--bad);margin-top:8px"></div>
   </div>
@@ -206,12 +213,12 @@ async function api(path, opts = {}) {
   return body;
 }
 function remember() {
-  try { for (const k of ["workspace","project","mode","lang"]) localStorage.setItem("hassan."+k, $(k).value);
+  try { for (const k of ["workspace","project","mode","lang","budget"]) localStorage.setItem("hassan."+k, $(k).value);
         for (const k of ["autoSend","speakReply"]) localStorage.setItem("hassan."+k, $(k).checked ? "1" : "");
         localStorage.setItem("hassan.execute", $("execute").checked ? "1" : ""); } catch {}
 }
 function restore() {
-  try { for (const k of ["workspace","project","mode","lang"]) { const v = localStorage.getItem("hassan."+k); if (v) $(k).value = v; }
+  try { for (const k of ["workspace","project","mode","lang","budget"]) { const v = localStorage.getItem("hassan."+k); if (v) $(k).value = v; }
         for (const k of ["autoSend","speakReply"]) $(k).checked = !!localStorage.getItem("hassan."+k);
         $("execute").checked = !!localStorage.getItem("hassan.execute"); } catch {}
 }
@@ -478,7 +485,7 @@ $("run").onclick = async () => {
   $("run").disabled = true;
   try {
     const t = await api("/api/tasks", {method: "POST", body: JSON.stringify({
-      prompt, kind: taskKind, mode: $("mode").value,
+      prompt, kind: taskKind, mode: $("mode").value, budget: $("budget").value,
       workspace: taskKind === "operate" ? null : ($("workspace").value.trim() || null),
       project: $("project").value.trim() || null, execute: taskKind === "operate" ? false : $("execute").checked})});
     if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
@@ -521,7 +528,7 @@ function render(t) {
     spoken.add(t.id); speak(t.decision); loadUsage();
   }
   $("status").className = "pill " + t.status; $("status").textContent = t.status;
-  $("phase").textContent = `${t.phase} · ${t.resolved_mode || t.mode}${t.verified === true ? " · ✓ verified" : t.verified === false ? " · ✗ checks failing" : ""}`;
+  $("phase").textContent = `${{simple: "🆓 ", medium: "⚖️ ", complex: "🧠 "}[t.tier] || ""}${t.phase} · ${t.resolved_mode || t.mode}${t.verified === true ? " · ✓ verified" : t.verified === false ? " · ✗ checks failing" : ""}`;
   $("taskPrompt").textContent = t.prompt;
   $("errorBox").textContent = t.error || "";
   $("rollback").style.display = t.checkpoint && t.checkpoint.backups?.length ? "" : "none";
