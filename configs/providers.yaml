@@ -33,7 +33,7 @@ aliases:
   researcher: chatgpt
   coder: claude
   coder-backup: chatgpt       # consensus: a second, independent coder
-  coder-third: gateway        # consensus: third opinion (e.g. Grok/DeepSeek via LiteLLM)
+  coder-third: chatgpt        # consensus: third opinion; set to `gateway` once LiteLLM (Grok/DeepSeek…) runs
   reviewer: chatgpt           # Claude writes, ChatGPT reviews ...
   cross-reviewer: claude      # ... and Claude cross-checks
   judge: claude

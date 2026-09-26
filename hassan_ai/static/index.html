@@ -131,7 +131,8 @@ async function boot() {
   loadHistory();
   api("/api/providers").then(p => {
     $("brains").innerHTML = Object.entries(p.backends).map(([name, b]) => {
-      const ok = b.type === "mock" || b.type === "gateway" || b.installed;
+      const ok = b.type === "mock" || b.installed;
+      if (b.type === "gateway") return `⚪ <b>${esc(name)}</b> <small dir="ltr">gateway (optional, LiteLLM)</small>`;
       const detail = b.type.endsWith("_cli") ? (b.installed ? (b["login status"] || b.version || "") : "غير مثبت") : b.type;
       return `${ok ? "🟢" : "🔴"} <b>${esc(name)}</b> <small dir="ltr">${esc(detail)}</small>`;
     }).join("<br>");
