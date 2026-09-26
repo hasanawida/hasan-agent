@@ -290,6 +290,12 @@ async function loadKeys() {
     out.style.color = r.ok ? "var(--ok)" : "var(--bad)";
   });
 }
+let tgPending = null, tgTimer = null;
+function pairCodeHtml(p) {
+  return `<p>افتح <a href="https://t.me/${esc(p.bot)}" target="_blank" rel="noopener" style="color:var(--accent)" dir="ltr">@${esc(p.bot)}</a>
+      (مش BotFather) وابعت:</p><div class="pair"><bdi dir="ltr">/pair ${esc(p.code)}</bdi></div>
+      <p style="font-size:12px">صالح 10 دقائق ولمرة وحدة. لا تضغط «رمز جديد» وانت بتكتبه — الجديد بيلغي القديم.</p>`;
+}
 async function loadTelegram() {
   const t = await api("/api/telegram").catch(() => null);
   if (!t) return;
@@ -305,7 +311,11 @@ async function loadTelegram() {
     body += t.paired_chats.length
       ? `<p>المحادثات المربوطة: ${t.paired_chats.map(c => `<span dir="ltr">${c}</span> <a href="#" data-unpair="${c}" style="color:var(--bad)">فك الربط</a>`).join(" · ")}</p>`
       : `<p>لسا ما ربطت تلفونك. اضغط الزر وابعت الرمز للبوت:</p>`;
-    body += `<button class="ghost small" id="tgPair">أعطيني رمز ربط</button><div id="tgCode"></div>`;
+    if (tgPending && (Date.now() > tgPending.until || t.paired_chats.length > tgPending.paired)) {
+      if (t.paired_chats.length > tgPending.paired) body += `<p style="color:var(--ok)">✅ انربط تلفونك!</p>`;
+      tgPending = null;
+    }
+    body += `<button class="ghost small" id="tgPair">${tgPending ? "رمز جديد" : "أعطيني رمز ربط"}</button><div id="tgCode">${tgPending ? pairCodeHtml(tgPending) : ""}</div>`;
     if (t.error && t.running) body += `<p style="color:var(--warn);font-size:12px">${esc(t.error)}</p>`;
   }
   $("tg").innerHTML = body + `<details style="margin-top:8px" ${t.configured ? "" : "open"}><summary>التوكن</summary>${tokenRow}</details>`;
@@ -315,9 +325,10 @@ async function loadTelegram() {
   };
   if ($("tgPair")) $("tgPair").onclick = async () => {
     const c = await api("/api/telegram/pair-code", {method: "POST"});
-    $("tgCode").innerHTML = `<p>افتح <a href="https://t.me/${esc(c.bot || "")}" target="_blank" rel="noopener" style="color:var(--accent)" dir="ltr">@${esc(c.bot || "")}</a> وابعت:</p>
-      <div class="pair"><bdi dir="ltr">/pair ${c.code}</bdi></div><p style="font-size:12px">صالح 10 دقائق.</p>`;
-    setTimeout(loadTelegram, 15000);
+    tgPending = {code: c.code, bot: c.bot || "", until: Date.now() + c.expires_in * 1000, paired: t.paired_chats.length};
+    $("tgCode").innerHTML = pairCodeHtml(tgPending);
+    clearInterval(tgTimer);  // keep the code on screen; refresh only to notice the pairing
+    tgTimer = setInterval(() => tgPending ? loadTelegram() : clearInterval(tgTimer), 4000);
   };
   $("tg").querySelectorAll("[data-unpair]").forEach(a => a.onclick = async ev => {
     ev.preventDefault(); if (!confirm("فك ربط هاي المحادثة؟")) return;

@@ -184,3 +184,20 @@ def test_operator_remembers_and_learns_skills(client, tmp_path):
     skills = client.get("/api/profile").json()["skills"]
     assert skills == [{"name": "organize-downloads", "description": "sort downloads by type"}]
     assert all("1234" not in n["content"] for n in client.get("/api/profile").json()["notes"])
+
+
+def test_telegram_pairing_is_forgiving(bot_env):
+    client, fake, tmp = bot_env
+    client.post("/api/telegram/token", json={"token": "123:ABC"})
+    fake.push(5, "/pair")
+    until(lambda: any("مثلاً" in t for t in fake.texts(5)))
+    # Arabic-keyboard digits with spaces
+    code = client.post("/api/telegram/pair-code").json()["code"]
+    arabic = code.translate(str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩"))
+    fake.push(5, f"/pair {arabic[:3]} {arabic[3:]}")
+    until(lambda: any("تم ربط" in t for t in fake.texts(5)))
+    # just the code, without /pair
+    code = client.post("/api/telegram/pair-code").json()["code"]
+    fake.push(6, code)
+    until(lambda: any("تم ربط" in t for t in fake.texts(6)))
+    assert client.get("/api/telegram").json()["paired_chats"] == [5, 6]

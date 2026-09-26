@@ -22,6 +22,13 @@ import httpx
 
 from .config import save_env_value
 from .remote import PairingCodes
+
+# Phones with an Arabic keyboard type ٠١٢٣ / ۰۱۲۳ digits; pairing codes accept them too.
+DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)
+
+
+def pair_digits(text: str) -> str:
+    return "".join(ch for ch in text.translate(DIGITS) if ch in "0123456789")
 from .schemas import Mode, TaskCreate, TaskRecord, TaskStatus
 
 if TYPE_CHECKING:
@@ -104,6 +111,8 @@ class TelegramBot:
         try:
             me = await self._api("getMe")
             self.username = me.get("username")
+            # a webhook left over from another tool blocks getUpdates; long polling needs it off
+            await self._api("deleteWebhook")
             self.last_error = None
         except Exception as exc:  # noqa: BLE001 - report on the dashboard instead of crashing
             self.last_error = f"getMe failed: {exc}"
@@ -173,6 +182,9 @@ class TelegramBot:
                 raise
             except Exception as exc:  # noqa: BLE001 - network hiccups: retry
                 self.last_error = str(exc)[:200]
+                if "Conflict" in self.last_error:
+                    self.last_error = ("في برنامج تاني شغّال بنفس توكن البوت (نسخة تانية من Hassan أو بوت قديم). "
+                                       "سكّره أو اعمل /revoke للتوكن. — " + self.last_error)
                 await asyncio.sleep(5)
                 continue
             for update in updates or []:
@@ -191,13 +203,20 @@ class TelegramBot:
         if chat_id is None:
             return
         text = (msg.get("text") or msg.get("caption") or "").strip()
-        if text.startswith("/pair"):
-            code = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else ""
+        squeezed = text.translate(DIGITS).replace(" ", "")
+        bare_code = chat_id not in self.chats and len(squeezed) == 6 and squeezed == pair_digits(squeezed)
+        if text.startswith("/pair") or bare_code:
+            parts = text.split(maxsplit=1)
+            code = squeezed if bare_code else pair_digits(parts[1] if len(parts) > 1 else "")
+            if not code:
+                await self.send(chat_id, "✍️ ابعت الأمر مع الرقم اللي على شاشة الكمبيوتر، مثلاً: /pair 123456")
+                return
             if self.pairing.redeem(code):
                 self._save_chats(self.chats | {chat_id})
                 await self.send(chat_id, "✅ تم ربط هاي المحادثة بـHassan AI OS.\n\n" + HELP)
             else:
-                await self.send(chat_id, "❌ الرمز غلط أو انتهى. اطلب رمز جديد من الواجهة على الكمبيوتر.")
+                await self.send(chat_id, "❌ الرمز غلط أو انتهى (كل رمز صالح 10 دقايق ولمرة وحدة). "
+                                         "اضغط «أعطيني رمز ربط» على الكمبيوتر وابعت الرقم الجديد.")
             return
         if chat_id not in self.chats:
             if chat_id not in self._refused:
