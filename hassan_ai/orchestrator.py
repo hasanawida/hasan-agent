@@ -391,6 +391,13 @@ class Orchestrator:
         async with lock:
             if task.paid_ok or task.paid_asked:
                 return bool(task.paid_ok)
+            earlier = self._chat_paid_answer(task)
+            if earlier is not None:  # already answered in this chat: don't ask again every message
+                task.paid_asked, task.paid_ok = True, earlier
+                self._emit(task, "tier", "💳 وافقت على المدفوع بهاي المحادثة" if earlier
+                           else "🆓 رفضت المدفوع بهاي المحادثة — بكمّل بالمجاني")
+                self.memory.save_task(task)
+                return earlier
             if task.budget == "free":
                 self._emit(task, "tier", f"⛔ ما استخدمت عقل مدفوع لأنك اخترت «مجاني بس»: {reason}")
                 return False
@@ -398,7 +405,7 @@ class Orchestrator:
             approval = Approval(task_id=task.id, action="brain.paid",
                                 title=f"💳 بدي أستخدم عقل مدفوع لهاي المهمة — {reason}",
                                 payload={"wait": True, "paid_brain": True},
-                                diff=(f"العقول المدفوعة: {paid}\nموافقتك بتسري على هاي المهمة بس. "
+                                diff=(f"العقول المدفوعة: {paid}\nجوابك بيسري على هاي المحادثة (لحد «محادثة جديدة»). "
                                       "إذا رفضت بكمّل بالمجاني قد ما بقدر."))
             self.memory.save_approval(approval)
             future: asyncio.Future = asyncio.get_running_loop().create_future()
@@ -416,6 +423,15 @@ class Orchestrator:
             self._emit(task, "tier", "💳 موافق على المدفوع لهاي المهمة" if approved else "🆓 رفضت المدفوع — بكمّل بالمجاني")
             self.memory.save_task(task)
             return approved
+
+    def _chat_paid_answer(self, task: TaskRecord) -> bool | None:
+        """Hassan's paid-brain answer from an earlier message of the same chat, if any."""
+        if not task.conversation:
+            return None
+        for earlier in reversed(self.memory.conversation(task.conversation, before=task.id, limit=30)):
+            if earlier.paid_asked:
+                return bool(earlier.paid_ok)
+        return None
 
     async def escalate(self, task: TaskRecord, why: str) -> bool:
         """Move the task to a stronger brain. With paid gating, that means asking for paid brains."""

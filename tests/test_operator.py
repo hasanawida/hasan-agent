@@ -144,3 +144,24 @@ def test_phone_can_approve_operator_actions(client, tmp_path):
     client.cookies.clear()
     wait(client, t["id"], {"completed", "failed"})
     assert (tmp_path / "b.txt").read_text() == "a"
+
+
+def test_same_request_is_not_asked_again_and_failing_loops_stop(client, tmp_path):
+    missing = str(tmp_path / "nope.txt")
+    same = op("copy", src=missing, dst=str(tmp_path / "b.txt"))
+    t = start(client, same, same, same, same)
+    task, approval = pending(client, t["id"])
+    client.post(f"/api/approvals/{approval['id']}", json={"approve": True})
+    task = wait(client, t["id"], {"completed", "failed"})
+    assert len(task["approvals"]) == 1  # asked once, not four times
+    assert len([e for e in task["evidence"] if e["title"].startswith("copy")]) == 2  # third try is stopped
+
+
+def test_rejected_request_is_not_asked_again(client, tmp_path):
+    (tmp_path / "a.txt").write_text("a")
+    same = op("copy", src=str(tmp_path / "a.txt"), dst=str(tmp_path / "b.txt"))
+    t = start(client, same, same)
+    task, approval = pending(client, t["id"])
+    client.post(f"/api/approvals/{approval['id']}", json={"approve": False})
+    task = wait(client, t["id"], {"completed", "failed"})
+    assert len(task["approvals"]) == 1 and not (tmp_path / "b.txt").exists()

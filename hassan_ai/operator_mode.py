@@ -74,6 +74,10 @@ class Operator:
         self.tools = tools
         self.skills_dir = skills_dir or tools.trash_dir.parent / "skills"
         self._trusted: dict[str, set[str]] = {}
+        # per task: Hassan's answer for an exact action, and how often an exact action failed
+        self._answered: dict[str, dict[str, bool]] = {}
+        self._failed: dict[str, dict[str, str]] = {}
+        self._fail_count: dict[str, dict[str, int]] = {}
         self._mcp_cache: tuple[float, str] = (0.0, "")
 
     @staticmethod
@@ -177,6 +181,9 @@ class Operator:
         else:
             task.decision = (task.decision or "") + f"\nوقفت بعد {MAX_STEPS} خطوة. اطلب مني أكمل إذا لازم."
         self._trusted.pop(task.id, None)
+        self._answered.pop(task.id, None)
+        self._failed.pop(task.id, None)
+        self._fail_count.pop(task.id, None)
         task.status = TaskStatus.completed
         task.phase = "completed"
         orch._emit(task, "done", "Operator finished")
@@ -213,11 +220,23 @@ class Operator:
             history.append(record)
             self._evidence(task, tool, args, False, record["result"])
             return False
+        sig = self.signature(tool, args)
+        fails = self._fail_count.setdefault(task.id, {})
+        if fails.get(sig, 0) >= 2:  # the brain is going in circles: don't run (or ask) again
+            record["result"] = (f"error: this exact action already failed {fails[sig]} times (last error: "
+                                f"{self._failed[task.id][sig][:300]}). Do NOT repeat it. Try a different way, or "
+                                "finish with done and explain the error to Hassan in simple words.")
+            history.append(record)
+            return False
+        answered = self._answered.setdefault(task.id, {})
         trusted = self.trust_key(tool, args) in self._trusted.get(task.id, set())
         if decision == APPROVAL and trusted:
             record["approval"] = "trusted for this task"
+        elif decision == APPROVAL and sig in answered and answered[sig]:
+            record["approval"] = "approved earlier in this task"
         elif decision == APPROVAL:
-            approved = await self._ask(task, tool, args)
+            approved = answered[sig] if sig in answered else await self._ask(task, tool, args)
+            answered[sig] = approved
             record["approval"] = "approved" if approved else "rejected"
             if not approved:
                 record["result"] = ("Hassan rejected this action. Do not retry the same action; if the task "
@@ -233,9 +252,19 @@ class Operator:
         except Exception as exc:  # noqa: BLE001 - errors go back to the brain to re-plan
             result, ok = f"error: {type(exc).__name__}: {exc}", False
         record["result"] = result
+        if not ok:
+            fails[sig] = fails.get(sig, 0) + 1
+            self._failed.setdefault(task.id, {})[sig] = result
         history.append(record)
         self._evidence(task, tool, args, ok, result)
         return False
+
+    @staticmethod
+    def signature(tool: str, args: dict) -> str:
+        """Same request = same tool and arguments; for camera/mic the device choice doesn't matter."""
+        if tool in ("camera_photo", "mic_record"):
+            args = {k: v for k, v in args.items() if k != "device"}
+        return tool + json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
 
     # ---- memory & skills (Hermes-style learning loop) ------------------------
     @staticmethod

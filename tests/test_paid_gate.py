@@ -133,3 +133,20 @@ def test_bad_free_brain_hands_over_to_the_next_free_one_before_asking_paid(tmp_p
         task = wait(c, t["id"], {"completed", "failed"})
     assert task["status"] == "completed" and task["approvals"] == [] and paid.calls == 0
     assert task["tier"] == "simple" and task["outputs"][-1]["model"] == "good"
+
+
+def test_paid_answer_is_remembered_for_the_whole_chat(tmp_path):
+    r, paid, free = router(free_broken=True)
+    with app(tmp_path, r) as c:
+        t1 = c.post("/api/tasks", json={"prompt": "افتحلي التنزيلات", "kind": "operate", "conversation": "c1"}).json()
+        a = pending(c, t1["id"])
+        c.post(f"/api/approvals/{a['id']}", json={"approve": False})
+        wait(c, t1["id"], {"completed", "failed"})
+        t2 = c.post("/api/tasks", json={"prompt": "وشو في عالديسكتوب", "kind": "operate", "conversation": "c1"}).json()
+        task = wait(c, t2["id"], {"completed", "failed"})
+        assert task["approvals"] == [] and paid.calls == 0  # not asked again in the same chat
+        t3 = c.post("/api/tasks", json={"prompt": "افتحلي التنزيلات", "kind": "operate", "conversation": "c2"}).json()
+        a3 = pending(c, t3["id"])
+        c.post(f"/api/approvals/{a3['id']}", json={"approve": False})
+        wait(c, t3["id"], {"completed", "failed"})
+    assert a3["action"] == "brain.paid"  # a new chat asks again
