@@ -2,245 +2,514 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hassan AI OS</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
 <link rel="apple-touch-icon" href="/static/icon.svg">
-<meta name="theme-color" content="#0b1020">
+<meta name="theme-color" content="#22261D">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
-:root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429}
+/* =====================================================================
+   Design tokens — three layers: primitive → semantic → component.
+   Components only use semantic/component tokens, never raw values.
+   ===================================================================== */
+:root{
+  /* ---- 1. primitives (raw values) — "field radio": olive night, bone, signal amber ---- */
+  --olive-990:#1A1D16; --olive-950:#22261D; --olive-900:#2C3125; --olive-850:#353B2C; --olive-800:#3E4434; --olive-700:#555C47;
+  --bone-100:#ECE9DF; --sage-400:#A9AC98; --black:#000000; --white:#ffffff;   /* white: QR codes must stay scannable */
+  --amber-400:#F2A531; --amber-300:#F7B955; --amber-200:#F2C94C;
+  --led-400:#8DBF6A;   --coral-400:#F08570;
+  --amber-ring-1:rgba(242,165,49,.22); --amber-ring-2:rgba(242,165,49,.09); --coral-ring:rgba(240,133,112,.45);
+  --led-glow:rgba(141,191,106,.55); --faceplate-hi:rgba(236,233,223,.05);
+
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
+  --text-xs:12px; --text-sm:13px; --text-md:14px; --text-base:16px; --text-lg:18px; --text-xl:22px; --text-2xl:28px; --text-3xl:36px;
+  --radius-xs:4px; --radius-sm:6px; --radius-md:8px; --radius-lg:16px; --radius-xl:24px; --radius-full:999px;
+  --dur-fast:150ms; --dur:220ms; --ease-out:cubic-bezier(.2,.8,.2,1);
+  --font-sans:"IBM Plex Sans Arabic","Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;
+  --font-display:"Reem Kufi","IBM Plex Sans Arabic","Noto Kufi Arabic",sans-serif;
+  --font-mono:Consolas,"SFMono-Regular",Menlo,monospace;
+
+  /* ---- 2. semantic (purpose) — the JS also reads --accent/--ok/--bad/--warn as text colors ---- */
+  --bg:var(--olive-950); --surface:var(--olive-900); --surface-sunken:var(--olive-990); --surface-raised:var(--olive-850);
+  --line:var(--olive-800); --line-subtle:var(--olive-850); --line-strong:var(--olive-700);
+  --text:var(--bone-100); --muted:var(--sage-400); --on-fill:var(--olive-990);   /* fills carry dark ink, not white */
+  --accent:var(--amber-400); --accent-fill:var(--amber-400);                      /* ink on amber 8.3:1 */
+  --ok:var(--led-400);       --ok-fill:var(--led-400);
+  --bad:var(--coral-400);    --bad-fill:var(--coral-400);
+  --warn:var(--amber-200);   --on-warn:var(--olive-990);
+  --focus-ring:0 0 0 2px var(--bg),0 0 0 4px var(--accent);
+  --tap:44px;                                        /* minimum touch target */
+  --header-h:57px; --nav-h:62px; --safe-b:env(safe-area-inset-bottom,0px);
+
+  /* ---- 3. component ---- */
+  --card-bg:var(--surface); --card-border:var(--line); --card-radius:var(--radius-md); --card-pad:var(--space-4);
+  --field-bg:var(--surface-sunken); --field-border:var(--line); --field-radius:var(--radius-sm);
+  --btn-bg:var(--accent-fill); --btn-bg-hover:var(--amber-300); --btn-fg:var(--on-fill); --btn-radius:var(--radius-sm);
+  --btn-ghost-hover:var(--line-subtle);
+  --bubble-me-bg:var(--surface-raised); --bubble-me-border:var(--line);
+  --nav-bg:var(--surface-sunken); --nav-item-active:transparent;
+  --composer-bg:var(--surface); --composer-radius:var(--radius-xl);
+  --mic-size:64px; --mic-ring:0 0 0 7px var(--amber-ring-1),0 0 0 14px var(--amber-ring-2);
+  --shadow-glow:var(--mic-ring); --shadow-md:inset 0 1px 0 var(--faceplate-hi);
+}
+
+/* ---- base ---- */
 *{box-sizing:border-box}
-body{margin:0;font-family:"Segoe UI",Tahoma,"Noto Kufi Arabic",sans-serif;background:var(--bg);color:var(--text)}
-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}
-header h1{font-size:20px;margin:0}header .meta{color:var(--muted);font-size:13px}
-main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px;max-width:1500px;margin:auto}
-@media(max-width:900px){main{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
-.card h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600}
-textarea,input,select{width:100%;background:#0e1427;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit}
+html{overflow-x:hidden;color-scheme:dark;-webkit-text-size-adjust:100%}
+body{overflow-x:clip}  /* clip, not hidden: keeps the sticky header/chat box working */
+body{margin:0;font-family:var(--font-sans);background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent}
+button,summary,.chip,a,input,select,textarea{touch-action:manipulation}
+a{color:var(--accent)}
+.ico{width:18px;height:18px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
+[dir="rtl"] .flip{transform:scaleX(-1)}
+.skip{position:absolute;inset-inline-start:var(--space-2);top:-60px;z-index:100;background:var(--accent-fill);color:var(--on-fill);
+  padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm)}
+.skip:focus{top:var(--space-2)}
+:focus-visible{outline:none;box-shadow:var(--focus-ring);border-radius:var(--radius-sm)}
+input:focus-visible,select:focus-visible,textarea:focus-visible{box-shadow:none;border-color:var(--accent);outline:2px solid var(--accent);outline-offset:0}
+
+header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-3) var(--space-5);
+  border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:20;min-height:var(--header-h)}
+header h1{font-size:var(--text-lg);margin:0;display:flex;align-items:center;gap:var(--space-2)}
+header h1 img{width:26px;height:26px}
+header .meta{color:var(--muted);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
+
+/* ---- shell: side bar on the PC, bottom bar on the phone ---- */
+.shell{display:grid;grid-template-columns:210px minmax(0,1fr);max-width:1400px;margin:auto}
+.nav{position:sticky;top:var(--header-h);align-self:start;height:calc(100vh - var(--header-h));padding:var(--space-4) var(--space-3);
+  border-inline-end:1px solid var(--line);display:flex;flex-direction:column;gap:var(--space-1)}
+.nav button{display:flex;align-items:center;gap:var(--space-3);background:transparent;color:var(--muted);border:1px solid transparent;
+  text-align:start;min-height:var(--tap);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);font-size:var(--text-base)}
+.nav button .ico{width:20px;height:20px}
+.nav button:hover{background:var(--btn-ghost-hover);color:var(--text)}
+.nav button[aria-current="page"]{background:var(--nav-item-active);border-color:var(--line);color:var(--text)}
+.nav button[aria-current="page"] .ico{color:var(--accent)}
+.content{padding:var(--space-4) var(--space-5);min-width:0}
+.view{display:none}.view.active{display:block}
+.vtitle{font-size:var(--text-xl);margin:var(--space-1) 0 var(--space-4);display:flex;align-items:center;gap:var(--space-2);text-wrap:balance}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:var(--space-4);align-items:start}
+.grid .card{margin-bottom:0}
+
+@media(max-width:900px){
+  .shell{display:block}
+  .nav{position:fixed;inset:auto 0 0 0;top:auto;height:calc(var(--nav-h) + var(--safe-b));padding:0 0 var(--safe-b);z-index:30;
+    flex-direction:row;gap:0;border:0;border-top:1px solid var(--line);background:var(--nav-bg)}
+  .nav button{flex:1;flex-direction:column;justify-content:center;gap:2px;padding:var(--space-1) 2px;border-radius:0;font-size:var(--text-xs);border:0}
+  .nav button .ico{width:22px;height:22px}
+  .nav button:hover{background:transparent}
+  .nav button[aria-current="page"]{background:transparent;color:var(--accent)}
+  .content{padding:var(--space-3) var(--space-3) calc(var(--nav-h) + var(--safe-b) + var(--space-3))}
+  .grid{grid-template-columns:1fr;gap:var(--space-3)}
+}
+
+/* ---- cards & controls ---- */
+.card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--card-radius);padding:var(--card-pad);margin-bottom:var(--space-4)}
+.card h2{font-size:var(--text-md);margin:0 0 var(--space-3);color:var(--muted);font-weight:600;display:flex;align-items:center;gap:var(--space-2)}
+textarea,input,select{width:100%;background:var(--field-bg);color:var(--text);border:1px solid var(--field-border);border-radius:var(--field-radius);
+  padding:var(--space-2) var(--space-3);font:inherit;min-height:40px;transition:border-color var(--dur-fast) var(--ease-out)}
+input[type=checkbox]{min-height:0;accent-color:var(--accent-fill)}
 textarea{min-height:110px;resize:vertical}
-label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
-.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
-button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 14px;font:inherit;cursor:pointer}
+label{display:block;font-size:var(--text-sm);color:var(--muted);margin:var(--space-3) 0 var(--space-1)}
+.row{display:flex;gap:var(--space-2);align-items:center}.row>*{flex:1;min-width:0}
+button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);background:var(--btn-bg);color:var(--btn-fg);border:0;
+  border-radius:var(--btn-radius);padding:var(--space-2) var(--space-4);min-height:40px;font:inherit;cursor:pointer;
+  transition:background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+button:hover{background:var(--btn-bg-hover)}
+button:active:not(:disabled){transform:scale(.97)}
 button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
-button.ok{background:var(--ok)}button.bad{background:var(--bad)}
-button:disabled{opacity:.5;cursor:default}
-.agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:8px}
-.agent{border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px}
+button.ghost:hover{background:var(--btn-ghost-hover);border-color:var(--line-strong)}
+button.ok{background:var(--ok-fill)}button.bad{background:var(--bad-fill)}
+button.ok:hover,button.bad:hover{filter:brightness(1.12)}
+button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.small{padding:var(--space-1) var(--space-3);font-size:var(--text-xs);min-height:32px}
+.agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:var(--space-2)}
+.agent{border:1px solid var(--line);border-radius:var(--radius-sm);padding:var(--space-2);font-size:var(--text-sm)}
 .agent b{display:block}.agent small{color:var(--muted);direction:ltr;display:block;text-align:right}
 .agent.done{border-color:var(--ok)}.agent.active{border-color:var(--warn);box-shadow:0 0 0 1px var(--warn) inset}
-.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+.pill{display:inline-block;padding:2px 9px;border-radius:var(--radius-full);font-size:var(--text-xs);border:1px solid var(--line)}
 .pill.completed{border-color:var(--ok);color:var(--ok)}.pill.failed,.pill.rejected{border-color:var(--bad);color:var(--bad)}
 .pill.awaiting_approval,.pill.running{border-color:var(--warn);color:var(--warn)}
-.log{font-size:13px;max-height:280px;overflow:auto;direction:ltr;text-align:left;font-family:Consolas,monospace}
-.log div{padding:3px 0;border-bottom:1px dashed #1c2542}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border-radius:8px;padding:6px 9px;font-size:12px;border:1px solid var(--line);cursor:pointer;direction:ltr}
+.log{font-size:var(--text-sm);max-height:280px;overflow:auto;direction:ltr;text-align:left;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.log div{padding:3px 0;border-bottom:1px dashed var(--line-subtle)}
+.chips{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.chip{border-radius:var(--radius-sm);padding:6px 9px;font-size:var(--text-xs);border:1px solid var(--line);cursor:pointer;direction:ltr;
+  transition:background-color var(--dur-fast) var(--ease-out)}
+.chip:hover{background:var(--btn-ghost-hover)}
 .chip.ok{border-color:var(--ok)}.chip.bad{border-color:var(--bad)}
-pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:380px;overflow:auto;direction:ltr;text-align:left;font-size:12px}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:var(--space-3);max-height:380px;overflow:auto;direction:ltr;text-align:left;font-size:var(--text-xs);font-family:var(--font-mono)}
 .diff .add{color:var(--ok)}.diff .del{color:var(--bad)}
-.approval{border:1px solid var(--warn);border-radius:10px;padding:12px;margin-bottom:10px}
-.hist div{padding:7px;border-radius:8px;cursor:pointer;font-size:13px;border:1px solid transparent}
-.hist div:hover{border-color:var(--line)}
-.decision{white-space:pre-wrap;line-height:1.7}
-.mic{flex:0 0 auto;width:46px;font-size:18px;padding:8px}
-.mic.on,#talkBtn.on,#scrMic.on{background:var(--bad);color:#fff;animation:pulse 1.2s infinite}
+.approval{border:1px solid var(--warn);border-radius:var(--radius-md);padding:var(--space-3);margin-bottom:var(--space-3)}
+.hist{max-height:260px;overflow:auto;overscroll-behavior:contain}
+.hist div{padding:var(--space-2);border-radius:var(--radius-sm);cursor:pointer;font-size:var(--text-sm);border:1px solid transparent}
+.hist div:hover{border-color:var(--line);background:var(--btn-ghost-hover)}
+.decision{white-space:pre-wrap;line-height:1.7;font-size:var(--text-base)}
+.mic.on,#talkBtn.on,#scrMic.on{background:var(--bad-fill);color:var(--on-fill);animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.6}}
-.voice{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
-.voice select{width:auto;padding:4px}
-.voice label{display:flex;gap:4px;align-items:center;margin:0}
+.voice{display:flex;gap:var(--space-2) var(--space-3);align-items:center;margin-top:var(--space-2);font-size:var(--text-sm);color:var(--muted);flex-wrap:wrap}
+.voice select{width:auto}
+.voice label{display:flex;gap:var(--space-1);align-items:center;margin:0;min-height:36px;cursor:pointer}
 .voice input{width:auto}
-#interim{color:var(--warn);font-size:13px;min-height:18px;margin-top:4px}
-.small{padding:5px 9px;font-size:12px}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}
-.stats b{display:block;font-size:17px;color:var(--text)}
-.qr{background:#fff;border-radius:10px;padding:8px;display:inline-block;margin:8px 0}
-.qr{width:260px;max-width:100%}
-.pair{font-size:30px;letter-spacing:8px;font-weight:700;color:var(--text);direction:ltr;text-align:center}
-@media(max-width:600px){main{padding:8px;gap:8px}.card{padding:11px;margin-bottom:10px}
-  header{padding:10px 12px}header h1{font-size:17px}.agents{grid-template-columns:repeat(3,1fr)}
-  .agent small{display:none}.log{max-height:180px}textarea{min-height:90px;font-size:16px}
-  input,select{font-size:16px}.mic{width:54px;font-size:22px}}
-#mediaStrip img{max-width:100%;border-radius:8px;margin-top:8px;display:block}
-#mediaStrip audio{width:100%;margin-top:8px}
-#mediaStrip video{max-width:100%;max-height:70vh;border-radius:8px;margin-top:8px;display:block}
-.kinds{display:flex;gap:6px;margin-bottom:10px}.kinds button{flex:1;background:transparent;border:1px solid var(--line);color:var(--muted)}
-.kinds button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-html,body{overflow-x:hidden}
-main>*{min-width:0}
+#interim{color:var(--warn);font-size:var(--text-sm)}
+#interim:not(:empty){margin-bottom:var(--space-2)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);font-size:var(--text-sm);font-variant-numeric:tabular-nums}
+.stats b{display:block;font-size:var(--text-lg);color:var(--text)}
+.qr{background:var(--white);border-radius:var(--radius-md);padding:var(--space-2);display:inline-block;margin:var(--space-2) 0;width:260px;max-width:100%}
+.pair{font-size:30px;letter-spacing:8px;font-weight:700;color:var(--text);direction:ltr;text-align:center;font-variant-numeric:tabular-nums}
+#mediaStrip img{max-width:100%;border-radius:var(--radius-sm);margin-top:var(--space-2);display:block}
+#mediaStrip audio{width:100%;margin-top:var(--space-2)}
+#mediaStrip video{max-width:100%;max-height:70vh;border-radius:var(--radius-sm);margin-top:var(--space-2);display:block}
+.stream{width:100%;aspect-ratio:16/9;object-fit:contain;border-radius:var(--radius-sm);margin-top:var(--space-2);background:var(--black)}
+.kinds{display:flex;gap:var(--space-1);background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--radius-full);padding:3px}
+.kinds button{flex:1;white-space:nowrap;background:transparent;border:0;color:var(--muted);padding:var(--space-1) var(--space-3);
+  font-size:var(--text-sm);min-height:34px;border-radius:var(--radius-full)}
+.kinds button:hover{color:var(--text);background:var(--btn-ghost-hover)}
+.kinds button.on{background:var(--accent-fill);color:var(--on-fill)}
 .hist div,#taskPrompt,.chip,.approval p,.decision,summary{overflow-wrap:anywhere}
-#alertBar{display:none;position:sticky;top:0;z-index:10;background:var(--warn);color:#1b1300;padding:10px 16px;
+#alertBar{display:none;position:sticky;top:0;z-index:40;background:var(--warn);color:var(--on-warn);padding:var(--space-3) var(--space-4);
   font-weight:600;cursor:pointer;text-align:center}
-details summary{cursor:pointer;color:var(--muted);font-size:13px}
-.muted{color:var(--muted);font-size:13px}
+details summary{cursor:pointer;color:var(--muted);font-size:var(--text-sm)}
+.muted{color:var(--muted);font-size:var(--text-sm)}
+
+/* ---- collapsible cards (plan / outputs / log / history / team) ---- */
+details.fold{padding:0}
+details.fold>summary{list-style:none;display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-md);font-weight:600;
+  min-height:var(--tap);padding:var(--space-2) var(--card-pad);border-radius:var(--card-radius)}
+details.fold>summary:hover{color:var(--text)}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"";margin-inline-start:auto;width:8px;height:8px;border:solid currentColor;border-width:0 2px 2px 0;
+  transform:rotate(45deg);transition:transform var(--dur) var(--ease-out)}
+details.fold:not([open])>summary::after{transform:rotate(135deg)}
+details.fold[open]>summary{border-bottom:1px solid var(--line-subtle);border-radius:var(--card-radius) var(--card-radius) 0 0}
+details.fold>:not(summary){margin:var(--space-3) var(--card-pad) var(--card-pad)}
+
+/* ---- chat ---- */
+.view[data-view="chat"].active{display:flex;flex-direction:column;min-height:calc(100vh - var(--header-h) - var(--space-8));max-width:900px;margin:auto}
+.chatlog{flex:1}
+.bubble-me{background:var(--bubble-me-bg);border:1px solid var(--bubble-me-border);border-radius:var(--radius-lg) var(--radius-lg) var(--space-1) var(--radius-lg);
+  padding:var(--space-3) var(--space-4);margin:0 0 0 auto;max-width:85%;width:fit-content;color:var(--text);font-size:var(--text-base);white-space:pre-wrap}
+.bubble-ai{border-radius:var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--space-1)}
+.taskhead{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;justify-content:space-between;margin-bottom:var(--space-2)}
+.taskhead .acts{display:flex;gap:var(--space-2)}
+.empty{display:none;text-align:center;color:var(--muted);padding:var(--space-10) var(--space-3);font-size:var(--text-base)}
+.empty .ico{display:block;margin:0 auto var(--space-3);width:44px;height:44px;color:var(--accent);stroke-width:1.5}
+#taskView[style*="none"]+.empty{display:block}
+
+.composer{position:sticky;bottom:0;z-index:15;margin-top:auto;background:var(--bg);padding:var(--space-3) 0}
+.composer .box{background:var(--composer-bg);border:1px solid var(--line);border-radius:var(--composer-radius);padding:var(--space-3);box-shadow:var(--shadow-md)}
+.composer .box:focus-within{border-color:var(--line-strong)}
+.composer .top{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;margin-bottom:var(--space-2)}
+.composer .top .kinds{flex:0 1 auto}
+.composer .top #chatInfo{flex:1;min-width:120px;font-size:var(--text-xs)}
+.composer .input{display:flex;gap:var(--space-2);align-items:flex-end}
+#prompt{min-height:52px;max-height:30vh;height:52px;resize:none;border-radius:var(--radius-lg);font-size:var(--text-base);line-height:1.5;padding:13px var(--space-4)}
+.mic{flex:0 0 auto;width:var(--mic-size);height:var(--mic-size);border-radius:50%;font-size:26px;padding:0;box-shadow:var(--shadow-glow)}
+#run{flex:0 0 auto;height:52px;border-radius:var(--radius-lg);padding:0 var(--space-4);font-weight:600}
+.composer details.opts{margin-top:var(--space-2)}
+.composer details.opts>summary{display:inline-flex;align-items:center;gap:var(--space-1);min-height:32px;font-size:var(--text-xs)}
+.composer details.opts[open]{max-height:45vh;overflow:auto;overscroll-behavior:contain}
+#operateHint{margin:0 0 var(--space-2)}
+#formErr:not(:empty){margin-top:var(--space-2)}
+
+@media(max-width:900px){
+  .view[data-view="chat"].active{min-height:calc(100vh - var(--header-h) - var(--nav-h) - var(--safe-b) - var(--space-5))}
+  .composer{bottom:calc(var(--nav-h) + var(--safe-b));padding:var(--space-2) 0}
+}
+@media(max-width:600px){
+  :root{--card-pad:var(--space-3);--mic-size:58px}
+  .card{margin-bottom:var(--space-3)}
+  header{padding:var(--space-2) var(--space-3)}header h1{font-size:var(--text-base)}
+  .agents{grid-template-columns:repeat(3,1fr)}.agent small{display:none}.log{max-height:180px}
+  textarea,input,select{font-size:var(--text-base)}textarea{min-height:90px}#prompt{min-height:52px}
+  #run{padding:0 var(--space-3)}#run .lbl{display:none}#run{width:52px}
+  .composer .top #chatInfo{display:none}
+  #newChat .lbl{display:none}#newChat{margin-inline-start:auto}
+}
+/* ---- field-radio identity ---- */
+header h1{font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;letter-spacing:.01em}
+header .meta{display:flex;align-items:center;gap:var(--space-2)}
+#health::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--led-glow);flex:0 0 auto}
+.vtitle{font-family:var(--font-display);font-size:var(--text-2xl);font-weight:500}
+.card h2{color:var(--text);font-weight:600}
+.card h2 .ico{color:var(--muted)}
+
+/* the tuned channel: an amber bar, not a filled pill */
+.nav button{position:relative}
+.nav button[aria-current="page"]{background:var(--nav-item-active);border-color:transparent;font-weight:600}
+.nav button[aria-current="page"]::before{content:"";position:absolute;inset-block:10px;inset-inline-start:-12px;width:3px;border-radius:var(--radius-xs);background:var(--accent)}
+@media(max-width:900px){
+  .nav button[aria-current="page"]::before{inset-block:0 auto;inset-inline:30% 30%;width:auto;height:3px}
+}
+
+/* the reply reads like a transcript line, not another card */
+.bubble-ai{background:transparent;border:0;border-inline-start:3px solid var(--accent);border-radius:0;padding:var(--space-1) var(--space-4)}
+.bubble-ai h2{margin-bottom:var(--space-2)}
+.decision{font-size:17px;line-height:1.8}
+.bubble-me{border-radius:var(--radius-lg) var(--radius-lg) var(--radius-xs) var(--radius-lg)}
+
+/* push-to-talk: the one loud element. The JS writes 🎤/⏹ into it; we hide that text and draw the icon. */
+#mic{font-size:0;color:var(--on-fill);position:relative;transition:box-shadow var(--dur) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+#mic::before{content:"";width:26px;height:26px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='2' width='6' height='12' rx='3'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2M12 19v3'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='2' width='6' height='12' rx='3'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2M12 19v3'/%3E%3C/svg%3E") center/contain no-repeat}
+#mic.on{animation:none;background:var(--bad-fill)}
+#mic.on::before{-webkit-mask:none;mask:none;width:18px;height:18px;border-radius:var(--radius-xs)}
+#mic.on::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--coral-ring);animation:signal 1.4s var(--ease-out) infinite}
+@keyframes signal{from{transform:scale(1);opacity:1}to{transform:scale(1.7);opacity:0}}
+
+.empty .callsign{display:block;font-family:var(--font-display);font-size:var(--text-3xl);font-weight:700;color:var(--accent);margin-bottom:var(--space-2)}
+.composer .box{border-color:var(--line-strong)}
+/* amber is spent on the mic alone; send and the mode switch stay quiet */
+#run{background:var(--surface-raised);color:var(--accent);border:1px solid var(--line-strong)}
+#run:hover{background:var(--line)}
+.kinds button.on{background:var(--surface-raised);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.kinds button.on .ico{color:var(--accent)}
+/* touch screens: every control at least 44px tall */
+@media(pointer:coarse){
+  button,.small,.kinds button,.chip,input:not([type=checkbox]),select{min-height:var(--tap)}
+  .voice label{min-height:var(--tap)}
+  details summary{min-height:var(--tap);display:flex;align-items:center}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
 </style>
 </head>
 <body>
-<div id="alertBar"></div>
+<!-- one icon family (Lucide, 24px grid, stroke 2) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M18 17V9M13 17V5M8 17v-3"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M12 8V4H8M2 14h2M20 14h2M15 13v2M9 13v2"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></symbol>
+</svg>
+<a class="skip" href="#main">تخطَّ للمحتوى</a>
+<div id="alertBar" role="alert"></div>
 <header>
-  <h1>🧠 Hassan AI OS</h1>
-  <div class="meta" id="health">…</div>
+  <h1 translate="no"><img src="/static/icon.svg" alt="" width="26" height="26">Hassan AI OS</h1>
+  <div class="meta" id="health" aria-live="polite">…</div>
 </header>
-<main>
-<aside>
-  <div class="card">
-    <h2>مهمة جديدة</h2>
-    <div class="kinds">
-      <button id="kindProject" class="on" title="الفريق يفكّر ويحلّل ويبرمج">🧠 الفريق</button>
-      <button id="kindOperate" title="الإيجنت يشتغل على الكمبيوتر: ملفات، برامج، أوامر">🖥️ تحكم بالكمبيوتر</button>
+<div class="shell">
+<nav class="nav" aria-label="الأقسام">
+  <button data-go="chat" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span>المحادثة</span></button>
+  <button data-go="pc"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span>الكمبيوتر</span></button>
+  <button data-go="auto"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span>التلقائي</span></button>
+  <button data-go="settings"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span>الإعدادات</span></button>
+</nav>
+<main class="content" id="main" tabindex="-1">
+
+<!-- ================= المحادثة ================= -->
+<section class="view active" data-view="chat" aria-label="المحادثة">
+  <div class="chatlog">
+    <details class="card fold">
+      <summary><svg class="ico" aria-hidden="true"><use href="#i-history"/></svg>المهام السابقة</summary>
+      <div class="hist" id="history"></div>
+    </details>
+    <details class="card fold">
+      <summary><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg>الفريق</summary>
+      <div class="agents" id="agents"></div>
+    </details>
+    <div id="taskView" style="display:none">
+      <p id="taskPrompt" class="bubble-me"></p>
+      <div class="card" style="margin-top:var(--space-3)">
+        <div class="taskhead">
+          <div aria-live="polite"><span class="pill" id="status"></span> <span class="muted" id="phase"></span></div>
+          <div class="acts">
+            <button class="ghost small" id="openTaskWs" style="display:none">VS Code ↗</button>
+            <button class="ghost small" id="rollback" style="display:none">↩ Rollback</button>
+            <button class="bad small" id="stopTask" style="display:none">⏹ أوقف</button></div>
+        </div>
+        <div id="taskUsage" class="muted" style="font-size:var(--text-xs);font-variant-numeric:tabular-nums"></div>
+        <div id="errorBox" role="alert" style="color:var(--bad)"></div>
+      </div>
+      <div id="approvals"></div>
+      <div class="card bubble-ai"><h2><svg class="ico" aria-hidden="true"><use href="#i-bot"/></svg>الرد
+        <button class="ghost small" id="speakBtn" title="اقرأ بصوت" aria-label="اقرأ الرد بصوت"><svg class="ico" aria-hidden="true"><use href="#i-volume"/></svg></button></h2>
+        <div class="decision" id="decision" aria-live="polite"><span class="muted">بانتظار الفريق…</span></div></div>
+      <div class="card"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><div id="mediaStrip"></div><pre id="evDetail" style="display:none"></pre></div>
+      <details class="card fold"><summary><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>خطة التنفيذ</summary><ol id="plan" class="muted"></ol></details>
+      <details class="card fold"><summary><svg class="ico" aria-hidden="true"><use href="#i-layers"/></svg>مخرجات الوكلاء</summary><div id="outputs"></div></details>
+      <details class="card fold"><summary><svg class="ico" aria-hidden="true"><use href="#i-file"/></svg>السجل</summary><div class="log" id="log"></div></details>
     </div>
-    <p id="operateHint" class="muted" style="display:none;font-size:12px;margin-top:0">
-      بيشوف ويدوّر ويفتح لحاله. أي تغيير (كتابة، نقل، حذف، أمر، برنامج) بيستنى موافقتك — من هون أو من التلفون.</p>
-    <div class="row" style="align-items:stretch">
-      <textarea id="prompt" placeholder="اكتب أو اضغط 🎤 واحكي: افحص مشروع الأقصى، أصلح مشكلة الصوت، ثم اعمل Build واختبار"></textarea>
-      <button class="mic" id="mic" title="احكي بدل ما تكتب">🎤</button>
-    </div>
-    <div id="interim"></div>
-    <div class="row" style="align-items:center;font-size:12px;margin:4px 0">
-      <span id="chatInfo" class="muted" style="flex:1">💬 محادثة جديدة</span>
-      <button class="ghost small" style="flex:0 0 auto" id="newChat" title="انسى الرسائل اللي قبل وابدأ موضوع جديد">➕ محادثة جديدة</button>
-    </div>
-    <div class="voice" id="voiceOpts">
-      <select id="lang" title="لغة الكلام">
-        <option value="ar-JO">عربي</option><option value="ar-SA">عربي فصحى</option>
-        <option value="en-US">English</option><option value="he-IL">עברית</option>
-      </select>
-      <label><input type="checkbox" id="autoSend"> أرسل لما أسكت</label>
-      <label><input type="checkbox" id="speakReply"> 🔊 اقرألي الرد</label>
-      <label title="بتحكي، بيرد بالصوت، وبيرجع يسمعك لحاله"><input type="checkbox" id="voiceChat"> 🗣️ محادثة صوتية</label>
-    </div>
-    <div id="projectFields">
-    <label>الوضع</label>
-    <select id="mode">
-      <option value="auto">Auto — المدير يقرر</option>
-      <option value="fast">Fast — سريع</option>
-      <option value="consensus">Consensus — عدة نماذج + قاضٍ</option>
-    </select>
-    <label>مجلد المشروع (Workspace)</label>
-    <div class="row"><input id="workspace" placeholder="C:\Users\Hassan\Projects\AlAqsaVR" dir="ltr">
-      <button class="ghost small" id="openWs" style="flex:0 0 auto" title="افتح المجلد في VS Code">VS Code ↗</button></div>
-    <label>اسم المشروع (للذاكرة)</label>
-    <input id="project" placeholder="al-aqsa-vr" dir="ltr">
-    <label class="row" style="justify-content:flex-start;gap:8px"><input type="checkbox" id="execute" style="width:auto"> Execute — Checkpoint + Build + Tests</label>
-    </div>
-    <label>العقل (التكلفة)</label>
-    <select id="budget">
-      <option value="auto">🆓 مجاني — وبيسألني قبل أي عقل مدفوع</option>
-      <option value="free">🆓 مجاني بس — ولا تسألني</option>
-      <option value="balanced">💳 مسموح المدفوع حسب الصعوبة</option>
-      <option value="best">💳 أقوى عقل (مدفوع)</option>
-    </select>
-    <div style="margin-top:12px"><button id="run" style="width:100%">تشغيل ▶</button></div>
-    <div id="formErr" class="muted" style="color:var(--bad);margin-top:8px"></div>
+    <div class="empty"><span class="callsign">على السمع</span>اكبس المايك واحكي، أو اكتب تحت.</div>
   </div>
-  <div class="card">
-    <h2>المهام السابقة</h2>
-    <div class="hist" id="history"></div>
+
+  <div class="composer">
+    <div class="box">
+      <div class="top">
+        <div class="kinds" role="group" aria-label="نوع المهمة">
+          <button id="kindProject" class="on" title="الفريق يفكّر ويحلّل ويبرمج"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg>الفريق</button>
+          <button id="kindOperate" title="الإيجنت يشتغل على الكمبيوتر: ملفات، برامج، أوامر"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg>تحكم بالكمبيوتر</button>
+        </div>
+        <span id="chatInfo" class="muted" aria-live="polite">💬 محادثة جديدة</span>
+        <button class="ghost small" style="flex:0 0 auto" id="newChat" title="انسى الرسائل اللي قبل وابدأ موضوع جديد" aria-label="محادثة جديدة"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span class="lbl">محادثة جديدة</span></button>
+      </div>
+      <p id="operateHint" class="muted" style="display:none;font-size:var(--text-xs)">
+        بيشوف ويدوّر ويفتح لحاله. أي تغيير (كتابة، نقل، حذف، أمر، برنامج) بيستنى موافقتك — من هون أو من التلفون.</p>
+      <div id="interim" aria-live="polite"></div>
+      <div class="input">
+        <button class="mic" id="mic" title="احكي بدل ما تكتب" aria-label="احكي بدل ما تكتب">🎤</button>
+        <textarea id="prompt" name="prompt" aria-label="رسالتك" autocomplete="off" placeholder="اكتب أو احكي…"></textarea>
+        <button id="run" title="إرسال" aria-label="إرسال"><svg class="ico flip" aria-hidden="true"><use href="#i-send"/></svg><span class="lbl">إرسال</span></button>
+      </div>
+      <div id="formErr" class="muted" role="alert" style="color:var(--bad)"></div>
+      <details class="opts">
+        <summary><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg>خيارات (الصوت، العقل، المشروع)</summary>
+        <div class="voice" id="voiceOpts">
+          <select id="lang" name="lang" title="لغة الكلام" aria-label="لغة الكلام">
+            <option value="ar-JO">عربي</option><option value="ar-SA">عربي فصحى</option>
+            <option value="en-US">English</option><option value="he-IL">עברית</option>
+          </select>
+          <label><input type="checkbox" id="autoSend"> أرسل لما أسكت</label>
+          <label><input type="checkbox" id="speakReply"> 🔊 اقرألي الرد</label>
+          <label title="بتحكي، بيرد بالصوت، وبيرجع يسمعك لحاله"><input type="checkbox" id="voiceChat"> 🗣️ محادثة صوتية</label>
+        </div>
+        <label for="budget">العقل (التكلفة)</label>
+        <select id="budget" name="budget">
+          <option value="auto">🆓 مجاني — وبيسألني قبل أي عقل مدفوع</option>
+          <option value="free">🆓 مجاني بس — ولا تسألني</option>
+          <option value="balanced">💳 مسموح المدفوع حسب الصعوبة</option>
+          <option value="best">💳 أقوى عقل (مدفوع)</option>
+        </select>
+        <div id="projectFields">
+        <label for="mode">الوضع</label>
+        <select id="mode" name="mode">
+          <option value="auto">Auto — المدير يقرر</option>
+          <option value="fast">Fast — سريع</option>
+          <option value="consensus">Consensus — عدة نماذج + قاضٍ</option>
+        </select>
+        <label for="workspace">مجلد المشروع (Workspace)</label>
+        <div class="row"><input id="workspace" name="workspace" autocomplete="off" spellcheck="false" placeholder="C:\Users\Hassan\Projects\AlAqsaVR…" dir="ltr">
+          <button class="ghost small" id="openWs" style="flex:0 0 auto" title="افتح المجلد في VS Code">VS Code ↗</button></div>
+        <label for="project">اسم المشروع (للذاكرة)</label>
+        <input id="project" name="project" autocomplete="off" spellcheck="false" placeholder="al-aqsa-vr…" dir="ltr">
+        <label class="row" style="justify-content:flex-start;gap:var(--space-2)"><input type="checkbox" id="execute" style="width:auto;flex:0 0 auto"> Execute — Checkpoint + Build + Tests</label>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ================= الكمبيوتر ================= -->
+<section class="view" data-view="pc" aria-label="الكمبيوتر">
+  <h2 class="vtitle"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg>الكمبيوتر</h2>
+  <div class="grid">
+  <div class="card" id="screenCard">
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg>شاشة الكمبيوتر مباشرة</h2>
+    <p class="muted" style="font-size:var(--text-xs);margin-top:0">بتشوف الشاشة، وبتحكي للإيجنت شو يعمل — بتتفرّج عليه عم يشتغل وبتوافق على خطواته من هون.</p>
+    <div class="row">
+      <button class="ghost small" id="scrBtn">▶ اعرض الشاشة</button>
+      <button class="ghost small" id="scrFull" style="display:none"><svg class="ico" aria-hidden="true"><use href="#i-expand"/></svg>ملء الشاشة</button>
+    </div>
+    <div id="scrErr" role="alert" style="color:var(--bad);font-size:var(--text-xs)"></div>
+    <div id="scrBox" style="display:none">
+      <img id="scrView" class="stream" alt="شاشة الكمبيوتر مباشرة" width="1280" height="720">
+      <div class="row" style="margin-top:var(--space-2)">
+        <input id="scrCmd" name="scrCmd" autocomplete="off" aria-label="قلّه شو يعمل" placeholder="قلّه شو يعمل: افتح CapCut وحط الفيديو اللي على الديسكتوب…">
+        <button class="ghost small" style="flex:0 0 auto" id="scrMic" title="احكي" aria-label="احكي الأمر"><svg class="ico" aria-hidden="true"><use href="#i-mic"/></svg></button>
+        <button class="small" style="flex:0 0 auto" id="scrGo" aria-label="نفّذ"><svg class="ico flip" aria-hidden="true"><use href="#i-send"/></svg></button>
+      </div>
+      <div id="scrStatus" aria-live="polite" style="font-size:var(--text-sm);margin-top:var(--space-2)"></div>
+    </div>
+  </div>
+  <div class="card" id="camCard">
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg>كاميرا الكمبيوتر مباشرة</h2>
+    <p class="muted" style="font-size:var(--text-xs);margin-top:0">بتشتغل بس لما تكبس، وبتطفى لما تكبس وقّف أو تسكّر الصفحة.</p>
+    <button class="ghost small" id="camBtn">▶ شغّل الكاميرا</button>
+    <div id="camErr" role="alert" style="color:var(--bad);font-size:var(--text-xs)"></div>
+    <img id="camView" class="stream" alt="كاميرا الكمبيوتر مباشرة" width="1280" height="720" style="display:none">
   </div>
   <div class="card" id="lineCard">
-    <h2>📞 خط مع الكمبيوتر</h2>
-    <p class="muted" style="font-size:12px;margin-top:0">🎧 بتسمع مايك الكمبيوتر مباشرة · 🎙️ بتحكي وصوتك بيطلع من سماعات الكمبيوتر.</p>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-headphones"/></svg>خط مع الكمبيوتر</h2>
+    <p class="muted" style="font-size:var(--text-xs);margin-top:0">«اسمع»: بتسمع مايك الكمبيوتر مباشرة · «احكي»: صوتك بيطلع من سماعات الكمبيوتر.</p>
     <div class="row">
       <button class="ghost small" id="listenBtn">🎧 اسمع</button>
       <button class="ghost small" id="talkBtn">🎙️ احكي</button>
     </div>
-    <div id="lineInfo" class="muted" style="font-size:12px;margin-top:6px"></div>
+    <div id="lineInfo" class="muted" aria-live="polite" style="font-size:var(--text-xs);margin-top:var(--space-2)"></div>
     <audio id="lineAudio" style="display:none"></audio>
   </div>
-  <div class="card" id="screenCard">
-    <h2>🖥️ شاشة الكمبيوتر مباشرة</h2>
-    <p class="muted" style="font-size:12px;margin-top:0">بتشوف الشاشة، وبتحكي للإيجنت شو يعمل — بتتفرّج عليه عم يشتغل وبتوافق على خطواته من هون.</p>
-    <div class="row">
-      <button class="ghost small" id="scrBtn">▶ اعرض الشاشة</button>
-      <button class="ghost small" id="scrFull" style="display:none">⛶ ملء الشاشة</button>
-    </div>
-    <div id="scrErr" style="color:var(--bad);font-size:12px"></div>
-    <div id="scrBox" style="display:none">
-      <img id="scrView" alt="" style="width:100%;border-radius:8px;margin-top:8px;background:#000">
-      <div class="row" style="margin-top:8px">
-        <input id="scrCmd" placeholder="قلّه شو يعمل: افتح CapCut وحط الفيديو اللي على الديسكتوب">
-        <button class="ghost small" style="flex:0 0 auto" id="scrMic" title="احكي">🎤</button>
-        <button class="small" style="flex:0 0 auto" id="scrGo">▶</button>
-      </div>
-      <div id="scrStatus" style="font-size:13px;margin-top:6px"></div>
-    </div>
   </div>
-  <div class="card" id="camCard">
-    <h2>📷 كاميرا الكمبيوتر مباشرة</h2>
-    <p class="muted" style="font-size:12px;margin-top:0">بتشتغل بس لما تكبس، وبتطفى لما تكبس وقّف أو تسكّر الصفحة.</p>
-    <button class="ghost small" id="camBtn">▶ شغّل الكاميرا</button>
-    <div id="camErr" style="color:var(--bad);font-size:12px"></div>
-    <img id="camView" alt="" style="display:none;width:100%;border-radius:8px;margin-top:8px;background:#000">
-  </div>
-  <div class="card" id="tgCard" style="display:none">
-    <h2>✈️ تيليجرام</h2>
-    <div id="tg" class="muted">…</div>
-  </div>
+</section>
+
+<!-- ================= التلقائي ================= -->
+<section class="view" data-view="auto" aria-label="التلقائي">
+  <h2 class="vtitle"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg>التلقائي</h2>
+  <div class="grid">
   <div class="card">
-    <h2>⏰ مهام مجدولة</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg>مهام مجدولة</h2>
     <div id="sched" class="muted">…</div>
-    <div class="row" style="margin-top:8px"><input id="schedText" placeholder="daily 08:00 ابعتلي ملخص التنزيلات الجديدة">
+    <div class="row" style="margin-top:var(--space-2)"><input id="schedText" name="schedText" autocomplete="off" aria-label="مهمة مجدولة جديدة" placeholder="daily 08:00 ابعتلي ملخص التنزيلات الجديدة…">
       <button class="ghost small" style="flex:0 0 auto" id="schedAdd">أضف</button></div>
-    <p class="muted" style="font-size:11px;margin:6px 0 0" dir="ltr">daily 08:00 … · weekly sun 09:00 … · every 2h …</p>
+    <p class="muted" style="font-size:var(--text-xs);margin:var(--space-2) 0 0" dir="ltr">daily 08:00 … · weekly sun 09:00 … · every 2h …</p>
   </div>
   <div class="card">
-    <h2>🧠 شو بعرف عنك</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg>شو بعرف عنك</h2>
     <div id="prof" class="muted">…</div>
-    <div class="row" style="margin-top:8px"><input id="profText" placeholder="مثلاً: بفضّل التقارير قصيرة">
+    <div class="row" style="margin-top:var(--space-2)"><input id="profText" name="profText" autocomplete="off" aria-label="معلومة عنك" placeholder="مثلاً: بفضّل التقارير قصيرة…">
       <button class="ghost small" style="flex:0 0 auto" id="profAdd">احفظ</button></div>
   </div>
+  </div>
+</section>
+
+<!-- ================= الإعدادات ================= -->
+<section class="view" data-view="settings" aria-label="الإعدادات">
+  <h2 class="vtitle"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg>الإعدادات</h2>
+  <div class="grid">
+  <div class="card" id="tgCard" style="display:none">
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-send"/></svg>تيليجرام</h2>
+    <div id="tg" class="muted">…</div>
+  </div>
   <div class="card" id="keysCard" style="display:none">
-    <h2>🔑 APIs مجانية (احتياط)</h2>
-    <p class="muted" style="font-size:12px;margin-top:0">إذا خلصت حصة Claude وChatGPT، الشغل بيكمل على هدول. المفاتيح بتنحفظ على الكمبيوتر بس.</p>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg>APIs مجانية (احتياط)</h2>
+    <p class="muted" style="font-size:var(--text-xs);margin-top:0">إذا خلصت حصة Claude وChatGPT، الشغل بيكمل على هدول. المفاتيح بتنحفظ على الكمبيوتر بس.</p>
     <div id="keys" class="muted">…</div>
   </div>
   <div class="card" id="phoneCard" style="display:none">
-    <h2>📱 التلفون</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-phone"/></svg>التلفون</h2>
     <div id="phone" class="muted">…</div>
   </div>
   <div class="card">
-    <h2>الاستهلاك</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg>الاستهلاك</h2>
     <div id="usage" class="muted">…</div>
   </div>
   <div class="card">
-    <h2>العقول (Claude / ChatGPT)</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-cpu"/></svg>العقول (Claude / ChatGPT)</h2>
     <div id="brains" class="muted">…</div>
   </div>
   <div class="card">
-    <h2>الموصلات (MCP)</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-plug"/></svg>الموصلات (MCP)</h2>
     <div id="mcp" class="muted">…</div>
   </div>
-</aside>
-<section>
-  <div class="card">
-    <h2>الفريق</h2>
-    <div class="agents" id="agents"></div>
-  </div>
-  <div id="taskView" style="display:none">
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <div><span class="pill" id="status"></span> <span class="muted" id="phase"></span></div>
-        <div style="flex:0;display:flex;gap:6px">
-          <button class="ghost small" id="openTaskWs" style="display:none">VS Code ↗</button>
-          <button class="ghost small" id="rollback" style="display:none">↩ Rollback</button>
-          <button class="bad small" id="stopTask" style="display:none">⏹ أوقف</button></div>
-      </div>
-      <p id="taskPrompt" class="muted"></p>
-      <div id="taskUsage" class="muted" style="font-size:12px"></div>
-      <div id="errorBox" style="color:var(--bad)"></div>
-    </div>
-    <div id="approvals"></div>
-    <div class="card"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><div id="mediaStrip"></div><pre id="evDetail" style="display:none"></pre></div>
-    <div class="card"><h2>القرار النهائي <button class="ghost small" id="speakBtn" title="اقرأ بصوت">🔊</button></h2><div class="decision" id="decision"><span class="muted">بانتظار الفريق…</span></div></div>
-    <div class="card"><h2>خطة التنفيذ</h2><ol id="plan" class="muted"></ol></div>
-    <div class="card"><h2>مخرجات الوكلاء</h2><div id="outputs"></div></div>
-    <div class="card"><h2>السجل</h2><div class="log" id="log"></div></div>
   </div>
 </section>
+
 </main>
+</div>
 <script>
 const $ = id => document.getElementById(id);
 let agents = [], current = null, lastSeq = 0, timer = null, currentTask = null, approvalKey = "", taskKind = "project";
@@ -825,6 +1094,31 @@ $("rollback").onclick = async () => {
   catch (e) { alert(e.message); }
 };
 boot().catch(e => $("health").textContent = "خطأ: " + e.message);
+</script>
+<script>
+// ---- sections: side bar on the PC, bottom bar on the phone (layout only; the tab lives in the URL hash) ----
+(() => {
+  const views = document.querySelectorAll(".view"), tabs = document.querySelectorAll("[data-go]");
+  const names = [...views].map(v => v.dataset.view);
+  function go(name, push) {
+    if (!names.includes(name)) name = "chat";
+    views.forEach(v => v.classList.toggle("active", v.dataset.view === name));
+    tabs.forEach(t => t.dataset.go === name ? t.setAttribute("aria-current", "page") : t.removeAttribute("aria-current"));
+    const hash = name === "chat" ? "" : "#" + name;
+    if (push && location.hash !== hash) history.replaceState(null, "", location.pathname + location.search + hash);
+    try { localStorage.setItem("hassan.view", name); } catch (e) {}
+  }
+  tabs.forEach(t => t.addEventListener("click", () => { go(t.dataset.go, true); window.scrollTo(0, 0); }));
+  window.addEventListener("hashchange", () => go(location.hash.slice(1) || "chat"));
+  document.getElementById("alertBar").addEventListener("click", () => go("chat", true));  // approvals live in the chat
+  let start = location.hash.slice(1);
+  if (!start) try { start = localStorage.getItem("hassan.view") || "chat"; } catch (e) { start = "chat"; }
+  if (new URLSearchParams(location.search).get("task")) start = "chat";
+  go(start, true);
+  const p = document.getElementById("prompt");  // chat box grows with the text
+  p.addEventListener("input", () => { p.style.height = "auto"; p.style.height = Math.min(p.scrollHeight + 2, innerHeight * 0.3) + "px"; });
+  document.getElementById("run").addEventListener("click", () => setTimeout(() => { if (!p.value) p.style.height = ""; }, 1500));
+})();
 </script>
 </body>
 </html>
