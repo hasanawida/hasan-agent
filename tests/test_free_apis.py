@@ -53,7 +53,7 @@ def providers_yaml(tmp_path, limited_claude: bool = True) -> str:
         default: claude
         aliases: {reviewer: chatgpt, decision: chatgpt}
         fallback: [chatgpt, claude, gemini, groq]
-    """ % (tmp_path / "no-claude", tmp_path / "no-codex")))
+    """ % ((tmp_path / "no-claude").as_posix(), (tmp_path / "no-codex").as_posix())))
     return str(cfg)
 
 

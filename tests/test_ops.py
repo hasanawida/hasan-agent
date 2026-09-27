@@ -172,7 +172,7 @@ def test_cli_start_ask_status_stop(tmp_path, py_project):
     env = {**os.environ, "HASSAN_PORT": str(port), "HASSAN_DATA_DIR": str(tmp_path / "data"),
            "HASSAN_AI_MODE": "mock", "HASSAN_ALLOWED_ROOTS": str(tmp_path), "PYTHONPATH": str(ROOT)}
     run = lambda *a: subprocess.run([sys.executable, "-m", "hassan_ai", *a], cwd=py_project, env=env,  # noqa: E731
-                                    capture_output=True, text=True, timeout=90)
+                                    capture_output=True, text=True, encoding="utf-8", timeout=90)
     try:
         assert "running" in run("start").stdout
         assert "mock" in run("status").stdout

@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from .processes import run_process
+
 import asyncio
 import difflib
 import json
@@ -150,21 +152,14 @@ class SafeLocalRunner:
         if shutil.which(argv[0]) is None and not Path(argv[0]).exists():
             return CommandResult(argv, 127, "", f"{argv[0]} not found on PATH", 0.0)
         start = time.monotonic()
-        proc = await asyncio.create_subprocess_exec(
-            *argv, cwd=str(cwd), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        proc = await run_process(
+            argv, timeout=timeout or self.timeout, cwd=str(cwd),
             env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "CI": "1"}, **NO_WINDOW,
         )
-        try:
-            out, err = await asyncio.wait_for(proc.communicate(), timeout or self.timeout)
-            timed_out = False
-        except asyncio.TimeoutError:
-            proc.kill()
-            out, err = await proc.communicate()
-            timed_out = True
         return CommandResult(
-            argv, proc.returncode if proc.returncode is not None else -1,
-            out.decode("utf-8", "replace"), err.decode("utf-8", "replace"),
-            time.monotonic() - start, timed_out,
+            argv, proc.returncode,
+            proc.stdout.decode("utf-8", "replace"), proc.stderr.decode("utf-8", "replace"),
+            time.monotonic() - start, proc.timed_out,
         )
 
 

@@ -50,7 +50,12 @@ def test_symlink_escape_blocked(tmp_path):
     outside.mkdir()
     ws = tmp_path / "ws"
     ws.mkdir()
-    (ws / "link").symlink_to(outside)
+    try:
+        (ws / "link").symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("Windows account lacks symlink privilege; covered on Linux CI")
+        raise
     with pytest.raises(PolicyError):
         resolve_in_workspace(ws, "link/file.txt")
 

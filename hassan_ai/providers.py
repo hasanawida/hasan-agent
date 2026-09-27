@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import load_yaml
-from .execution import NO_WINDOW
+from .processes import run_process
 from .llm import Completion, GatewayLLM, LLMError, MockLLM, PaidRequired
 
 # Removed from the CLI's environment when use_subscription is on, so the CLI
@@ -120,16 +120,11 @@ class CLIBackend:
                 stdin = _combined(system, user)
             argv += self.extra_args
 
-            proc = await asyncio.create_subprocess_exec(
-                *argv, cwd=scratch, env=self._env(),
-                stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                **NO_WINDOW)
-            try:
-                out, err = await asyncio.wait_for(proc.communicate(stdin.encode("utf-8")), self.timeout)
-            except asyncio.TimeoutError as exc:
-                proc.kill()
-                await proc.communicate()
-                raise LLMError(f"{self.kind}: timed out after {self.timeout:.0f}s") from exc
+            proc = await run_process(argv, timeout=self.timeout, input=stdin.encode("utf-8"),
+                                     cwd=scratch, env=self._env())
+            if proc.timed_out:
+                raise LLMError(f"{self.kind}: timed out after {self.timeout:.0f}s")
+            out, err = proc.stdout, proc.stderr
             stdout = out.decode("utf-8", "replace")
             stderr = err.decode("utf-8", "replace")
             label = f"{self.kind}/{model or 'default'}"
@@ -227,10 +222,10 @@ class CLIBackend:
         checks = [["--version"]] + ([["login", "status"]] if self.kind == "codex_cli" else [])
         for args in checks:
             try:
-                proc = await asyncio.create_subprocess_exec(
-                    exe, *args, env=self._env(), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                    **NO_WINDOW)
-                out, err = await asyncio.wait_for(proc.communicate(), 20)
+                proc = await run_process([exe, *args], timeout=20, env=self._env())
+                if proc.timed_out:
+                    raise asyncio.TimeoutError("status check timed out")
+                out, err = proc.stdout, proc.stderr
                 info[" ".join(args).lstrip("-")] = (out or err).decode("utf-8", "replace").strip()[:200]
             except (OSError, asyncio.TimeoutError) as exc:
                 info[" ".join(args).lstrip("-")] = f"error: {exc}"

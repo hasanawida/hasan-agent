@@ -59,6 +59,7 @@ class Orchestrator:
         self.roster = roster
         self.execution = execution
         self._running: set[asyncio.Task] = set()
+        self._jobs: dict[str, asyncio.Task] = {}
         self._approval_lock = asyncio.Lock()
         self._waiters: dict[str, asyncio.Future] = {}  # operator approvals being waited on
         self._cancelled: set[str] = set()
@@ -73,7 +74,7 @@ class Orchestrator:
                           budget=req.budget, conversation=req.conversation)
         self.memory.save_task(task)
         self._emit(task, "created", "Task received", {"mode": task.mode.value, "execute": task.execute})
-        self._spawn(self.run(task.id))
+        self._spawn(self.run(task.id), task.id)
         return task
 
     def recover_interrupted(self) -> int:
@@ -88,7 +89,7 @@ class Orchestrator:
                     a.status, a.decided_at = "rejected", now()
                     self.memory.save_approval(a)
                 task.status = TaskStatus.running
-            if task.status in (TaskStatus.running, TaskStatus.queued):
+            if task.status in (TaskStatus.running, TaskStatus.queued, TaskStatus.cancelling):
                 task.status, task.error = TaskStatus.failed, "Interrupted by server restart"
                 self.memory.save_task(task)
                 count += 1
@@ -113,20 +114,34 @@ class Orchestrator:
             if waiter and not waiter.done():
                 waiter.set_result(approve)
             return approval
-        self._spawn(self._after_approval(task.id, approval))
+        self._spawn(self._after_approval(task.id, approval), task.id)
         return approval
 
     def cancel(self, task_id: str) -> None:
-        """Stop an operator task: no further steps; a pending approval counts as rejected."""
+        """Request cancellation; only report stopped after active work is cleaned up."""
+        task = self._load(task_id)
+        if task.status not in (TaskStatus.queued, TaskStatus.running, TaskStatus.awaiting_approval):
+            return
         self._cancelled.add(task_id)
+        task.status, task.phase = TaskStatus.cancelling, "cancelling"
+        self.memory.save_task(task)
         for a in self.memory.approvals(task_id, status="pending"):
             a.status, a.decided_at = "rejected", now()
             self.memory.save_approval(a)
-            waiter = self._waiters.get(a.id)
-            if waiter and not waiter.done():
-                waiter.set_result(False)
+        self._emit(task, "cancel", "جارٍ إيقاف التنفيذ وتنظيف العمليات الجارية")
+        job = self._jobs.get(task_id)
+        if job is not None and not job.done():
+            job.cancel()
+        else:
+            self._mark_cancelled(task_id)
+
+    def _mark_cancelled(self, task_id: str) -> None:
         task = self._load(task_id)
-        self._emit(task, "cancel", "Stop requested by Hassan")
+        task.status, task.phase = TaskStatus.cancelled, "cancelled"
+        task.decision = "أوقفت المهمة بطلب منك. التغييرات التي نُفّذت قبل الإيقاف تبقى محفوظة."
+        self.memory.save_task(task)
+        self._emit(task, "done", task.decision)
+        self._cancelled.discard(task_id)
 
     def cancelled(self, task_id: str) -> bool:
         return task_id in self._cancelled
@@ -140,7 +155,9 @@ class Orchestrator:
         return restored
 
     async def drain(self) -> None:
-        while self._running:
+        for task_id in list(self._jobs):
+            self.cancel(task_id)
+        if self._running:
             await asyncio.gather(*list(self._running), return_exceptions=True)
 
     # ------------------------------------------------------------ pipeline
@@ -335,8 +352,8 @@ class Orchestrator:
             "change_plan": task.change_plan.model_dump() if task.change_plan else None,
             "user_rejected_changes": rejected}))
         task.decision = out.content
-        task.status = TaskStatus.rejected if rejected else TaskStatus.completed
-        task.phase = "completed"
+        task.status = TaskStatus.rejected if rejected else (TaskStatus.failed if task.verified is False else TaskStatus.completed)
+        task.phase = task.status.value
         if task.project:
             self.memory.remember(task.project, "decision", f"{task.prompt[:300]}\n→ {task.decision[:1500]}")
         self._emit(task, "done", f"Task {task.status.value}", {"verified": task.verified})
@@ -594,7 +611,34 @@ class Orchestrator:
             raise KeyError(task_id)
         return task
 
-    def _spawn(self, coro) -> None:
-        t = asyncio.get_running_loop().create_task(coro)
-        self._running.add(t)
-        t.add_done_callback(self._running.discard)
+    def _spawn(self, coro, task_id: str) -> None:
+        started = False
+
+        async def run_job():
+            nonlocal started
+            started = True
+            await coro
+
+        def finished(job):
+            if not started:
+                coro.close()
+            self._running.discard(job)
+            if self._jobs.get(task_id) is job:
+                self._jobs.pop(task_id, None)
+            if job.cancelled():
+                self._mark_cancelled(task_id)
+            elif job.exception() is not None:
+                task = self._load(task_id)
+                task.status, task.phase = TaskStatus.failed, "failed"
+                task.error = f"Execution cleanup failed: {job.exception()}"
+                self.memory.save_task(task)
+                self._emit(task, "error", task.error)
+            self._cancelled.discard(task_id)
+            self._paid_locks.pop(task_id, None)
+            if self.operator is not None:
+                self.operator.cleanup(task_id)
+
+        job = asyncio.get_running_loop().create_task(run_job())
+        self._jobs[task_id] = job
+        self._running.add(job)
+        job.add_done_callback(finished)

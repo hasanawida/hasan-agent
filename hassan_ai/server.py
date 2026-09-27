@@ -20,6 +20,8 @@ from . import __version__, openhands, remote
 from .agents import Roster
 from .config import PACKAGE_DIR, Settings
 from .execution import NO_WINDOW, CheckpointManager, ExecutionManager, SafeLocalRunner
+from .desktop import DesktopControl, attach_routes
+from .diagnostics import readiness
 from .llm import MockLLM
 from .mcp_bus import MCPRegistry
 from .memory import Memory
@@ -96,19 +98,23 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     orchestrator = Orchestrator(settings, memory, llm, roster, execution)
     mcp = MCPRegistry(settings.mcp_config, policy)
     pc = PCTools(policy, settings.allowed_roots, settings.data_dir / "trash",
-                 protected_dirs=[settings.data_dir, PACKAGE_DIR.parent], mcp=mcp, media_dir=settings.data_dir / "media")
+                 protected_dirs=[settings.data_dir, PACKAGE_DIR.parent], mcp=mcp, media_dir=settings.data_dir / "media",
+                 command_timeout=settings.command_timeout)
     orchestrator.operator = Operator(orchestrator, pc, skills_dir=settings.data_dir / "skills")
     scheduler = Scheduler(orchestrator)
     telegram = TelegramBot(orchestrator, settings.env_file, settings.data_dir / "media", api_base=telegram_api,
                            transport=telegram_transport, scheduler=scheduler, transcriber=groq_transcriber)
     roster.agents["operator"].extra_system = orchestrator.operator.system_prompt()
+    desktop = DesktopControl(settings.data_dir / "desktop-permission.json")
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         orchestrator.recover_interrupted()
         scheduler.start()
         await telegram.start()
+        desktop.start()
         yield
+        await desktop.close()
         await telegram.stop()
         await stop_camera()
         await scheduler.stop()
@@ -121,6 +127,8 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     app.state.memory = memory
     app.state.telegram = telegram
     app.state.scheduler = scheduler
+    app.state.desktop = desktop
+    attach_routes(app, settings, desktop)
 
     access_key = remote.load_or_create_key(settings.data_dir)
     app.state.access_key = access_key
@@ -203,6 +211,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     async def remote_rotate(request: Request):
         require_local(request)
         app.state.access_key = remote.rotate_key(settings.data_dir)
+        await desktop.disable()
         return {"ok": True}
 
     def api_backends() -> dict:
@@ -316,6 +325,10 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     async def health():
         return {"name": "Hassan AI OS", "version": __version__, "mode": settings.mode,
                 "agents": len(roster.agents), "gateway": settings.gateway_url if settings.mode == "live" else None}
+
+    @app.get("/api/diagnostics")
+    async def diagnostics():
+        return readiness(settings, llm, desktop, mcp, len(orchestrator._jobs))
 
     def brain(alias: str) -> str:
         if isinstance(llm, RouterLLM):
@@ -524,10 +537,10 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     async def open_in_editor(req: OpenRequest):
         """Open a file or folder in VS Code (only inside HASSAN_ALLOWED_ROOTS)."""
         target = Path(req.path).expanduser().resolve()
-        if not target.exists():
-            raise HTTPException(404, "Path not found")
         if not any(target == r or r in target.parents for r in settings.allowed_roots):
             raise HTTPException(403, "Path is outside HASSAN_ALLOWED_ROOTS")
+        if not target.exists():
+            raise HTTPException(404, "Path not found")
         exe = shutil.which(settings.editor_command)
         if exe is None:
             raise HTTPException(503, f"'{settings.editor_command}' not found. In VS Code run: "
