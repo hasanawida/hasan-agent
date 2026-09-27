@@ -36,7 +36,7 @@ hassan = "hassan_ai.cli:main"
 packages = ["hassan_ai"]
 
 [tool.setuptools.package-data]
-hassan_ai = ["static/*"]
+hassan_ai = ["static/*", "static/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

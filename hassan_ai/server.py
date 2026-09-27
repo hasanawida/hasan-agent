@@ -179,7 +179,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     async def manifest():
         return JSONResponse({
             "name": "Hassan AI OS", "short_name": "Hassan AI", "start_url": "/", "display": "standalone",
-            "dir": "rtl", "lang": "ar", "background_color": "#0b1020", "theme_color": "#0b1020",
+            "dir": "rtl", "lang": "ar", "background_color": "#22261D", "theme_color": "#22261D",
             "icons": [{"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
         }, media_type="application/manifest+json")
 
