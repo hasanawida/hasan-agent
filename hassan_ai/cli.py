@@ -20,6 +20,9 @@ import webbrowser
 from pathlib import Path
 
 import httpx
+import psutil
+
+from .processes import terminate_tree
 
 from .config import Settings
 
@@ -52,12 +55,15 @@ def serve(settings: Settings) -> None:
         print(f"Hassan AI OS is already running on {_base(settings)}")
         return
     _pid_file(settings).write_text(str(os.getpid()))
+    identity = settings.data_dir / "server.identity.json"
+    identity.write_text(json.dumps({"pid": os.getpid(), "created": psutil.Process().create_time()}))
     try:
         # Quiet console: the dashboard polls every second, so per-request access logs are noise.
         uvicorn.run(create_app(settings), host=settings.host, port=settings.port,
                     access_log=False, use_colors=False, ws_max_size=4096, ws_max_queue=16)
     finally:
         _pid_file(settings).unlink(missing_ok=True)
+        identity.unlink(missing_ok=True)
 
 
 def start(settings: Settings, wait: float = 30.0) -> bool:
@@ -85,20 +91,34 @@ def stop(settings: Settings) -> bool:
     pid_file = _pid_file(settings)
     if not pid_file.exists():
         return False
-    pid = int(pid_file.read_text().strip() or 0)
+    identity = settings.data_dir / "server.identity.json"
     try:
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, check=False)
-        else:
-            os.kill(pid, 15)
-    except OSError:
+        pid = int(pid_file.read_text().strip() or 0)
+        if pid <= 0:
+            return False
+        process = psutil.Process(pid)
+        if identity.exists():
+            meta = json.loads(identity.read_text())
+            if meta["pid"] != pid:
+                return False
+            created = float(meta["created"])
+        else:  # migrate an older running server, without trusting a stale PID alone
+            args = process.cmdline()
+            if "hassan_ai" not in args or "serve" not in args:
+                return False
+            created = process.create_time()
+        terminate_tree(pid, created=created)
+    except psutil.NoSuchProcess:
         pass
-    # taskkill returns before the process is gone. Wait until the port is free, otherwise the
-    # next `start` sees the old server still answering, thinks all is well, and then it dies.
+    except (OSError, ValueError, KeyError, RuntimeError, psutil.Error):
+        return False
     deadline = time.time() + 15
     while time.time() < deadline and is_running(settings):
         time.sleep(0.3)
+    if is_running(settings):
+        return False
     pid_file.unlink(missing_ok=True)
+    identity.unlink(missing_ok=True)
     return True
 
 

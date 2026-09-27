@@ -15,6 +15,8 @@ Safety rails that no model output can bypass:
 
 from __future__ import annotations
 
+from .processes import finish_thread_call, run_process
+
 import asyncio
 import fnmatch
 import glob
@@ -295,7 +297,7 @@ class PCTools:
         else:
             # plain tools (searching a big folder, copying…) run in a worker thread so they
             # never freeze the dashboard, Telegram and the other tasks
-            result = await asyncio.to_thread(fn, **kwargs)
+            result = await finish_thread_call(fn, **kwargs)
         text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, indent=1, default=str)
         return text if len(text) <= MAX_OUTPUT else text[:MAX_OUTPUT] + "\n…(truncated)"
 
@@ -445,7 +447,7 @@ class PCTools:
         if p.exists():
             self._to_trash(p, copy=True)  # keep the old version recoverable
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(str(content), encoding="utf-8")
+        p.write_text(str(content), encoding="utf-8", newline="")
         return f"wrote {p} ({len(str(content))} chars)"
 
     def _t_move(self, src: str, dst: str) -> str:
@@ -491,14 +493,9 @@ class PCTools:
             argv = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command]
         else:
             argv = ["/bin/sh", "-c", command]
-        proc = await asyncio.create_subprocess_exec(*argv, cwd=str(workdir), stdout=asyncio.subprocess.PIPE,
-                                                    stderr=asyncio.subprocess.PIPE, stdin=asyncio.subprocess.DEVNULL,
-                                                    **NO_WINDOW)
-        try:
-            out, err = await asyncio.wait_for(proc.communicate(), self.command_timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
-            out, err = await proc.communicate()
+        proc = await run_process(argv, timeout=self.command_timeout, cwd=str(workdir))
+        out, err = proc.stdout, proc.stderr
+        if proc.timed_out:
             return f"timed out after {self.command_timeout:.0f}s\n{out.decode('utf-8', 'replace')[-4000:]}"
         text = out.decode("utf-8", "replace") + (("\n[stderr]\n" + err.decode("utf-8", "replace")) if err else "")
         return f"exit {proc.returncode}\n{text.strip()}"
@@ -576,13 +573,9 @@ class PCTools:
         return {"saved": str(path), "media": path.name, "note": f"{what} saved; Hassan can see it in the dashboard"}
 
     async def _proc(self, argv: list[str], timeout: float) -> tuple[int, str]:
-        proc = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
-                                                    stdin=asyncio.subprocess.DEVNULL, **NO_WINDOW)
-        try:
-            out, _ = await asyncio.wait_for(proc.communicate(), timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
-            out, _ = await proc.communicate()
+        proc = await run_process(argv, timeout=timeout, stderr=asyncio.subprocess.STDOUT)
+        out = proc.stdout
+        if proc.timed_out:
             return -1, out.decode("utf-8", "replace") + "\n(timed out)"
         return proc.returncode or 0, out.decode("utf-8", "replace")
 

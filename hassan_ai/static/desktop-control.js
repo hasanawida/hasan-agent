@@ -3,6 +3,8 @@
   'use strict';
   const el = id => document.getElementById(id), view = el('scrView');
   let socket = null, ready = false, state = null, pollBusy = false, beat = null, movingAt = 0;
+  let immersive=false, more=false, zoomed=false, panning=false;
+  const surface=el('desktopSurface'), viewport=el('desktopViewport');
   const held = new Map();
   const pressedPointers = new Set();
   async function request(path, method='GET') {
@@ -13,13 +15,19 @@
   }
   function message(text) { el('desktopState').textContent=text; }
   function send(data) {
-    if (!ready || socket?.readyState!==WebSocket.OPEN) return;
-    if (socket.bufferedAmount>65536) { stop('الاتصال بطيء؛ توقف التحكّم.',false); return; }
-    socket.send(JSON.stringify(data));
+    if (!ready || socket?.readyState!==WebSocket.OPEN) return false;
+    if (socket.bufferedAmount>65536) { stop('الاتصال بطيء؛ توقف التحكّم.',false); return false; }
+    socket.send(JSON.stringify(data));return true;
   }
   function release() { send({action:'release'}); held.clear(); pressedPointers.clear(); }
   function render() {
-    el('desktopTools').hidden=!ready;
+    el('desktopTools').hidden=!ready || (immersive && !more);
+    el('desktopZoomTools').hidden=!immersive || !more;
+    el('desktopFullConnect').textContent=ready?'⏹ تحكّم':'تحكّم';
+    el('desktopFullConnect').disabled=socket ? !ready : !state?.enabled || !view.naturalWidth;
+    el('desktopKeyboard').disabled=!ready;
+    el('desktopFullStatus').textContent=ready?'متصل':socket?'جارٍ الاتصال…':state?.enabled?'عرض فقط':'السماح مطفأ';
+    if(!ready)hideKeyboard();
     view.dataset.control=String(ready);
     el('desktopConnect').textContent=socket?'وقف التحكّم':'تحكّم بالماوس والكيبورد';
     el('desktopConnect').disabled=!socket && (!state?.enabled || view.dataset.streaming!=='true' || !view.naturalWidth);
@@ -63,7 +71,61 @@
     finally{el('desktopEnable').disabled=false;}
   };
   el('desktopEmergency').onclick=disable;
-  el('desktopLeaveFull').onclick=()=>document.exitFullscreen?.();
+  function sizeSurface() {
+    const vv=window.visualViewport;
+    surface.style.setProperty('--screen-height',`${vv?.height || window.innerHeight}px`);
+    surface.style.setProperty('--screen-top',`${vv?.offsetTop || 0}px`);
+    if(immersive && view.naturalWidth && zoomed) {
+      const ratio=view.naturalWidth/view.naturalHeight;
+      const base=Math.min(viewport.clientWidth,viewport.clientHeight*ratio);
+      view.style.width=`${base*2}px`;view.style.height=`${base*2/ratio}px`;
+    } else {view.style.width='';view.style.height='';}
+  }
+  function enterFull() {
+    immersive=true;surface.classList.add('immersive');document.body.classList.add('desktopImmersive');document.documentElement.classList.add('desktopImmersive');
+    more=false;render();sizeSurface();
+    // Keep a CSS fullscreen fallback for browsers without the Fullscreen API.
+    const enter=surface.requestFullscreen || surface.webkitRequestFullscreen;
+    if(enter && !matchMedia('(max-width:900px)').matches && !document.fullscreenElement) {
+      try {Promise.resolve(enter.call(surface)).catch(()=>{});}catch{}
+    }
+  }
+  function leaveFull() {
+    hideKeyboard();release();immersive=false;zoomed=false;panning=false;more=false;
+    surface.classList.remove('immersive');document.body.classList.remove('desktopImmersive');document.documentElement.classList.remove('desktopImmersive');
+    view.dataset.pan='false';viewport.classList.remove('zoomed');
+    el('desktopZoom').textContent='تكبير ×2';el('desktopPan').disabled=true;
+    if(document.fullscreenElement===surface)document.exitFullscreen?.().catch(()=>{});
+    render();sizeSurface();
+  }
+  function hideKeyboard() {
+    el('desktopKeyboardPanel').hidden=true;el('desktopKeyboard').setAttribute('aria-expanded','false');
+    if(document.activeElement===el('desktopText'))el('desktopText').blur();
+  }
+  function showKeyboard() {
+    if(!ready)return;
+    release();el('desktopKeyboardPanel').hidden=false;more=false;el('desktopTools').hidden=immersive;
+    el('desktopKeyboard').setAttribute('aria-expanded','true');
+    // Synchronous focus inside this tap is required to open a phone's keyboard.
+    el('desktopText').focus({preventScroll:true});render();sizeSurface();
+  }
+  el('desktopLeaveFull').onclick=leaveFull;
+  el('desktopKeyboard').onclick=()=>el('desktopKeyboardPanel').hidden?showKeyboard():hideKeyboard();
+  el('desktopInlineKeyboard').onclick=showKeyboard;
+  el('desktopHideKeyboard').onclick=hideKeyboard;
+  el('desktopFullConnect').onclick=()=>el('desktopConnect').click();
+  el('desktopMore').onclick=()=>{more=!more;hideKeyboard();el('desktopMore').setAttribute('aria-expanded',String(more));render();};
+  el('desktopZoom').onclick=()=>{zoomed=!zoomed;panning=zoomed;release();viewport.classList.toggle('zoomed',zoomed);
+    view.dataset.pan=String(panning);el('desktopZoom').textContent=zoomed?'ملاءمة الشاشة':'تكبير ×2';
+    el('desktopPan').disabled=!zoomed;el('desktopPan').textContent=panning?'العودة للنقر':'تحريك العرض';sizeSurface();};
+  el('desktopPan').onclick=()=>{panning=!panning;release();view.dataset.pan=String(panning);
+    el('desktopPan').textContent=panning?'العودة للنقر':'تحريك العرض';};
+  document.addEventListener('hassan:screen-fullscreen',enterFull);
+  document.addEventListener('hassan:screen-opening',()=>{if(matchMedia('(max-width:900px)').matches)enterFull();});
+  document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement && immersive)leaveFull();});
+  window.addEventListener('resize',sizeSurface);window.visualViewport?.addEventListener('resize',sizeSurface);
+  window.visualViewport?.addEventListener('scroll',sizeSurface);view.addEventListener('load',()=>{sizeSurface();render();});
+  new ResizeObserver(sizeSurface).observe(viewport);
   el('desktopDisconnect').onclick=()=>stop();
   el('desktopConnect').onclick=()=>{
     if(socket)return stop();
@@ -93,18 +155,18 @@
     return {x:Math.max(0,Math.min(1,x)),y:Math.max(0,Math.min(1,y))};
   }
   view.addEventListener('pointerdown',event=>{
-    if(!ready||event.button>2||!event.isPrimary)return;
+    if(!ready||panning||event.button>2||!event.isPrimary)return;
     const position=point(event);if(!position)return;
     event.preventDefault();view.focus({preventScroll:true});pressedPointers.add(event.pointerId);view.setPointerCapture(event.pointerId);
     send({action:'move',...position});send({action:'button',button:['left','middle','right'][event.button],down:true});
   });
   view.addEventListener('pointermove',event=>{
-    if(!ready||!event.isPrimary||performance.now()-movingAt<40)return;
+    if(!ready||panning||!event.isPrimary||performance.now()-movingAt<40)return;
     const position=point(event,view.hasPointerCapture(event.pointerId));if(!position)return;
     movingAt=performance.now();send({action:'move',...position});
   });
   view.addEventListener('pointerup',event=>{
-    if(!ready||event.button>2||!event.isPrimary)return;
+    if(!ready||panning||event.button>2||!event.isPrimary)return;
     const position=point(event,true);if(position)send({action:'move',...position});
     send({action:'button',button:['left','middle','right'][event.button],down:false});
     pressedPointers.delete(event.pointerId);
@@ -127,7 +189,7 @@
   view.addEventListener('blur',release);window.addEventListener('blur',release);
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&socket)stop('توقّف التحكّم لأن الصفحة لم تعد ظاهرة.');});
   window.addEventListener('pagehide',()=>stop());
-  document.addEventListener('hassan:screen-stopped',()=>stop('توقّف عرض الشاشة والتحكّم.'));
+  document.addEventListener('hassan:screen-stopped',()=>{leaveFull();stop('توقّف عرض الشاشة والتحكّم.');});
   function tap(key){send({action:'key',key,down:true});send({action:'key',key,down:false});}
   document.querySelectorAll('[data-desktop-key]').forEach(button=>button.onclick=()=>tap(button.dataset.desktopKey));
   document.querySelectorAll('[data-desktop-shortcut]').forEach(button=>button.onclick=()=>{
@@ -136,7 +198,7 @@
   el('desktopRunShortcut').onclick=()=>{release();send({action:'shortcut',name:el('desktopShortcut').value});};
   el('desktopRight').onclick=()=>{send({action:'button',button:'right',down:true});send({action:'button',button:'right',down:false});};
   el('desktopUp').onclick=()=>send({action:'scroll',dy:3});el('desktopDown').onclick=()=>send({action:'scroll',dy:-3});
-  function sendText(){const text=el('desktopText').value;if(text&&ready){send({action:'text',text});el('desktopText').value='';}}
+  function sendText(){const text=el('desktopText').value;if(text&&ready&&send({action:'text',text})){el('desktopText').value='';el('desktopText').focus({preventScroll:true});}}
   el('desktopSendText').onclick=sendText;
   el('desktopText').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();sendText();}});
   refresh();setInterval(refresh,2000);

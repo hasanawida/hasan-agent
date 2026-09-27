@@ -10,8 +10,9 @@
 <meta name="theme-color" content="#0b1020">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="/static/desktop-control.css">
-<script src="/static/desktop-control.js" defer></script>
+<link rel="stylesheet" href="/static/desktop-control.css?v=3">
+<script src="/static/desktop-control.js?v=3" defer></script>
+<script src="/static/readiness.js?v=1" defer></script>
 <style>
 :root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429}
 *{box-sizing:border-box}
@@ -36,7 +37,7 @@ button:disabled{opacity:.5;cursor:default}
 .agent.done{border-color:var(--ok)}.agent.active{border-color:var(--warn);box-shadow:0 0 0 1px var(--warn) inset}
 .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
 .pill.completed{border-color:var(--ok);color:var(--ok)}.pill.failed,.pill.rejected{border-color:var(--bad);color:var(--bad)}
-.pill.awaiting_approval,.pill.running{border-color:var(--warn);color:var(--warn)}
+.pill.awaiting_approval,.pill.running,.pill.cancelling,.pill.incomplete{border-color:var(--warn);color:var(--warn)}
 .log{font-size:13px;max-height:280px;overflow:auto;direction:ltr;text-align:left;font-family:Consolas,monospace}
 .log div{padding:3px 0;border-bottom:1px dashed #1c2542}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -87,6 +88,13 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   <h1>🧠 Hassan AI OS</h1>
   <div class="meta" id="health">…</div>
 </header>
+<section class="card" style="max-width:1468px;margin:16px auto 0" aria-label="جاهزية الإيجنت">
+  <details><summary>جاهزية الإيجنت — اعرف شو شغّال وشو يحتاج إعداد</summary>
+    <p class="muted" id="readinessNote">افحص الإعدادات بدون تشغيل مهام.</p>
+    <button class="ghost small" id="readinessRefresh">افحص الجاهزية</button>
+    <div id="readinessRows" role="status" aria-live="polite"></div>
+  </details>
+</section>
 <main>
 <aside>
   <div class="card">
@@ -166,16 +174,29 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <div id="scrErr" style="color:var(--bad);font-size:12px"></div>
     <div id="scrBox" style="display:none">
       <div id="desktopSurface">
-      <div class="desktopFullscreenBar"><b>شاشة الكمبيوتر</b><button id="desktopLeaveFull" class="ghost">تصغير العرض</button></div>
+      <div class="desktopFullscreenBar">
+        <span id="desktopFullStatus" role="status">عرض الشاشة</span>
+        <button id="desktopFullConnect" class="ghost">تحكّم</button>
+        <button id="desktopKeyboard" class="ghost" disabled aria-controls="desktopKeyboardPanel" aria-expanded="false">⌨️ كتابة</button>
+        <button id="desktopMore" class="ghost" aria-controls="desktopTools" aria-expanded="false">⋯ أدوات</button>
+        <button id="desktopLeaveFull" class="ghost" aria-label="تصغير العرض">✕</button>
+      </div>
+      <div id="desktopViewport">
       <img id="scrView" alt="شاشة الكمبيوتر البعيد" tabindex="0" draggable="false" style="width:100%;border-radius:8px;margin-top:8px;background:#000">
+      </div>
+      <div id="desktopKeyboardPanel" hidden>
+        <label for="desktopText">اضغط الخانة على الكمبيوتر أولًا، ثم اكتب وأرسل</label>
+        <div class="row"><input id="desktopText" maxlength="256" placeholder="اكتب هنا بكيبورد التلفون" autocomplete="off" autocapitalize="off" enterkeyhint="send"><button id="desktopSendText">إرسال</button><button id="desktopHideKeyboard" class="ghost" aria-label="إغلاق الكيبورد">✕</button></div>
+        <div class="desktopKeys" dir="ltr"><button data-desktop-key="Enter" class="ghost">Enter ↵</button><button data-desktop-key="Backspace" class="ghost">⌫ مسح</button><button data-desktop-key="Tab" class="ghost">Tab</button></div>
+      </div>
+      <div id="desktopZoomTools" hidden class="desktopKeys"><button id="desktopZoom" class="ghost">تكبير ×2</button><button id="desktopPan" class="ghost" disabled>تحريك العرض</button><span class="muted">لفّ التلفون بالعرض لمساحة أكبر.</span></div>
       <div id="desktopTools" hidden>
         <p class="muted">انقر الشاشة للكتابة. Esc يحرّر لوحة المفاتيح؛ استخدم الزر أدناه لإرساله للجهاز.</p>
         <div class="desktopKeys" dir="ltr"><button data-desktop-key="Escape" class="ghost">Esc</button><button data-desktop-key="Tab" class="ghost">Tab</button><button data-desktop-key="Enter" class="ghost">Enter</button><button data-desktop-key="Backspace" class="ghost">⌫</button><button data-desktop-shortcut="copy" class="ghost">Ctrl+C</button><button data-desktop-shortcut="paste" class="ghost">Ctrl+V</button></div>
         <div class="desktopKeys"><button id="desktopRight" class="ghost">نقرة يمين</button><button id="desktopUp" class="ghost">تمرير ↑</button><button id="desktopDown" class="ghost">تمرير ↓</button><button id="desktopDisconnect" class="bad">وقف التحكّم</button></div>
         <label for="desktopShortcut">اختصارات الكمبيوتر</label>
         <div class="row"><select id="desktopShortcut"><option value="start">قائمة ابدأ</option><option value="files">مستكشف الملفات</option><option value="switch">التبديل بين البرامج</option><option value="desktop">إظهار سطح المكتب</option><option value="run">نافذة تشغيل (Win+R)</option><option value="task-manager">مدير المهام</option><option value="select-all">تحديد الكل</option><option value="cut">قص</option><option value="undo">تراجع</option><option value="redo">إعادة</option></select><button id="desktopRunShortcut" class="ghost" style="flex:0 0 auto">تنفيذ</button></div>
-        <label for="desktopText">كتابة من الهاتف (حتى 256 حرفًا)</label>
-        <div class="row"><input id="desktopText" maxlength="256" placeholder="اكتب نصًا لإرساله للخانة المحددة على الكمبيوتر" autocomplete="off"><button id="desktopSendText" class="ghost" style="flex:0 0 auto">إرسال</button></div>
+        <button id="desktopInlineKeyboard" class="ghost" style="width:100%;margin-top:8px">⌨️ كتابة من التلفون</button>
       </div>
       </div>
       <div class="row" style="margin-top:8px">
@@ -607,15 +628,17 @@ function scrStop() {
 $("scrBtn").onclick = async () => {
   if (scrOn) return scrStop();
   $("scrErr").textContent = "";
+  $("scrBox").style.display = "";
+  document.dispatchEvent(new Event("hassan:screen-opening"));
   try {
     const r = await api("/api/live/screen", {method: "POST"});
     scrOn = true; $("scrView").src = r.url; $("scrBox").style.display = ""; $("scrFull").style.display = "";
     $("scrView").dataset.streaming = "true";
     $("scrBtn").textContent = "⏹ وقّف العرض";
-  } catch (e) { $("scrErr").textContent = e.message; }
+  } catch (e) { scrStop(); $("scrErr").textContent = e.message; }
 };
 $("scrView").onerror = () => { if (scrOn) { scrStop(); $("scrErr").textContent = "ما قدرت أعرض الشاشة (ffmpeg مثبت؟)"; } };
-$("scrFull").onclick = () => ($("desktopSurface").requestFullscreen || $("desktopSurface").webkitRequestFullscreen)?.call($("desktopSurface"));
+$("scrFull").onclick = () => document.dispatchEvent(new Event("hassan:screen-fullscreen"));
 async function scrSend() {
   const prompt = $("scrCmd").value.trim();
   if (!prompt) return;
@@ -632,11 +655,11 @@ async function scrPoll() {
   if (!t) return;
   const pend = (t.approvals || []).filter(a => a.status === "pending");
   const last = (t.evidence || []).slice(-1)[0];
-  let html = `<span class="pill ${t.status}">${t.status}</span> ${esc(last ? last.title : t.phase || "")}`;
+  let html = `<span class="pill ${t.status}">${esc(statusLabel(t.status))}</span> ${esc(last ? last.title : t.phase || "")}`;
   for (const a of pend) html += `<div class="row" style="margin-top:6px;align-items:center"><span style="flex:1">⏸ ${esc(a.title)}</span>
       <button class="small" data-ok="${a.id}" style="flex:0 0 auto">✅ وافق</button>
       <button class="ghost small" data-no="${a.id}" style="flex:0 0 auto">❌</button></div>`;
-  if (t.status === "completed" || t.status === "failed") {
+  if (["completed","failed","rejected","incomplete","cancelled"].includes(t.status)) {
     html += `<p style="margin:6px 0 0">${esc(t.decision || t.error || "")}</p>`;
     clearInterval(scrTimer);
     if (t.decision && $("speakReply").checked) speak(t.decision);
@@ -697,7 +720,7 @@ function renderAgents(task) {
 async function loadHistory() {
   const tasks = await api("/api/tasks");
   $("history").innerHTML = tasks.map(t =>
-    `<div data-id="${t.id}"><span class="pill ${t.status}">${t.status}</span> ${esc(t.prompt)}</div>`).join("") || '<span class="muted">لا توجد مهام بعد</span>';
+    `<div data-id="${t.id}"><span class="pill ${t.status}">${esc(statusLabel(t.status))}</span> ${esc(t.prompt)}</div>`).join("") || '<span class="muted">لا توجد مهام بعد</span>';
   $("history").querySelectorAll("div[data-id]").forEach(d => d.onclick = () => openTask(d.dataset.id));
 }
 function setKind(k) {
@@ -785,9 +808,13 @@ async function poll() {
   if (events.length) $("log").scrollTop = $("log").scrollHeight;
   render(task);
   checkApprovals();
-  if (["completed","failed","rejected","awaiting_approval"].includes(task.status) && !events.length) {
+  if (["completed","failed","rejected","cancelled","incomplete","awaiting_approval"].includes(task.status) && !events.length) {
     if (task.status !== "awaiting_approval") { clearInterval(timer); loadHistory(); }
   }
+}
+function statusLabel(s) {
+  return {queued:"بالانتظار",running:"قيد التنفيذ",awaiting_approval:"بانتظار موافقتك",completed:"مكتملة",
+    failed:"فشلت",rejected:"مرفوضة",cancelling:"جارٍ الإيقاف",cancelled:"متوقفة",incomplete:"غير مكتملة"}[s] || s;
 }
 function render(t) {
   currentTask = t;
@@ -795,17 +822,19 @@ function render(t) {
   const u = t.usage || {};
   $("taskUsage").textContent = u.calls ? `استهلاك المهمة: ${u.calls} طلب · ${fmtTokens(u.input_tokens + u.output_tokens)} tokens · ≈${fmtUsd(u.cost_usd)} · ${Math.round(u.seconds)} ث` : "";
   $("openTaskWs").style.display = t.workspace ? "" : "none";
-  $("stopTask").style.display = t.kind === "operate" && ["running", "awaiting_approval", "queued"].includes(t.status) ? "" : "none";
+  $("stopTask").style.display = ["running", "awaiting_approval", "queued", "cancelling"].includes(t.status) ? "" : "none";
+  $("stopTask").disabled = t.status === "cancelling";
+  $("stopTask").textContent = t.status === "cancelling" ? "جارٍ الإيقاف…" : "أوقف المهمة";
   $("evTitle").textContent = t.kind === "operate" ? "🖥️ خطوات على الكمبيوتر" : "الأدلة (Evidence)";
   if (t.status === "completed" && t.decision && $("speakReply").checked && !spoken.has(t.id)) {
     spoken.add(t.id); speak(t.decision); loadUsage();
   }
-  $("status").className = "pill " + t.status; $("status").textContent = t.status;
-  $("phase").textContent = `${{simple: "🆓 ", medium: "⚖️ ", complex: "🧠 "}[t.tier] || ""}${t.phase} · ${t.resolved_mode || t.mode}${t.verified === true ? " · ✓ verified" : t.verified === false ? " · ✗ checks failing" : ""}`;
+  $("status").className = "pill " + t.status; $("status").textContent = statusLabel(t.status);
+  $("phase").textContent = `${{simple: "🆓 ", medium: "⚖️ ", complex: "🧠 "}[t.tier] || ""}${t.phase} · ${t.resolved_mode || t.mode}${t.verified === true ? " · ✓ فحوص النتيجة نجحت" : t.verified === false ? " · ✗ فحوص النتيجة فشلت" : ""}`;
   $("taskPrompt").textContent = t.prompt;
   $("errorBox").textContent = t.error || "";
   $("rollback").style.display = t.checkpoint && t.checkpoint.backups?.length ? "" : "none";
-  $("decision").textContent = t.decision || "بانتظار الفريق…";
+  $("decision").textContent = (t.decision || "بانتظار الفريق…") + (t.verification_summary ? "\n\n" + t.verification_summary : "");
   $("plan").innerHTML = t.plan.map(s => `<li>${esc(s.title)} <small>(${esc(s.owner || "")})</small></li>`).join("");
   $("evidence").innerHTML = t.evidence.map((e, i) =>
     `<span class="chip ${e.ok ? "ok" : "bad"}" data-i="${i}">${e.ok ? "✓" : "✗"} ${esc(e.title)} — ${esc(e.summary)}</span>`).join("") || '<span class="muted">لا أدلة (Workspace غير محدد)</span>';

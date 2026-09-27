@@ -56,9 +56,13 @@ print(json.dumps({{"type": "turn.completed", "usage": {{"input_tokens": 70, "cac
 
 
 def make_cli(folder: Path, name: str, body: str) -> Path:
-    script = folder / name
-    script.write_text(f"#!{sys.executable}\n" + textwrap.dedent(body.format(root=str(ROOT))))
+    script = folder / (name + ".py" if os.name == "nt" else name)
+    script.write_text(f"#!{sys.executable}\n" + textwrap.dedent(body.format(root=str(ROOT))), encoding="utf-8")
     script.chmod(0o755)
+    if os.name == "nt":
+        wrapper = folder / (name + ".cmd")
+        wrapper.write_text(f'@echo off\nchcp 65001 >nul\n"{sys.executable}" "{script}" %*\n', encoding="utf-8")
+        return wrapper
     return script
 
 
@@ -76,6 +80,7 @@ def fake_clis(tmp_path, monkeypatch):
 
 
 def write_providers(tmp_path, claude_cmd, codex_cmd) -> Path:
+    claude_cmd, codex_cmd = Path(claude_cmd).as_posix(), Path(codex_cmd).as_posix()
     cfg = tmp_path / "providers.yaml"
     cfg.write_text(textwrap.dedent(f"""
         backends:
@@ -214,9 +219,9 @@ def test_gemini_cli_brain(tmp_path, fake_clis, monkeypatch):
     cfg = tmp_path / "providers.yaml"
     cfg.write_text(textwrap.dedent(f"""
         backends:
-          claude: {{type: claude_cli, command: "{claude}"}}
-          chatgpt: {{type: codex_cli, command: "{codex}"}}
-          gemini-sub: {{type: gemini_cli, command: "{gemini}"}}
+          claude: {{type: claude_cli, command: "{claude.as_posix()}"}}
+          chatgpt: {{type: codex_cli, command: "{codex.as_posix()}"}}
+          gemini-sub: {{type: gemini_cli, command: "{gemini.as_posix()}"}}
         default: gemini-sub
     """))
     with live_client(tmp_path, cfg) as client:

@@ -25,6 +25,9 @@ class TaskStatus(str, Enum):
     completed = "completed"
     failed = "failed"
     rejected = "rejected"
+    cancelling = "cancelling"
+    cancelled = "cancelled"
+    incomplete = "incomplete"
 
 
 class Mode(str, Enum):
@@ -123,6 +126,7 @@ class TaskRecord(BaseModel):
     checkpoint: dict[str, Any] | None = None
     decision: str | None = None
     verified: bool | None = None
+    verification_summary: str | None = None
     repair_round: int = 0
     error: str | None = None
     created_at: float = Field(default_factory=now)

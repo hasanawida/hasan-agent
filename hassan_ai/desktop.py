@@ -6,6 +6,7 @@ belongs to one WebSocket, and is released on disconnect, expiry or revocation.
 from __future__ import annotations
 
 import asyncio
+import anyio
 from concurrent.futures import ThreadPoolExecutor
 import importlib.util
 import json
@@ -329,4 +330,7 @@ def attach_routes(app, settings, desktop):
             except (RuntimeError, OSError):
                 pass
         finally:
-            await desktop.disconnect(socket)
+            # TestClient/ASGI servers can cancel a connection's surrounding scope.
+            # Releasing held input must survive that cancellation.
+            with anyio.CancelScope(shield=True):
+                await asyncio.shield(desktop.disconnect(socket))

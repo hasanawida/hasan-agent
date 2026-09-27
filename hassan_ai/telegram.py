@@ -382,7 +382,9 @@ class TelegramBot:
         if task is None:
             return
         chats = self._targets(task) if task.origin.startswith("telegram:") else sorted(self.chats)
-        head = "✅ خلصت" if task.status == TaskStatus.completed else f"ℹ️ {task.status.value}"
+        head = {TaskStatus.completed: "✅ خلصت", TaskStatus.cancelled: "⏹ أوقفت المهمة",
+                TaskStatus.incomplete: "⚠️ المهمة غير مكتملة", TaskStatus.failed: "❌ المهمة فشلت",
+                TaskStatus.rejected: "⛔ مرفوضة"}.get(task.status, f"ℹ️ {task.status.value}")
         prefix = "⏰ مهمة مجدولة: " + task.prompt[:80] + "\n" if task.origin.startswith("schedule:") else ""
         for c in chats:
             try:
