@@ -93,6 +93,11 @@ def stop(settings: Settings) -> bool:
             os.kill(pid, 15)
     except OSError:
         pass
+    # taskkill returns before the process is gone. Wait until the port is free, otherwise the
+    # next `start` sees the old server still answering, thinks all is well, and then it dies.
+    deadline = time.time() + 15
+    while time.time() < deadline and is_running(settings):
+        time.sleep(0.3)
     pid_file.unlink(missing_ok=True)
     return True
 
@@ -144,7 +149,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "status":
         if not is_running(settings):
             print("Hassan AI OS: stopped")
-            return
+            raise SystemExit(1)
         health = httpx.get(f"{_base(settings)}/api/health", timeout=5).json()
         providers = httpx.get(f"{_base(settings)}/api/providers", timeout=60).json()
         print(f"Hassan AI OS {health['version']} · {health['mode']} · {_base(settings)}")
