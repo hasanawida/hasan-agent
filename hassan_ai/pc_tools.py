@@ -165,11 +165,29 @@ class PCTools:
             return self.policy.decide("pc.web_query")  # a long query string could smuggle data out
         if tool == "open" and decision == AUTO:
             target = str(args.get("target", ""))
+            if self.media_file(target):
+                return decision  # Hassan's own videos/photos/recordings: just show them
             if not target.lower().startswith(("http://", "https://")):
                 path = self.path(target)
                 if path.suffix.lower() in EXECUTABLE_SUFFIXES:
                     return self.policy.decide("pc.launch")
         return decision
+
+    def media_file(self, raw: str) -> Path | None:
+        """A finished file in Hassan's media folder (videos, photos, recordings the agent made).
+        Only those may be opened or copied out; the rest of Hassan's data stays protected."""
+        try:
+            p = Path(os.path.expandvars(str(raw).strip().strip('"'))).expanduser().resolve()
+        except (OSError, ValueError):
+            return None
+        media = self.media_dir.resolve()
+        if p.parent == media and p.is_file() and not p.name.startswith("."):
+            return p
+        if not p.is_absolute() or p.parent != media:
+            q = (media / str(raw).strip()).resolve()
+            if q.parent == media and q.is_file() and not q.name.startswith("."):
+                return q
+        return None
 
     def path(self, raw: str, must_exist: bool = False) -> Path:
         if not raw or not str(raw).strip():
@@ -254,7 +272,8 @@ class PCTools:
             if tool == "ffmpeg":
                 return "ffmpeg " + " ".join(map(str, args.get("args") or []))
             if tool in ("move", "copy", "delete"):
-                p = self.path(args.get("src") or args.get("path") or "")
+                raw = args.get("src") or args.get("path") or ""
+                p = (self.media_file(raw) if tool == "copy" else None) or self.path(raw)
                 if p.is_dir():
                     n = sum(1 for _ in p.rglob("*"))
                     return f"{p} — folder, {n} item(s)"
@@ -346,7 +365,7 @@ class PCTools:
         if target.lower().startswith(("http://", "https://")):
             webbrowser.open(target)
             return f"opened {target}"
-        p = self.path(target, must_exist=True)
+        p = self.media_file(target) or self.path(target, must_exist=True)
         if os.name == "nt":
             os.startfile(str(p))  # noqa: S606 - default app, approved when executable
         else:
@@ -430,7 +449,7 @@ class PCTools:
         return f"wrote {p} ({len(str(content))} chars)"
 
     def _t_move(self, src: str, dst: str) -> str:
-        s, d = self.path(src, must_exist=True), self.path(dst)
+        s, d = self.media_file(src) or self.path(src, must_exist=True), self.path(dst)
         if d.exists() and d.is_dir():
             d = self.path(str(d / s.name))
         if d.exists():
@@ -440,7 +459,7 @@ class PCTools:
         return f"moved {s} -> {d}"
 
     def _t_copy(self, src: str, dst: str) -> str:
-        s, d = self.path(src, must_exist=True), self.path(dst)
+        s, d = self.media_file(src) or self.path(src, must_exist=True), self.path(dst)
         if d.exists() and d.is_dir():
             d = self.path(str(d / s.name))
         if d.exists():
@@ -826,7 +845,16 @@ class PCTools:
             shutil.rmtree(work, ignore_errors=True)
         if code != 0 or not out.exists():
             raise RuntimeError(f"video failed (exit {code}): {log[-1500:]}")
-        return {**self._saved(out, f"{total:.0f}s video"), "seconds": round(total, 1), "slides": len(slides)}
+        result = {**self._saved(out, f"{total:.0f}s video"), "seconds": round(total, 1), "slides": len(slides),
+                  "how_to_show": "call open with the saved path to play it on the PC"}
+        try:  # also keep a copy where Hassan looks for videos
+            videos = self.path(str(Path.home() / "Videos" / "Hassan AI"))
+            videos.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(out, videos / out.name)
+            result["copy"] = str(videos / out.name)
+        except (PolicyError, OSError):
+            pass
+        return result
 
     async def _t_ffmpeg(self, args: Any) -> str:
         argv = args if isinstance(args, list) else str(args).split()

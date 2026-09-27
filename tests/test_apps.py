@@ -277,3 +277,19 @@ def test_live_screen_is_view_only_stream(client):
     with client.stream("GET", url) as resp:
         assert b"image/jpeg" in next(resp.iter_bytes())
     assert client.post("/api/live/nope").status_code == 404
+
+
+def test_agent_can_show_the_files_it_made_but_not_other_private_data(tmp_path):
+    t = tools(tmp_path)
+    t.media_dir.mkdir(parents=True)
+    video = t.media_dir / "kids-1.mp4"
+    video.write_bytes(b"mp4")
+    (tmp_path / "data" / "hassan.env").write_text("SECRET=1")
+    assert t.access("open", {"target": str(video)}) == AUTO
+    assert t.media_file("kids-1.mp4") == video.resolve()
+    asyncio.run(t.execute("copy", {"src": str(video), "dst": str(tmp_path / "Desktop" / "kids.mp4")}))
+    assert (tmp_path / "Desktop" / "kids.mp4").read_bytes() == b"mp4"
+    for private in (str(tmp_path / "data" / "hassan.env"), str(t.media_dir / ".." / "hassan.env")):
+        assert t.media_file(private) is None
+        with pytest.raises(PolicyError):
+            t.access("open", {"target": private})
