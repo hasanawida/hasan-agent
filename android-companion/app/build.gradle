@@ -6,7 +6,7 @@ android {
         applicationId 'ai.hassan.phone'
         minSdk 26
         targetSdk 35
-        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+        versionCode = Integer.parseInt(System.getenv('GITHUB_RUN_NUMBER') ?: '1')
         versionName '0.1.0'
     }
     signingConfigs {
