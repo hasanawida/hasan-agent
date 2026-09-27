@@ -47,6 +47,19 @@ def request_host(request: Request) -> str:
     return (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]").lower()
 
 
+def public_hosts(request: Request) -> set[str]:
+    """The names this request was addressed to: the Host header, plus the original host a
+    reverse proxy reports (tailscale serve rewrites Host to 127.0.0.1:8787 and puts the
+    phone's https://<pc>.ts.net name in X-Forwarded-Host). A cross-site browser form can't
+    set these headers, so they're safe to compare an Origin against."""
+    hosts = {request_host(request)}
+    for value in request.headers.get("x-forwarded-host", "").split(","):
+        host = value.strip().rsplit(":", 1)[0].strip("[]").lower()
+        if host:
+            hosts.add(host)
+    return hosts - {""}
+
+
 PROXY_HEADERS = ("x-forwarded-for", "x-forwarded-host", "forwarded", "tailscale-user-login", "cf-connecting-ip")
 
 

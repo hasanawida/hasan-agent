@@ -293,3 +293,18 @@ def test_agent_can_show_the_files_it_made_but_not_other_private_data(tmp_path):
         assert t.media_file(private) is None
         with pytest.raises(PolicyError):
             t.access("open", {"target": private})
+
+
+def test_phone_login_through_tailscale_serve(client):
+    """tailscale serve rewrites Host to 127.0.0.1 and reports the real name in X-Forwarded-Host."""
+    phone = "desktop-6gp4pec.taila76b4b.ts.net"
+    via_tailscale = {"host": "127.0.0.1:8787", "x-forwarded-host": phone, "x-forwarded-for": "100.91.183.92",
+                     "x-forwarded-proto": "https"}
+    code = client.post("/api/remote/pair-code").json()["code"]
+    r = client.post("/login", data={"key": code}, follow_redirects=False,
+                    headers={**via_tailscale, "origin": f"https://{phone}"})
+    assert r.status_code == 303 and "hassan_key=" in r.headers.get("set-cookie", "")
+    # a page on another site still can't post to it
+    r = client.post("/login", data={"key": "123456"}, follow_redirects=False,
+                    headers={**via_tailscale, "origin": "https://evil.example"})
+    assert r.status_code == 403

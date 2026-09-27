@@ -141,7 +141,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
         origin = request.headers.get("origin")
         if origin and request.method not in ("GET", "HEAD", "OPTIONS"):
             origin_host = (urlsplit(origin).hostname or "").lower()
-            if origin_host != remote.request_host(request) and origin_host not in settings.allowed_hosts:
+            if origin_host not in remote.public_hosts(request) and origin_host not in settings.allowed_hosts:
                 return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
         return await call_next(request)
 
