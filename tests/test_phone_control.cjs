@@ -178,3 +178,13 @@ test('text longer than the shared 1000-character limit never reaches the phone',
   assert.equal(matching(app, '/command').length, 0);
   assert.equal(app.elements.phoneText.value.length, 1001);
 });
+
+test('switching away from the devices view releases phone input and stops frame fetching', async () => {
+  const app = setup(); await settle(); await app.elements.phoneControl.onclick(); await settle();
+  assert.equal(app.elements.phoneScreenWrap.hidden, false);
+  app.listeners.get('hassan:devices-hidden')(); await settle();
+  assert.equal(app.elements.phoneScreenWrap.hidden, true);
+  assert.equal(app.elements.phoneManual.hidden, true);
+  assert.equal(matching(app, '/session/stop').length, 1);
+  assert.equal(matching(app, '/command').length, 0);
+});

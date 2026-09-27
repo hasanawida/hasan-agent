@@ -6,7 +6,7 @@ from .providers import APIBackend, CLIBackend
 from .llm import MockLLM
 
 
-def readiness(settings, llm, desktop, mcp, active_jobs):
+def readiness(settings, llm, desktop, mcp, active_jobs, phones=None):
     rows = []
     def add(name, state, detail):
         rows.append({"name": name, "state": state, "detail": detail})
@@ -35,6 +35,15 @@ def readiness(settings, llm, desktop, mcp, active_jobs):
             add(f"عقل: {name}", "limited", "إجابات تجريبية")
         else:
             add(f"عقل: {name}", "configured", "الخدمة معدّة؛ الاتصال غير مفحوص هنا")
+    if phones is not None:
+        devices = phones.list_devices()
+        online = sum(bool(row.get("online")) for row in devices)
+        controllable = sum(bool(row.get("online") and row.get("control_enabled")) for row in devices)
+        add("الهاتف من الكمبيوتر", "ready" if controllable else "limited" if devices else "setup",
+            f"{online} متصل · {controllable} يسمح بالتحكّم" if devices else "ثبّت تطبيق Hassan على هاتفك ثم اربطه من كرت تلفونك من الكمبيوتر")
+        apk = settings.data_dir / "phone-app" / "hassan-phone.apk"
+        add("تطبيق الهاتف", "ready" if apk.is_file() else "setup",
+            "نسخة التثبيت جاهزة للتنزيل من صفحة الربط" if apk.is_file() else "نسخة التثبيت لم تُجهّز على هذا الخادم بعد")
     roots_ok = bool(settings.allowed_roots) and all(p.is_dir() for p in settings.allowed_roots)
     add("مجلدات العمل", "ready" if roots_ok else "setup",
         "المجلدات المحددة موجودة" if roots_ok else "راجع المجلدات المسموح العمل فيها")

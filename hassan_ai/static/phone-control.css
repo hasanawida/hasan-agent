@@ -2,7 +2,7 @@
 .phone-panel>p{line-height:1.65}
 .phone-panel details{border:1px solid var(--line);border-radius:9px;padding:10px;margin:10px 0}
 .phone-panel summary{line-height:1.6}
-.phone-panel a{color:#97bdff;text-underline-offset:3px}
+.phone-panel a{color:var(--accent,#97bdff);text-underline-offset:3px}
 .phone-steps{padding-inline-start:22px;font-size:13px;color:var(--muted);line-height:1.8}
 .phone-steps li+li{margin-top:7px}
 .phone-code{font:700 28px Consolas,monospace;letter-spacing:5px;text-align:center;overflow-wrap:anywhere;margin:12px 0}

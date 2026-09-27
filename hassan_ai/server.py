@@ -243,7 +243,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     async def manifest():
         return JSONResponse({
             "name": "Hassan AI OS", "short_name": "Hassan AI", "start_url": "/", "display": "standalone",
-            "dir": "rtl", "lang": "ar", "background_color": "#0b1020", "theme_color": "#0b1020",
+            "dir": "rtl", "lang": "ar", "background_color": "#22261D", "theme_color": "#22261D",
             "icons": [{"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
         }, media_type="application/manifest+json")
 
@@ -278,6 +278,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
         require_local(request)
         app.state.access_key = remote.rotate_key(settings.data_dir)
         browser_sessions.revoke_all()
+        pairing.invalidate_all()
         await desktop.disable()
         await phones.revoke_all()
         return {"ok": True}
@@ -404,7 +405,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
 
     @app.get("/api/diagnostics")
     async def diagnostics():
-        return readiness(settings, llm, desktop, mcp, len(orchestrator._jobs))
+        return readiness(settings, llm, desktop, mcp, len(orchestrator._jobs), phones=phones)
 
     def brain(alias: str) -> str:
         if isinstance(llm, RouterLLM):

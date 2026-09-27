@@ -318,6 +318,7 @@
   };
   function leave() { stopViewing(); stopManual({keepalive: true, quiet: true}); }
   document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else refresh(); });
+  document.addEventListener('hassan:devices-hidden', leave);
   window.addEventListener('pagehide', leave);
   setInterval(refresh, 5000);
   render(); refresh();

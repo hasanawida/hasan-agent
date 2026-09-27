@@ -79,3 +79,16 @@ def test_bad_ticket_input_cannot_consume_valid_ticket(candidate):
     ticket = pairing.new_ticket()["ticket"]
     assert not pairing.redeem_ticket(candidate)
     assert pairing.redeem_ticket(ticket)
+
+
+def test_invalidate_all_revokes_both_methods_without_disabling_new_pairing():
+    pairing = PairingCodes()
+    code = pairing.new()["code"]
+    ticket = pairing.new_ticket()["ticket"]
+    pairing.invalidate_all()
+    assert not pairing.redeem(code)
+    assert not pairing.redeem_ticket(ticket)
+    assert pairing.code is None and pairing.ticket is None
+    assert pairing.expires == 0 and pairing.ticket_expires == 0
+    assert pairing.redeem(pairing.new()["code"])
+    assert pairing.redeem_ticket(pairing.new_ticket()["ticket"])

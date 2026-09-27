@@ -72,7 +72,7 @@ it compares only visible node text/descriptions, not package/class metadata.
 A failed criterion or unavailable final UI read prevents a completed outcome.
 
 A readable UI or successful tap does not prove the full user goal. UI tasks keep
-`verified` unknown unless reporting a failed criterion, and the verification
+`verified` unknown unless reporting a failed check, and the verification
 summary states that limit. Screenshots are not being interpreted by a new vision
 model here. Screens, custom canvases and protected apps that expose insufficient
 accessibility data can remain unverifiable.

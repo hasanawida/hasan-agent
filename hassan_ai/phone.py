@@ -6,6 +6,7 @@ Credentials survive restart, while screen frames, grants, leases and commands do
 from __future__ import annotations
 
 import asyncio
+import anyio
 from dataclasses import dataclass, field
 import hashlib
 import hmac
@@ -483,6 +484,35 @@ async def _json_body(request: Request, model, limit: int = MAX_JSON_BYTES):
         raise HTTPException(422, "Invalid phone request") from exc
 
 
+async def _poll_until_disconnect(request: Request, hub: PhoneHub, device_id: str, metadata: dict) -> dict | Response:
+    """An abandoned HTTP long poll must not remain eligible to consume commands.
+
+    The JSON request body has already been consumed. Wait for its next ASGI
+    disconnect message concurrently with the queue, then await cancellation so a
+    replacement poll cannot collide with this request's stale queue waiter.
+    """
+    async def disconnected():
+        while True:
+            if (await request.receive())["type"] == "http.disconnect":
+                return
+
+    queued = asyncio.create_task(hub.poll(device_id, metadata))
+    connection = asyncio.create_task(disconnected())
+    try:
+        done, _ = await asyncio.wait((queued, connection), return_when=asyncio.FIRST_COMPLETED)
+        if connection in done:
+            # No useful response can reach this client. The finally block removes
+            # the old waiter before this ASGI request is considered finished.
+            return Response(status_code=204)
+        return await queued
+    finally:
+        queued.cancel()
+        connection.cancel()
+        # BaseHTTPMiddleware/ASGI cancellation scopes must not interrupt cleanup.
+        with anyio.CancelScope(shield=True):
+            await asyncio.shield(asyncio.gather(queued, connection, return_exceptions=True))
+
+
 def attach_phone_routes(app, settings, hub: PhoneHub) -> None:
     def secure(request: Request) -> None:
         local = remote.is_local(request, settings.allowed_hosts, settings.trusted_clients)
@@ -519,7 +549,7 @@ def attach_phone_routes(app, settings, hub: PhoneHub) -> None:
     async def poll(request: Request):
         ident = phone(request)
         body = await _json_body(request, PollBody, 4096)
-        return await hub.poll(ident, body.model_dump())
+        return await _poll_until_disconnect(request, hub, ident, body.model_dump())
 
     @app.post("/api/phone/result")
     async def result(request: Request):
@@ -559,10 +589,20 @@ def attach_phone_routes(app, settings, hub: PhoneHub) -> None:
         await hub.claim(device_id, owner, "manual")
         return {"owner": owner}
 
+    def manual_owner(device_id: str, owner: str) -> None:
+        # Agent task IDs are visible metadata, not browser session credentials.
+        # Dashboard routes must not accept a predictable task:<id> owner as a
+        # manual capability; direct agent calls still use the shared hub API.
+        device = hub._device(device_id)
+        hub._expire(device)
+        if device.owner != owner or device.owner_kind != "manual":
+            raise HTTPException(403, "This manual session does not control the phone")
+
     @app.post("/api/phones/{device_id}/session/stop")
     async def stop(device_id: str, request: Request):
         dashboard_write(request)
         body = await _json_body(request, StopBody, 4096)
+        manual_owner(device_id, body.owner)
         await hub.release(device_id, body.owner)
         return {"ok": True}
 
@@ -570,6 +610,7 @@ def attach_phone_routes(app, settings, hub: PhoneHub) -> None:
     async def command(device_id: str, request: Request):
         dashboard_write(request)
         body = await _json_body(request, CommandBody)
+        manual_owner(device_id, body.owner)
         return await hub.command(device_id, body.owner, body.action, body.args)
 
     @app.post("/api/phones/{device_id}/revoke")
