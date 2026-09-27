@@ -139,7 +139,9 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
                 return RedirectResponse("/login", status_code=303)
         # Cross-site protection: a web page on another site must not drive this API.
         origin = request.headers.get("origin")
-        if origin and request.method not in ("GET", "HEAD", "OPTIONS"):
+        # (/login is exempt: it only works with the secret code, so a forged post gains nothing,
+        #  and some phone browsers send "Origin: null" or odd hosts through the Tailscale proxy)
+        if origin and request.method not in ("GET", "HEAD", "OPTIONS") and request.url.path != "/login":
             origin_host = (urlsplit(origin).hostname or "").lower()
             if origin_host not in remote.public_hosts(request) and origin_host not in settings.allowed_hosts:
                 return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)

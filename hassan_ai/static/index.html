@@ -683,14 +683,19 @@ async function loadPhone() {
       <pre>scripts\\enable-phone.bat</pre><p>وثبّت تطبيق <b>Tailscale</b> على التلفون وسجّل بنفس الحساب.</p>`;
     return;
   }
-  $("phone").innerHTML = r.urls.map(u => `
+  // One QR: Tailscale works from anywhere with HTTPS; the Wi-Fi addresses are only a fallback.
+  const qrBlock = u => `
     <p><b>${u.kind === "tailscale" ? "من أي مكان (Tailscale)" : "نفس الـWi-Fi فقط"}</b></p>
     <p>افتح كاميرا التلفون وامسح الرمز:</p>
     <div class="qr">${u.qr_html}</div>
     <p dir="ltr" style="font-size:11px;word-break:break-all">${esc(u.base)}</p>
-    ${u.kind === "wifi" ? "<p>⚠️ بدون HTTPS: المايكروفون ما بيشتغل على التلفون. استخدم Tailscale.</p>" : ""}`).join("") +
+    ${u.kind === "wifi" ? "<p>⚠️ بدون HTTPS: المايكروفون ما بيشتغل على التلفون. استخدم Tailscale.</p>" : ""}`;
+  const main = r.urls.find(u => u.kind === "tailscale") || r.urls[0];
+  const others = r.urls.filter(u => u !== main);
+  $("phone").innerHTML = qrBlock(main) +
+    (others.length ? `<details style="margin:8px 0"><summary>روابط تانية (نفس الـWi-Fi بس)</summary>${others.map(qrBlock).join("")}</details>` : "") +
     `<details style="margin:8px 0"><summary>الكاميرا مش راضية تمسح؟</summary>
-       <p>1) على التلفون افتح: <span dir="ltr">${esc(r.urls[0].base)}</span><br>2) اضغط الزر واكتب الرمز:</p>
+       <p>1) على التلفون افتح: <span dir="ltr">${esc(main.base)}</span><br>2) اضغط الزر واكتب الرمز:</p>
        <button class="ghost small" id="pairBtn">أعطيني رمز من 6 أرقام</button><div id="pairCode"></div></details>
      <p>بعدها من قائمة المتصفح اختار <b>Add to Home screen</b> عشان يصير تطبيق.</p>
      <button class="ghost small" id="rotateKey">🔑 تغيير المفتاح (يفصل كل التلفونات)</button>`;

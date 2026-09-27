@@ -304,7 +304,23 @@ def test_phone_login_through_tailscale_serve(client):
     r = client.post("/login", data={"key": code}, follow_redirects=False,
                     headers={**via_tailscale, "origin": f"https://{phone}"})
     assert r.status_code == 303 and "hassan_key=" in r.headers.get("set-cookie", "")
-    # a page on another site still can't post to it
-    r = client.post("/login", data={"key": "123456"}, follow_redirects=False,
-                    headers={**via_tailscale, "origin": "https://evil.example"})
-    assert r.status_code == 403
+    # the API through the same proxy accepts the phone's own origin, not another site's
+    ok = client.post("/api/tasks", json={"prompt": "x", "kind": "operate"},
+                     headers={**via_tailscale, "origin": f"https://{phone}", "cookie": r.headers["set-cookie"].split(";")[0]})
+    assert ok.status_code == 201
+    bad = client.post("/api/tasks", json={"prompt": "x", "kind": "operate"},
+                      headers={**via_tailscale, "origin": "https://evil.example", "cookie": r.headers["set-cookie"].split(";")[0]})
+    assert bad.status_code == 403
+
+
+def test_phone_login_form_works_even_with_a_null_origin(client):
+    code = client.post("/api/remote/pair-code").json()["code"]
+    r = client.post("/login", data={"key": code}, follow_redirects=False,
+                    headers={"x-forwarded-for": "100.91.183.92", "origin": "null"})
+    assert r.status_code == 303 and "hassan_key=" in r.headers.get("set-cookie", "")
+    r = client.post("/login", data={"key": "000000"}, follow_redirects=False,
+                    headers={"x-forwarded-for": "100.91.183.92", "origin": "https://evil.example"})
+    assert r.status_code == 401 and "hassan_key=" not in r.headers.get("set-cookie", "")  # wrong code: no way in
+    r = client.post("/api/tasks", json={"prompt": "x", "kind": "operate"},
+                    headers={"origin": "https://evil.example"})
+    assert r.status_code == 403  # the API itself is still protected from other sites
