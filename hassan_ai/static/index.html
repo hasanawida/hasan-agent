@@ -350,7 +350,7 @@ header .meta{display:flex;align-items:center;gap:var(--space-2)}
       <div class="card bubble-ai"><h2><svg class="ico" aria-hidden="true"><use href="#i-bot"/></svg>الرد
         <button class="ghost small" id="speakBtn" title="اقرأ بصوت" aria-label="اقرأ الرد بصوت"><svg class="ico" aria-hidden="true"><use href="#i-volume"/></svg></button></h2>
         <div class="decision" id="decision" aria-live="polite"><span class="muted">بانتظار الفريق…</span></div></div>
-      <div class="card"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><div id="mediaStrip"></div><pre id="evDetail" style="display:none"></pre></div>
+      <div class="card" id="evCard" style="display:none"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><div id="mediaStrip"></div><pre id="evDetail" style="display:none"></pre></div>
       <details class="card fold"><summary><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>خطة التنفيذ</summary><ol id="plan" class="muted"></ol></details>
       <details class="card fold"><summary><svg class="ico" aria-hidden="true"><use href="#i-layers"/></svg>مخرجات الوكلاء</summary><div id="outputs"></div></details>
       <details class="card fold"><summary><svg class="ico" aria-hidden="true"><use href="#i-file"/></svg>السجل</summary><div class="log" id="log"></div></details>
@@ -512,6 +512,9 @@ header .meta{display:flex;align-items:center;gap:var(--space-2)}
 </div>
 <script>
 const $ = id => document.getElementById(id);
+const STATUS_AR = {queued: "بالدور", running: "شغّال", awaiting_approval: "بستنى موافقتك", completed: "خلصت",
+                   failed: "فشلت", rejected: "انرفضت", cancelled: "انلغت"};
+const statusAr = s => STATUS_AR[s] || s;
 let agents = [], current = null, lastSeq = 0, timer = null, currentTask = null, approvalKey = "", taskKind = "project";
 const spoken = new Set();
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -880,7 +883,7 @@ async function scrPoll() {
   if (!t) return;
   const pend = (t.approvals || []).filter(a => a.status === "pending");
   const last = (t.evidence || []).slice(-1)[0];
-  let html = `<span class="pill ${t.status}">${t.status}</span> ${esc(last ? last.title : t.phase || "")}`;
+  let html = `<span class="pill ${t.status}">${statusAr(t.status)}</span> ${esc(last ? last.title : "")}`;
   for (const a of pend) html += `<div class="row" style="margin-top:6px;align-items:center"><span style="flex:1">⏸ ${esc(a.title)}</span>
       <button class="small" data-ok="${a.id}" style="flex:0 0 auto">✅ وافق</button>
       <button class="ghost small" data-no="${a.id}" style="flex:0 0 auto">❌</button></div>`;
@@ -945,7 +948,7 @@ function renderAgents(task) {
 async function loadHistory() {
   const tasks = await api("/api/tasks");
   $("history").innerHTML = tasks.map(t =>
-    `<div data-id="${t.id}"><span class="pill ${t.status}">${t.status}</span> ${esc(t.prompt)}</div>`).join("") || '<span class="muted">لا توجد مهام بعد</span>';
+    `<div data-id="${t.id}"><span class="pill ${t.status}">${statusAr(t.status)}</span> ${esc(t.prompt)}</div>`).join("") || '<span class="muted">لا توجد مهام بعد</span>';
   $("history").querySelectorAll("div[data-id]").forEach(d => d.onclick = () => openTask(d.dataset.id));
 }
 function setKind(k) {
@@ -1048,15 +1051,17 @@ function render(t) {
   if (t.status === "completed" && t.decision && $("speakReply").checked && !spoken.has(t.id)) {
     spoken.add(t.id); speak(t.decision); loadUsage();
   }
-  $("status").className = "pill " + t.status; $("status").textContent = t.status;
-  $("phase").textContent = `${{simple: "🆓 ", medium: "⚖️ ", complex: "🧠 "}[t.tier] || ""}${t.phase} · ${t.resolved_mode || t.mode}${t.verified === true ? " · ✓ verified" : t.verified === false ? " · ✗ checks failing" : ""}`;
+  $("status").className = "pill " + t.status; $("status").textContent = statusAr(t.status);
+  const busy = ["running", "queued", "awaiting_approval"].includes(t.status);
+  $("phase").textContent = `${{simple: "🆓 ", medium: "⚖️ ", complex: "🧠 "}[t.tier] || ""}${busy && t.phase && t.phase !== t.status ? t.phase.replace(/^operator_step_(\d+)$/, "خطوة $1") : ""}${t.verified === true ? " ✓ الفحوصات نجحت" : t.verified === false ? " ✗ الفحوصات فشلت" : ""}`;
   $("taskPrompt").textContent = t.prompt;
   $("errorBox").textContent = t.error || "";
   $("rollback").style.display = t.checkpoint && t.checkpoint.backups?.length ? "" : "none";
   $("decision").textContent = t.decision || "بانتظار الفريق…";
   $("plan").innerHTML = t.plan.map(s => `<li>${esc(s.title)} <small>(${esc(s.owner || "")})</small></li>`).join("");
+  $("evCard").style.display = t.evidence.length ? "" : "none";
   $("evidence").innerHTML = t.evidence.map((e, i) =>
-    `<span class="chip ${e.ok ? "ok" : "bad"}" data-i="${i}">${e.ok ? "✓" : "✗"} ${esc(e.title)} — ${esc(e.summary)}</span>`).join("") || '<span class="muted">لا أدلة (Workspace غير محدد)</span>';
+    `<span class="chip ${e.ok ? "ok" : "bad"}" data-i="${i}">${e.ok ? "✓" : "✗"} ${esc(e.title)} — ${esc(e.summary)}</span>`).join("");
   $("mediaStrip").innerHTML = t.evidence.filter(e => e.media).slice(-6).map(e =>
     /\.(png|jpe?g|webp)$/i.test(e.media) ? `<a href="/api/media/${encodeURIComponent(e.media)}" target="_blank"><img src="/api/media/${encodeURIComponent(e.media)}" alt=""></a>`
     : /\.(mp4|webm|mov)$/i.test(e.media) ? `<video controls playsinline src="/api/media/${encodeURIComponent(e.media)}"></video>`
