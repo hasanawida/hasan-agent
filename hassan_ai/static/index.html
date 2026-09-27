@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hassan AI OS</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
@@ -11,13 +11,43 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
-:root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429}
+:root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429;
+  --nav-h:62px;--safe-b:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box}
+html{overflow-x:hidden}body{overflow-x:clip}  /* clip, not hidden: keeps the sticky header/chat box working */
 body{margin:0;font-family:"Segoe UI",Tahoma,"Noto Kufi Arabic",sans-serif;background:var(--bg);color:var(--text)}
-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}
-header h1{font-size:20px;margin:0}header .meta{color:var(--muted);font-size:13px}
-main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px;max-width:1500px;margin:auto}
-@media(max-width:900px){main{grid-template-columns:1fr}}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--line);
+  background:var(--bg);position:sticky;top:0;z-index:20}
+header h1{font-size:19px;margin:0}header .meta{color:var(--muted);font-size:13px}
+
+/* ---- shell: side bar on the PC, bottom bar on the phone ---- */
+.shell{display:grid;grid-template-columns:210px minmax(0,1fr);max-width:1400px;margin:auto}
+.nav{position:sticky;top:53px;align-self:start;height:calc(100vh - 53px);padding:16px 10px;border-inline-end:1px solid var(--line);
+  display:flex;flex-direction:column;gap:6px}
+.nav button{display:flex;align-items:center;gap:10px;background:transparent;color:var(--muted);border:1px solid transparent;
+  text-align:start;padding:11px 12px;border-radius:10px;font-size:15px}
+.nav button .ico{font-size:19px;width:24px;text-align:center}
+.nav button:hover{border-color:var(--line);color:var(--text)}
+.nav button.on{background:var(--panel);border-color:var(--line);color:var(--text)}
+.nav button.on .ico{filter:none}
+.content{padding:16px 20px;min-width:0}
+.view{display:none}.view.active{display:block}
+.view>h2.vtitle{font-size:18px;margin:4px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;align-items:start}
+.grid .card{margin-bottom:0}
+
+@media(max-width:900px){
+  .shell{display:block}
+  .nav{position:fixed;inset:auto 0 0 0;top:auto;height:calc(var(--nav-h) + var(--safe-b));padding:0 0 var(--safe-b);z-index:30;
+    flex-direction:row;gap:0;border:0;border-top:1px solid var(--line);background:var(--panel)}
+  .nav button{flex:1;flex-direction:column;justify-content:center;gap:2px;padding:6px 2px;border-radius:0;font-size:11px;border:0}
+  .nav button .ico{font-size:21px;width:auto}
+  .nav button.on{background:transparent;color:var(--accent)}
+  .content{padding:10px 10px calc(var(--nav-h) + var(--safe-b) + 10px)}
+  .grid{grid-template-columns:1fr;gap:10px}
+}
+
+/* ---- cards & controls ---- */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
 .card h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600}
 textarea,input,select{width:100%;background:#0e1427;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit}
@@ -43,39 +73,82 @@ button:disabled{opacity:.5;cursor:default}
 pre{white-space:pre-wrap;word-break:break-word;background:#0e1427;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:380px;overflow:auto;direction:ltr;text-align:left;font-size:12px}
 .diff .add{color:var(--ok)}.diff .del{color:var(--bad)}
 .approval{border:1px solid var(--warn);border-radius:10px;padding:12px;margin-bottom:10px}
+.hist{max-height:260px;overflow:auto}
 .hist div{padding:7px;border-radius:8px;cursor:pointer;font-size:13px;border:1px solid transparent}
 .hist div:hover{border-color:var(--line)}
 .decision{white-space:pre-wrap;line-height:1.7}
-.mic{flex:0 0 auto;width:46px;font-size:18px;padding:8px}
 .mic.on,#talkBtn.on,#scrMic.on{background:var(--bad);color:#fff;animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.6}}
-.voice{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.voice{display:flex;gap:6px 12px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
 .voice select{width:auto;padding:4px}
 .voice label{display:flex;gap:4px;align-items:center;margin:0}
 .voice input{width:auto}
-#interim{color:var(--warn);font-size:13px;min-height:18px;margin-top:4px}
+#interim{color:var(--warn);font-size:13px;min-height:0}
+#interim:not(:empty){margin-bottom:6px}
 .small{padding:5px 9px;font-size:12px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}
 .stats b{display:block;font-size:17px;color:var(--text)}
 .qr{background:#fff;border-radius:10px;padding:8px;display:inline-block;margin:8px 0}
 .qr{width:260px;max-width:100%}
 .pair{font-size:30px;letter-spacing:8px;font-weight:700;color:var(--text);direction:ltr;text-align:center}
-@media(max-width:600px){main{padding:8px;gap:8px}.card{padding:11px;margin-bottom:10px}
-  header{padding:10px 12px}header h1{font-size:17px}.agents{grid-template-columns:repeat(3,1fr)}
-  .agent small{display:none}.log{max-height:180px}textarea{min-height:90px;font-size:16px}
-  input,select{font-size:16px}.mic{width:54px;font-size:22px}}
 #mediaStrip img{max-width:100%;border-radius:8px;margin-top:8px;display:block}
 #mediaStrip audio{width:100%;margin-top:8px}
 #mediaStrip video{max-width:100%;max-height:70vh;border-radius:8px;margin-top:8px;display:block}
-.kinds{display:flex;gap:6px;margin-bottom:10px}.kinds button{flex:1;background:transparent;border:1px solid var(--line);color:var(--muted)}
+.kinds{display:flex;gap:6px}.kinds button{flex:1;white-space:nowrap;background:transparent;border:1px solid var(--line);color:var(--muted);padding:6px 10px;font-size:13px}
 .kinds button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-html,body{overflow-x:hidden}
-main>*{min-width:0}
 .hist div,#taskPrompt,.chip,.approval p,.decision,summary{overflow-wrap:anywhere}
-#alertBar{display:none;position:sticky;top:0;z-index:10;background:var(--warn);color:#1b1300;padding:10px 16px;
+#alertBar{display:none;position:sticky;top:0;z-index:40;background:var(--warn);color:#1b1300;padding:10px 16px;
   font-weight:600;cursor:pointer;text-align:center}
 details summary{cursor:pointer;color:var(--muted);font-size:13px}
 .muted{color:var(--muted);font-size:13px}
+
+/* ---- collapsible cards (plan / outputs / log / history / team) ---- */
+details.fold>summary{list-style:none;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"▾";margin-inline-start:auto;transition:transform .15s}
+details.fold:not([open])>summary::after{transform:rotate(90deg)}
+details.fold[open]>summary{margin-bottom:10px}
+
+/* ---- chat ---- */
+.view[data-view="chat"].active{display:flex;flex-direction:column;min-height:calc(100vh - 53px - 32px);max-width:900px;margin:auto}
+.chatlog{flex:1}
+.bubble-me{background:#1d2b52;border:1px solid #2c3f73;border-radius:14px 14px 4px 14px;padding:10px 14px;margin:0 0 0 auto;
+  max-width:85%;width:fit-content;color:var(--text);font-size:15px;white-space:pre-wrap}
+.bubble-ai{border-radius:14px 14px 14px 4px}
+.taskhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.taskhead .acts{display:flex;gap:6px}
+.empty{display:none;text-align:center;color:var(--muted);padding:40px 10px}
+.empty b{display:block;font-size:40px;margin-bottom:8px}
+#taskView[style*="none"]+.empty{display:block}
+
+.composer{position:sticky;bottom:0;z-index:15;margin-top:auto;background:var(--bg);padding:10px 0 12px}
+.composer .box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px}
+.composer .top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.composer .top .kinds{flex:0 1 auto}
+.composer .top #chatInfo{flex:1;min-width:120px;font-size:12px}
+.composer .input{display:flex;gap:8px;align-items:flex-end}
+#prompt{min-height:48px;max-height:30vh;height:52px;resize:none;border-radius:14px;font-size:15px;line-height:1.5}
+.mic{flex:0 0 auto;width:60px;height:60px;border-radius:50%;font-size:26px;padding:0;display:grid;place-items:center;
+  box-shadow:0 4px 16px rgba(79,140,255,.35)}
+#run{flex:0 0 auto;height:52px;border-radius:14px;padding:0 16px}
+.composer details.opts{margin-top:8px}
+.composer details.opts[open]{max-height:45vh;overflow:auto}
+.composer details.opts>summary{font-size:12px}
+#operateHint{margin:0 0 8px}
+#formErr:not(:empty){margin-top:6px}
+
+@media(max-width:900px){
+  .view[data-view="chat"].active{min-height:calc(100vh - 53px - var(--nav-h) - var(--safe-b) - 20px)}
+  .composer{bottom:calc(var(--nav-h) + var(--safe-b));padding:8px 0}
+}
+@media(max-width:600px){
+  .card{padding:11px;margin-bottom:10px}
+  header{padding:10px 12px}header h1{font-size:17px}.agents{grid-template-columns:repeat(3,1fr)}
+  .agent small{display:none}.log{max-height:180px}textarea{min-height:90px;font-size:16px}
+  #prompt{min-height:48px;font-size:16px}
+  input,select{font-size:16px}.mic{width:58px;height:58px}
+  #run{padding:0 12px}.composer .top #chatInfo{display:none}
+}
 </style>
 </head>
 <body>
@@ -84,72 +157,109 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   <h1>🧠 Hassan AI OS</h1>
   <div class="meta" id="health">…</div>
 </header>
-<main>
-<aside>
-  <div class="card">
-    <h2>مهمة جديدة</h2>
-    <div class="kinds">
-      <button id="kindProject" class="on" title="الفريق يفكّر ويحلّل ويبرمج">🧠 الفريق</button>
-      <button id="kindOperate" title="الإيجنت يشتغل على الكمبيوتر: ملفات، برامج، أوامر">🖥️ تحكم بالكمبيوتر</button>
+<div class="shell">
+<nav class="nav" aria-label="الأقسام">
+  <button data-go="chat" class="on"><span class="ico">💬</span><span>المحادثة</span></button>
+  <button data-go="pc"><span class="ico">🖥️</span><span>الكمبيوتر</span></button>
+  <button data-go="auto"><span class="ico">⏰</span><span>التلقائي</span></button>
+  <button data-go="settings"><span class="ico">⚙️</span><span>الإعدادات</span></button>
+</nav>
+<main class="content">
+
+<!-- ================= المحادثة ================= -->
+<section class="view active" data-view="chat">
+  <div class="chatlog">
+    <details class="card fold">
+      <summary>🗂 المهام السابقة</summary>
+      <div class="hist" id="history"></div>
+    </details>
+    <details class="card fold">
+      <summary>👥 الفريق</summary>
+      <div class="agents" id="agents"></div>
+    </details>
+    <div id="taskView" style="display:none">
+      <p id="taskPrompt" class="bubble-me"></p>
+      <div class="card" style="margin-top:10px">
+        <div class="taskhead">
+          <div><span class="pill" id="status"></span> <span class="muted" id="phase"></span></div>
+          <div class="acts">
+            <button class="ghost small" id="openTaskWs" style="display:none">VS Code ↗</button>
+            <button class="ghost small" id="rollback" style="display:none">↩ Rollback</button>
+            <button class="bad small" id="stopTask" style="display:none">⏹ أوقف</button></div>
+        </div>
+        <div id="taskUsage" class="muted" style="font-size:12px"></div>
+        <div id="errorBox" style="color:var(--bad)"></div>
+      </div>
+      <div id="approvals"></div>
+      <div class="card bubble-ai"><h2>🤖 الرد <button class="ghost small" id="speakBtn" title="اقرأ بصوت">🔊</button></h2><div class="decision" id="decision"><span class="muted">بانتظار الفريق…</span></div></div>
+      <div class="card"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><div id="mediaStrip"></div><pre id="evDetail" style="display:none"></pre></div>
+      <details class="card fold"><summary>📋 خطة التنفيذ</summary><ol id="plan" class="muted"></ol></details>
+      <details class="card fold"><summary>🧩 مخرجات الوكلاء</summary><div id="outputs"></div></details>
+      <details class="card fold"><summary>📜 السجل</summary><div class="log" id="log"></div></details>
     </div>
-    <p id="operateHint" class="muted" style="display:none;font-size:12px;margin-top:0">
-      بيشوف ويدوّر ويفتح لحاله. أي تغيير (كتابة، نقل، حذف، أمر، برنامج) بيستنى موافقتك — من هون أو من التلفون.</p>
-    <div class="row" style="align-items:stretch">
-      <textarea id="prompt" placeholder="اكتب أو اضغط 🎤 واحكي: افحص مشروع الأقصى، أصلح مشكلة الصوت، ثم اعمل Build واختبار"></textarea>
-      <button class="mic" id="mic" title="احكي بدل ما تكتب">🎤</button>
-    </div>
-    <div id="interim"></div>
-    <div class="row" style="align-items:center;font-size:12px;margin:4px 0">
-      <span id="chatInfo" class="muted" style="flex:1">💬 محادثة جديدة</span>
-      <button class="ghost small" style="flex:0 0 auto" id="newChat" title="انسى الرسائل اللي قبل وابدأ موضوع جديد">➕ محادثة جديدة</button>
-    </div>
-    <div class="voice" id="voiceOpts">
-      <select id="lang" title="لغة الكلام">
-        <option value="ar-JO">عربي</option><option value="ar-SA">عربي فصحى</option>
-        <option value="en-US">English</option><option value="he-IL">עברית</option>
-      </select>
-      <label><input type="checkbox" id="autoSend"> أرسل لما أسكت</label>
-      <label><input type="checkbox" id="speakReply"> 🔊 اقرألي الرد</label>
-      <label title="بتحكي، بيرد بالصوت، وبيرجع يسمعك لحاله"><input type="checkbox" id="voiceChat"> 🗣️ محادثة صوتية</label>
-    </div>
-    <div id="projectFields">
-    <label>الوضع</label>
-    <select id="mode">
-      <option value="auto">Auto — المدير يقرر</option>
-      <option value="fast">Fast — سريع</option>
-      <option value="consensus">Consensus — عدة نماذج + قاضٍ</option>
-    </select>
-    <label>مجلد المشروع (Workspace)</label>
-    <div class="row"><input id="workspace" placeholder="C:\Users\Hassan\Projects\AlAqsaVR" dir="ltr">
-      <button class="ghost small" id="openWs" style="flex:0 0 auto" title="افتح المجلد في VS Code">VS Code ↗</button></div>
-    <label>اسم المشروع (للذاكرة)</label>
-    <input id="project" placeholder="al-aqsa-vr" dir="ltr">
-    <label class="row" style="justify-content:flex-start;gap:8px"><input type="checkbox" id="execute" style="width:auto"> Execute — Checkpoint + Build + Tests</label>
-    </div>
-    <label>العقل (التكلفة)</label>
-    <select id="budget">
-      <option value="auto">🆓 مجاني — وبيسألني قبل أي عقل مدفوع</option>
-      <option value="free">🆓 مجاني بس — ولا تسألني</option>
-      <option value="balanced">💳 مسموح المدفوع حسب الصعوبة</option>
-      <option value="best">💳 أقوى عقل (مدفوع)</option>
-    </select>
-    <div style="margin-top:12px"><button id="run" style="width:100%">تشغيل ▶</button></div>
-    <div id="formErr" class="muted" style="color:var(--bad);margin-top:8px"></div>
+    <div class="empty"><b>👋</b>اكتب شو بدك، أو اكبس 🎤 واحكي.</div>
   </div>
-  <div class="card">
-    <h2>المهام السابقة</h2>
-    <div class="hist" id="history"></div>
-  </div>
-  <div class="card" id="lineCard">
-    <h2>📞 خط مع الكمبيوتر</h2>
-    <p class="muted" style="font-size:12px;margin-top:0">🎧 بتسمع مايك الكمبيوتر مباشرة · 🎙️ بتحكي وصوتك بيطلع من سماعات الكمبيوتر.</p>
-    <div class="row">
-      <button class="ghost small" id="listenBtn">🎧 اسمع</button>
-      <button class="ghost small" id="talkBtn">🎙️ احكي</button>
+
+  <div class="composer">
+    <div class="box">
+      <div class="top">
+        <div class="kinds">
+          <button id="kindProject" class="on" title="الفريق يفكّر ويحلّل ويبرمج">🧠 الفريق</button>
+          <button id="kindOperate" title="الإيجنت يشتغل على الكمبيوتر: ملفات، برامج، أوامر">🖥️ تحكم بالكمبيوتر</button>
+        </div>
+        <span id="chatInfo" class="muted">💬 محادثة جديدة</span>
+        <button class="ghost small" style="flex:0 0 auto" id="newChat" title="انسى الرسائل اللي قبل وابدأ موضوع جديد">➕ محادثة جديدة</button>
+      </div>
+      <p id="operateHint" class="muted" style="display:none;font-size:12px">
+        بيشوف ويدوّر ويفتح لحاله. أي تغيير (كتابة، نقل، حذف، أمر، برنامج) بيستنى موافقتك — من هون أو من التلفون.</p>
+      <div id="interim"></div>
+      <div class="input">
+        <button class="mic" id="mic" title="احكي بدل ما تكتب">🎤</button>
+        <textarea id="prompt" placeholder="اكتب أو اضغط 🎤 واحكي: افحص مشروع الأقصى، أصلح مشكلة الصوت، ثم اعمل Build واختبار"></textarea>
+        <button id="run" title="إرسال">إرسال ➤</button>
+      </div>
+      <div id="formErr" class="muted" style="color:var(--bad)"></div>
+      <details class="opts">
+        <summary>⚙️ خيارات (الصوت، العقل، المشروع)</summary>
+        <div class="voice" id="voiceOpts">
+          <select id="lang" title="لغة الكلام">
+            <option value="ar-JO">عربي</option><option value="ar-SA">عربي فصحى</option>
+            <option value="en-US">English</option><option value="he-IL">עברית</option>
+          </select>
+          <label><input type="checkbox" id="autoSend"> أرسل لما أسكت</label>
+          <label><input type="checkbox" id="speakReply"> 🔊 اقرألي الرد</label>
+          <label title="بتحكي، بيرد بالصوت، وبيرجع يسمعك لحاله"><input type="checkbox" id="voiceChat"> 🗣️ محادثة صوتية</label>
+        </div>
+        <label>العقل (التكلفة)</label>
+        <select id="budget">
+          <option value="auto">🆓 مجاني — وبيسألني قبل أي عقل مدفوع</option>
+          <option value="free">🆓 مجاني بس — ولا تسألني</option>
+          <option value="balanced">💳 مسموح المدفوع حسب الصعوبة</option>
+          <option value="best">💳 أقوى عقل (مدفوع)</option>
+        </select>
+        <div id="projectFields">
+        <label>الوضع</label>
+        <select id="mode">
+          <option value="auto">Auto — المدير يقرر</option>
+          <option value="fast">Fast — سريع</option>
+          <option value="consensus">Consensus — عدة نماذج + قاضٍ</option>
+        </select>
+        <label>مجلد المشروع (Workspace)</label>
+        <div class="row"><input id="workspace" placeholder="C:\Users\Hassan\Projects\AlAqsaVR" dir="ltr">
+          <button class="ghost small" id="openWs" style="flex:0 0 auto" title="افتح المجلد في VS Code">VS Code ↗</button></div>
+        <label>اسم المشروع (للذاكرة)</label>
+        <input id="project" placeholder="al-aqsa-vr" dir="ltr">
+        <label class="row" style="justify-content:flex-start;gap:8px"><input type="checkbox" id="execute" style="width:auto"> Execute — Checkpoint + Build + Tests</label>
+        </div>
+      </details>
     </div>
-    <div id="lineInfo" class="muted" style="font-size:12px;margin-top:6px"></div>
-    <audio id="lineAudio" style="display:none"></audio>
   </div>
+</section>
+
+<!-- ================= الكمبيوتر ================= -->
+<section class="view" data-view="pc">
+  <h2 class="vtitle">🖥️ الكمبيوتر</h2>
+  <div class="grid">
   <div class="card" id="screenCard">
     <h2>🖥️ شاشة الكمبيوتر مباشرة</h2>
     <p class="muted" style="font-size:12px;margin-top:0">بتشوف الشاشة، وبتحكي للإيجنت شو يعمل — بتتفرّج عليه عم يشتغل وبتوافق على خطواته من هون.</p>
@@ -175,10 +285,23 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <div id="camErr" style="color:var(--bad);font-size:12px"></div>
     <img id="camView" alt="" style="display:none;width:100%;border-radius:8px;margin-top:8px;background:#000">
   </div>
-  <div class="card" id="tgCard" style="display:none">
-    <h2>✈️ تيليجرام</h2>
-    <div id="tg" class="muted">…</div>
+  <div class="card" id="lineCard">
+    <h2>📞 خط مع الكمبيوتر</h2>
+    <p class="muted" style="font-size:12px;margin-top:0">🎧 بتسمع مايك الكمبيوتر مباشرة · 🎙️ بتحكي وصوتك بيطلع من سماعات الكمبيوتر.</p>
+    <div class="row">
+      <button class="ghost small" id="listenBtn">🎧 اسمع</button>
+      <button class="ghost small" id="talkBtn">🎙️ احكي</button>
+    </div>
+    <div id="lineInfo" class="muted" style="font-size:12px;margin-top:6px"></div>
+    <audio id="lineAudio" style="display:none"></audio>
   </div>
+  </div>
+</section>
+
+<!-- ================= التلقائي ================= -->
+<section class="view" data-view="auto">
+  <h2 class="vtitle">⏰ التلقائي</h2>
+  <div class="grid">
   <div class="card">
     <h2>⏰ مهام مجدولة</h2>
     <div id="sched" class="muted">…</div>
@@ -192,6 +315,17 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <div class="row" style="margin-top:8px"><input id="profText" placeholder="مثلاً: بفضّل التقارير قصيرة">
       <button class="ghost small" style="flex:0 0 auto" id="profAdd">احفظ</button></div>
   </div>
+  </div>
+</section>
+
+<!-- ================= الإعدادات ================= -->
+<section class="view" data-view="settings">
+  <h2 class="vtitle">⚙️ الإعدادات</h2>
+  <div class="grid">
+  <div class="card" id="tgCard" style="display:none">
+    <h2>✈️ تيليجرام</h2>
+    <div id="tg" class="muted">…</div>
+  </div>
   <div class="card" id="keysCard" style="display:none">
     <h2>🔑 APIs مجانية (احتياط)</h2>
     <p class="muted" style="font-size:12px;margin-top:0">إذا خلصت حصة Claude وChatGPT، الشغل بيكمل على هدول. المفاتيح بتنحفظ على الكمبيوتر بس.</p>
@@ -202,45 +336,22 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <div id="phone" class="muted">…</div>
   </div>
   <div class="card">
-    <h2>الاستهلاك</h2>
+    <h2>📊 الاستهلاك</h2>
     <div id="usage" class="muted">…</div>
   </div>
   <div class="card">
-    <h2>العقول (Claude / ChatGPT)</h2>
+    <h2>🧠 العقول (Claude / ChatGPT)</h2>
     <div id="brains" class="muted">…</div>
   </div>
   <div class="card">
-    <h2>الموصلات (MCP)</h2>
+    <h2>🔌 الموصلات (MCP)</h2>
     <div id="mcp" class="muted">…</div>
   </div>
-</aside>
-<section>
-  <div class="card">
-    <h2>الفريق</h2>
-    <div class="agents" id="agents"></div>
-  </div>
-  <div id="taskView" style="display:none">
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <div><span class="pill" id="status"></span> <span class="muted" id="phase"></span></div>
-        <div style="flex:0;display:flex;gap:6px">
-          <button class="ghost small" id="openTaskWs" style="display:none">VS Code ↗</button>
-          <button class="ghost small" id="rollback" style="display:none">↩ Rollback</button>
-          <button class="bad small" id="stopTask" style="display:none">⏹ أوقف</button></div>
-      </div>
-      <p id="taskPrompt" class="muted"></p>
-      <div id="taskUsage" class="muted" style="font-size:12px"></div>
-      <div id="errorBox" style="color:var(--bad)"></div>
-    </div>
-    <div id="approvals"></div>
-    <div class="card"><h2 id="evTitle">الأدلة (Evidence)</h2><div class="chips" id="evidence"></div><div id="mediaStrip"></div><pre id="evDetail" style="display:none"></pre></div>
-    <div class="card"><h2>القرار النهائي <button class="ghost small" id="speakBtn" title="اقرأ بصوت">🔊</button></h2><div class="decision" id="decision"><span class="muted">بانتظار الفريق…</span></div></div>
-    <div class="card"><h2>خطة التنفيذ</h2><ol id="plan" class="muted"></ol></div>
-    <div class="card"><h2>مخرجات الوكلاء</h2><div id="outputs"></div></div>
-    <div class="card"><h2>السجل</h2><div class="log" id="log"></div></div>
   </div>
 </section>
+
 </main>
+</div>
 <script>
 const $ = id => document.getElementById(id);
 let agents = [], current = null, lastSeq = 0, timer = null, currentTask = null, approvalKey = "", taskKind = "project";
@@ -825,6 +936,27 @@ $("rollback").onclick = async () => {
   catch (e) { alert(e.message); }
 };
 boot().catch(e => $("health").textContent = "خطأ: " + e.message);
+</script>
+<script>
+// ---- sections: side bar on the PC, bottom bar on the phone (layout only) ----
+(() => {
+  const views = document.querySelectorAll(".view"), tabs = document.querySelectorAll("[data-go]");
+  function go(name) {
+    if (![...views].some(v => v.dataset.view === name)) name = "chat";
+    views.forEach(v => v.classList.toggle("active", v.dataset.view === name));
+    tabs.forEach(t => t.classList.toggle("on", t.dataset.go === name));
+    try { localStorage.setItem("hassan.view", name); } catch (e) {}
+  }
+  tabs.forEach(t => t.addEventListener("click", () => { go(t.dataset.go); window.scrollTo(0, 0); }));
+  document.getElementById("alertBar").addEventListener("click", () => go("chat"));  // approvals live in the chat
+  let start = "chat";
+  try { start = localStorage.getItem("hassan.view") || "chat"; } catch (e) {}
+  if (new URLSearchParams(location.search).get("task")) start = "chat";
+  go(start);
+  const p = document.getElementById("prompt");  // chat box grows with the text
+  p.addEventListener("input", () => { p.style.height = "auto"; p.style.height = Math.min(p.scrollHeight + 2, innerHeight * 0.3) + "px"; });
+  document.getElementById("run").addEventListener("click", () => setTimeout(() => { if (!p.value) p.style.height = ""; }, 1500));
+})();
 </script>
 </body>
 </html>
