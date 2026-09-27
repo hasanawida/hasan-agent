@@ -270,9 +270,13 @@ class PCTools:
             raise PolicyError(f"Unknown tool: {tool}")
         if self.access(tool, args) == FORBIDDEN:
             raise PolicyError(f"{tool} is forbidden by policy")
-        result = fn(**{k: v for k, v in args.items() if k in TOOL_BY_NAME[tool].args})
-        if asyncio.iscoroutine(result):
-            result = await result
+        kwargs = {k: v for k, v in args.items() if k in TOOL_BY_NAME[tool].args}
+        if asyncio.iscoroutinefunction(fn):
+            result = await fn(**kwargs)
+        else:
+            # plain tools (searching a big folder, copying…) run in a worker thread so they
+            # never freeze the dashboard, Telegram and the other tasks
+            result = await asyncio.to_thread(fn, **kwargs)
         text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, indent=1, default=str)
         return text if len(text) <= MAX_OUTPUT else text[:MAX_OUTPUT] + "\n…(truncated)"
 
