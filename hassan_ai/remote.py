@@ -139,13 +139,13 @@ class PairingCodes:
 
 LOGIN_PAGE = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Hassan AI OS</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1020;color:#e7ecf7;
-font-family:"Segoe UI",Tahoma,sans-serif}form{background:#131a2e;border:1px solid #243052;border-radius:14px;
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#22261D;color:#ECE9DF;
+font-family:"Segoe UI",Tahoma,sans-serif}form{box-sizing:border-box;background:#2C3125;border:1px solid #3E4434;border-radius:14px;
 padding:22px;width:min(92vw,380px)}input{width:100%;box-sizing:border-box;padding:12px;border-radius:8px;
-border:1px solid #243052;background:#0e1427;color:#e7ecf7;font:inherit;direction:ltr}button{width:100%;
-margin-top:12px;padding:12px;border:0;border-radius:8px;background:#4f8cff;color:#fff;font:inherit}
-p{color:#8d9bbd;font-size:14px;line-height:1.7}.err{color:#ef5b5b}</style></head><body>
-<form method="post" action="/login"><h2>🧠 Hassan AI OS</h2>
+border:1px solid #3E4434;background:#1A1D16;color:#ECE9DF;font:inherit;direction:ltr}button{width:100%;
+margin-top:12px;padding:12px;border:0;border-radius:8px;background:#F2A531;color:#1A1D16;font:inherit;font-weight:600}
+h2{display:flex;align-items:center;gap:10px;margin-top:0}p{color:#A9AC98;font-size:14px;line-height:1.7}.err{color:#F08570}input:focus,button:focus{outline:2px solid #F2A531;outline-offset:2px}</style></head><body>
+<form method="post" action="/login"><h2><img src="/static/icon.svg" alt="" width="40" height="40">Hassan AI OS</h2>
 <p>امسح رمز الـQR من شاشة الكمبيوتر (كرت 📱 التلفون)،<br>أو اكتب <b>الرمز من 6 أرقام</b> اللي بيظهر هناك.</p>__ERR__
 <input name="key" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" style="font-size:26px;
 letter-spacing:6px;text-align:center"><button>دخول</button></form></body></html>"""
