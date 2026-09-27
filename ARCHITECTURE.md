@@ -61,6 +61,14 @@ User / Arabic Dashboard (hassan_ai/static/index.html)
 | auto | Manager routes: low → fast, medium → full team (single coder), high → consensus |
 | consensus | Full team, Coder runs once per alias in `consensus.coders` in parallel, extra cross-reviewer |
 
+## Manual desktop control
+
+`hassan_ai/desktop.py` adds a human-operated input channel alongside the existing FFmpeg screen stream. The dashboard locally grants access for 30 minutes; `/api/desktop/control` accepts one authenticated WebSocket with an exact Origin check (including scheme and port). Remote input requires HTTPS. HTTP middleware does not cover WebSockets, so the route independently checks the existing access key and proxy/local classification.
+
+An allow-listed protocol covers pointer position, buttons, scrolling, keys and short text. One worker owns the Windows input devices and DPI context. The session releases held inputs on disconnect, grant expiry, key rotation, local revocation or inactivity. A watchdog closes connections without a heartbeat. No grant is persisted and no new model-facing tool is registered; Operator approval rules remain unchanged.
+
+The UI reuses the screen card and paired-phone login. The input coordinates map to the entire virtual desktop, matching FFmpeg's `gdigrab desktop`, including negative monitor origins. Browser coordinates account for letterboxing in fullscreen. The input dependencies are `pynput` on Windows and `websockets` for Uvicorn; viewing still uses FFmpeg.
+
 ## Production evolution
 
 - PostgreSQL + queue for multi-worker dispatch; durable workflows (Temporal) for restart-safe long tasks.

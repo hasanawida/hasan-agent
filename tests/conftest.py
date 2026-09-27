@@ -12,7 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from hassan_ai.config import CONFIGS_DIR, POLICIES_DIR, Settings  # noqa: E402
 from hassan_ai.server import create_app  # noqa: E402
 
-TERMINAL = {"completed", "failed", "rejected", "awaiting_approval"}
+TERMINAL = {"completed", "failed", "rejected", "cancelled", "incomplete", "awaiting_approval"}
+
+
+@pytest.fixture(autouse=True)
+def utf8_children(monkeypatch):
+    monkeypatch.setenv("PYTHONUTF8", "1")
 
 
 def make_settings(tmp_path: Path) -> Settings:
@@ -67,6 +72,7 @@ def py_project(tmp_path):
 
 
 def wait(client, task_id, statuses=TERMINAL, timeout=90):
+    statuses = set(statuses) | {"cancelled", "incomplete"}
     deadline = time.time() + timeout
     while time.time() < deadline:
         task = client.get(f"/api/tasks/{task_id}").json()

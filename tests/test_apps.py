@@ -65,20 +65,20 @@ def test_camera_mic_need_approval_and_explain_missing_ffmpeg(tmp_path, monkeypat
 
 
 def test_blender_runs_script_headless_and_returns_render(tmp_path, monkeypatch):
-    fake = tmp_path / "bin" / "blender"
-    fake.parent.mkdir()
-    fake.write_text(f"#!{sys.executable}\n" + textwrap.dedent("""
-        import sys, re
+    from .test_providers import make_cli
+    folder = tmp_path / "bin"
+    folder.mkdir()
+    fake = make_cli(folder, "blender", r"""
+        import sys, re, ast
         args = sys.argv[1:]
         assert args[0] == "-b"
-        script = open(args[args.index("--python") + 1]).read()
-        out = re.search(r"OUTPUT = '([^']+)'", script).group(1)
+        script = open(args[args.index("--python") + 1], encoding="utf-8").read()
+        out = ast.literal_eval(re.search(r"^OUTPUT = (.+)$", script, re.M).group(1))
         print("blend:", args[1] if args[1].endswith(".blend") else "none")
         if "render.render" in script:
             open(out, "wb").write(b"PNG")
         print("script ran:", "cube" in script)
-    """))
-    fake.chmod(0o755)
+    """)
     monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
     (tmp_path / "scene.blend").write_text("x")
     t = tools(tmp_path)
@@ -238,17 +238,21 @@ def test_intercom_hear_the_pc_and_talk_to_it(client, tmp_path, monkeypatch):
 
     # talking: the phone's clip is converted and handed to the PC's player
     played = []
-    player = tmp_path / "paplay"
-    player.write_text(f"#!/bin/sh\necho \"$1\" >> {tmp_path / 'played.txt'}\n")
-    player.chmod(0o755)
+    real_proc = tools._proc
+    async def quiet_player(argv, timeout):
+        if Path(argv[0]).name.lower() in ("ffmpeg", "ffmpeg.exe"):
+            return await real_proc(argv, timeout)
+        played.append(argv)
+        return 0, ""
+    monkeypatch.setattr(tools, "_proc", quiet_player)
     real_which = __import__("shutil").which
-    monkeypatch.setattr("hassan_ai.pc_tools.shutil.which", lambda n: str(player) if n == "paplay" else real_which(n))
+    monkeypatch.setattr("hassan_ai.pc_tools.shutil.which", lambda n: "paplay" if n == "paplay" else real_which(n))
     clip = tmp_path / "clip.ogg"
     import subprocess
     subprocess.run([tools._ffmpeg(), "-loglevel", "error", "-f", "lavfi", "-i", "sine=duration=1", str(clip)], check=True)
     r = client.post("/api/intercom/say", content=clip.read_bytes(), headers={"Content-Type": "audio/ogg"})
     assert r.status_code == 200 and 0.8 < r.json()["seconds"] < 1.3
-    assert (tmp_path / "played.txt").read_text().strip().endswith(".wav")
+    assert played and ".wav" in str(played[-1])
     assert not list((tools.media_dir).glob(".say-*"))  # temp files cleaned
     assert client.post("/api/intercom/say", content=b"", headers={"Content-Type": "audio/ogg"}).status_code == 400
 
@@ -267,7 +271,7 @@ def test_dashboard_voice_goes_to_whisper(client, monkeypatch):
 def test_live_screen_is_view_only_stream(client):
     tools = client.app.state.orchestrator.operator.tools
 
-    async def fake_screen():
+    async def fake_screen(**_options):
         return [tools._ffmpeg(), "-loglevel", "error", "-f", "lavfi", "-i",
                 "testsrc=size=640x360:rate=6:duration=1", "-f", "mpjpeg", "pipe:1"]
 

@@ -1,0 +1,13 @@
+.transfer-panel p{line-height:1.7;font-size:12px}
+.transfer-panel input[type="file"]{font-size:13px;max-width:100%}
+.transfer-row{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0}
+.transfer-row button{flex:1;min-height:42px;font-size:13px}
+#transferList{list-style:none;padding:0;margin:10px 0;max-height:300px;overflow:auto}
+#transferList li{padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}
+#transferList a{color:#97bdff;text-underline-offset:3px}
+#transferList small{display:block;color:var(--muted);margin-top:5px}
+#transferList code{display:block;direction:ltr;text-align:left;font-size:11px;user-select:all;overflow-wrap:anywhere}
+#transferClipboard{border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:12px}
+#transferText{min-height:100px}
+.transfer-panel [data-error="true"]{color:var(--bad)}
+.transfer-panel button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}

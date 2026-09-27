@@ -1,6 +1,7 @@
 """Operator mode: the agent works on the PC; changes wait for Hassan's approval."""
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -64,7 +65,7 @@ def test_rejected_action_is_not_done(client, tmp_path):
     _, approval = pending(client, t["id"])
     client.post(f"/api/approvals/{approval['id']}", json={"approve": False})
     task = wait(client, t["id"], {"completed", "failed"})
-    assert task["status"] == "completed"
+    assert task["status"] == "failed"
     assert f.read_text() == "keep me"
     assert any(not e["ok"] and e["title"].startswith("delete") for e in task["evidence"])
 
@@ -102,7 +103,7 @@ def test_safety_rails(client, tmp_path):
     task = wait(client, t["id"], {"completed", "failed"})
     assert task["approvals"] == []  # nothing even asked
     blocked = [e for e in task["evidence"] if not e["ok"]]
-    assert len(blocked) == 4
+    assert len(blocked) == 5
     for out in task["outputs"]:
         assert "PRIVATE" not in out["content"]
 
@@ -110,6 +111,8 @@ def test_safety_rails(client, tmp_path):
 def test_opening_a_program_needs_approval_but_a_folder_does_not(client, tmp_path, monkeypatch):
     opened = []
     monkeypatch.setattr("hassan_ai.pc_tools.subprocess.Popen", lambda argv, **kw: opened.append(argv))
+    if os.name == "nt":
+        monkeypatch.setattr("hassan_ai.pc_tools.os.startfile", lambda path: opened.append(path))
     (tmp_path / "setup.exe").write_text("MZ")
     t = start(client, op("open", target=str(tmp_path)), op("open", target=str(tmp_path / "setup.exe")))
     task, approval = pending(client, t["id"])
@@ -129,7 +132,7 @@ def test_stop_button_cancels_waiting_task(client, tmp_path):
     task = wait(client, t["id"], {"completed", "failed"})
     assert f.exists()
     assert all(a["status"] == "rejected" for a in task["approvals"])
-    assert "أوقفت" in task["decision"] or task["status"] == "completed"
+    assert task["status"] == "cancelled" and "أوقفت" in task["decision"]
 
 
 def test_phone_can_approve_operator_actions(client, tmp_path):
@@ -137,7 +140,7 @@ def test_phone_can_approve_operator_actions(client, tmp_path):
     src.write_text("a")
     t = start(client, op("copy", src=str(src), dst=str(tmp_path / "b.txt")))
     _, approval = pending(client, t["id"])
-    phone = {"host": "pc.ts.net", "x-forwarded-for": "100.64.0.9", "origin": "https://pc.ts.net"}
+    phone = {"host": "pc.ts.net", "x-forwarded-for": "100.64.0.9", "origin": "https://pc.ts.net", "x-forwarded-proto": "https"}
     assert client.post(f"/api/approvals/{approval['id']}", json={"approve": True}, headers=phone).status_code == 401
     client.cookies.set("hassan_key", client.app.state.access_key)
     assert client.post(f"/api/approvals/{approval['id']}", json={"approve": True}, headers=phone).status_code == 200

@@ -33,7 +33,7 @@ def test_foreign_host_and_cross_site_posts_blocked(client):
     assert client.get("/api/health", headers={"host": "evil.example"}).status_code == 401
     r = client.post("/api/tasks", json={"prompt": "x"}, headers={"origin": "https://evil.example"})
     assert r.status_code == 403
-    ok = client.post("/api/tasks", json={"prompt": "x", "mode": "fast"}, headers={"origin": "http://127.0.0.1:8787"})
+    ok = client.post("/api/tasks", json={"prompt": "x", "mode": "fast"}, headers={"origin": "http://testserver"})
     assert ok.status_code == 201
 
 
@@ -89,7 +89,8 @@ def test_six_digit_pairing_code(client):
                        follow_redirects=False).status_code == 401
     r = client.post("/login", content=f"key={code}", headers={**PHONE, "content-type": "application/x-www-form-urlencoded"},
                     follow_redirects=False)
-    assert r.status_code == 303 and client.app.state.access_key in r.headers["set-cookie"]
+    assert r.status_code == 303 and "hassan_session=" in r.headers["set-cookie"]
+    assert client.app.state.access_key not in r.headers["set-cookie"]
     # single use
     again = client.post("/login", content=f"key={code}", headers={**PHONE, "content-type": "application/x-www-form-urlencoded"},
                         follow_redirects=False)
@@ -172,7 +173,7 @@ def test_cli_start_ask_status_stop(tmp_path, py_project):
     env = {**os.environ, "HASSAN_PORT": str(port), "HASSAN_DATA_DIR": str(tmp_path / "data"),
            "HASSAN_AI_MODE": "mock", "HASSAN_ALLOWED_ROOTS": str(tmp_path), "PYTHONPATH": str(ROOT)}
     run = lambda *a: subprocess.run([sys.executable, "-m", "hassan_ai", *a], cwd=py_project, env=env,  # noqa: E731
-                                    capture_output=True, text=True, timeout=90)
+                                    capture_output=True, text=True, encoding="utf-8", timeout=90)
     try:
         assert "running" in run("start").stdout
         assert "mock" in run("status").stdout

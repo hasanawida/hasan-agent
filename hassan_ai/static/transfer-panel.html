@@ -1,0 +1,19 @@
+<section class="card transfer-panel" id="transferCard" aria-labelledby="transferTitle">
+  <h2 id="transferTitle">📂 ملفات ونسخ بين أجهزتك</h2>
+  <p class="muted">اختار ملف من هذا الجهاز وارفعه هون، ثم افتح نفس الصفحة من جهازك الثاني لتنزيله. حد الملف 25 ميغابايت.</p>
+  <label for="transferFile">ملف من هذا الجهاز</label>
+  <input id="transferFile" type="file">
+  <div class="transfer-row"><button id="transferUpload">ارفع الملف</button><button id="transferRefresh" class="ghost">حدّث الملفات</button></div>
+  <p id="transferStatus" class="muted" role="status" aria-live="polite"></p>
+  <ul id="transferList" aria-label="الملفات المتاحة للنقل"></ul>
+  <details id="transferClipboard">
+    <summary>نسخ نص بين الجهازين</summary>
+    <p id="transferClipboardHint" class="muted">ابدأ التحكّم اليدوي بالكمبيوتر أولًا. القراءة والكتابة تحصل فقط بكبسة منك.</p>
+    <label for="transferText">النص المنقول</label>
+    <textarea id="transferText" maxlength="65536" dir="auto" placeholder="الصق نصك هون، أو اضغط اقرأ حافظة الكمبيوتر"></textarea>
+    <div class="transfer-row"><button id="transferClipboardRead" class="ghost" disabled>اقرأ حافظة الكمبيوتر</button><button id="transferClipboardWrite" disabled>ضع النص في حافظة الكمبيوتر</button></div>
+    <button id="transferSelectText" class="ghost small">حدّد النص لنسخه على هذا الجهاز</button>
+    <p class="muted">بعد التحديد استخدم «نسخ» من جهازك. وضع النص في حافظة الكمبيوتر لا يلصقه داخل أي برنامج تلقائيًا.</p>
+    <p id="transferClipboardStatus" class="muted" role="status" aria-live="polite"></p>
+  </details>
+</section>

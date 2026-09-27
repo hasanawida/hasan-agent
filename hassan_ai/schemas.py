@@ -25,6 +25,9 @@ class TaskStatus(str, Enum):
     completed = "completed"
     failed = "failed"
     rejected = "rejected"
+    cancelling = "cancelling"
+    cancelled = "cancelled"
+    incomplete = "incomplete"
 
 
 class Mode(str, Enum):
@@ -40,6 +43,7 @@ class TaskCreate(BaseModel):
     execute: bool = False
     project: str | None = None
     kind: Literal["project", "operate"] = "project"
+    device_id: str | None = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
     origin: str | None = None  # e.g. "telegram:<chat id>" or "schedule:<id>"
     budget: Literal["auto", "free", "balanced", "best"] = "auto"
     # messages sharing a conversation id see each other, like one chat thread
@@ -107,6 +111,7 @@ class TaskRecord(BaseModel):
     execute: bool = False
     project: str | None = None
     kind: str = "project"
+    device_id: str | None = None
     origin: str | None = None
     budget: str = "auto"
     conversation: str | None = None
@@ -121,8 +126,16 @@ class TaskRecord(BaseModel):
     plan: list[dict[str, Any]] = Field(default_factory=list)
     change_plan: ChangePlan | None = None
     checkpoint: dict[str, Any] | None = None
+    operator_history: list[dict[str, Any]] = Field(default_factory=list)
+    operator_pending: dict[str, Any] | None = None
+    operator_completed: list[str] = Field(default_factory=list)
+    resume_of: str | None = None
+    resume_child: str | None = None
+    resume_count: int = 0
+    resume_blocked: bool = False
     decision: str | None = None
     verified: bool | None = None
+    verification_summary: str | None = None
     repair_round: int = 0
     error: str | None = None
     created_at: float = Field(default_factory=now)

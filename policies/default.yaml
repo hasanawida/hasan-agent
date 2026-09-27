@@ -3,6 +3,7 @@
 # forbidden > approval > auto. Anything not listed requires approval.
 
 auto:
+  - phone.inspect
   - project.inspect
   - files.read
   - files.list
@@ -37,6 +38,10 @@ auto:
   - mcp.windows.DisplayInventory*
 
 approval:
+  - phone.tap
+  - phone.swipe
+  - phone.text
+  - phone.key
   - files.write
   - files.patch
   - files.delete
