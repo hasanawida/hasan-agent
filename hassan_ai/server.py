@@ -102,6 +102,22 @@ class MemoryNote(BaseModel):
     content: str
 
 
+def tailscale_origin(request) -> bool:
+    """The page's own origin when it came through `tailscale serve`, which rewrites Host to
+    127.0.0.1:8787 and reports the phone's https://<pc>.ts.net name in X-Forwarded-Host.
+    A form or script on another site cannot set that header, so this stays safe."""
+    from urllib.parse import urlsplit as _split
+
+    forwarded = request.headers.get("x-forwarded-host", "").split(",")[0].strip().lower()
+    if not forwarded:
+        return False
+    try:
+        origin = _split(request.headers.get("origin", ""))
+    except ValueError:
+        return False
+    return origin.scheme == "https" and origin.netloc.lower() in (forwarded, forwarded.rsplit(":", 1)[0])
+
+
 def create_app(settings: Settings | None = None, llm=None, telegram_transport=None,
                telegram_api: str = "https://api.telegram.org") -> FastAPI:
     settings = settings or Settings.from_env()
@@ -204,7 +220,8 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
                 except HTTPException as exc:
                     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
         origin = request.headers.get("origin")
-        if origin and request.method not in ("GET", "HEAD", "OPTIONS") and not same_origin(request):
+        if (origin and request.method not in ("GET", "HEAD", "OPTIONS") and request.url.path != "/login"
+                and not same_origin(request) and not tailscale_origin(request)):
             return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
         response = await call_next(request)
         if migration:
