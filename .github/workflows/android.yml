@@ -23,9 +23,22 @@ jobs:
       - name: Compile companion and check Android resources
         working-directory: android-companion
         run: gradle --no-daemon assembleDebug lintDebug
+      - name: Sign installable update with the project's private key
+        if: github.event_name != 'pull_request'
+        working-directory: android-companion
+        env:
+          HASSAN_SIGNING_B64: ${{ secrets.HASSAN_ANDROID_KEYSTORE }}
+          HASSAN_SIGNING_PASSWORD: ${{ secrets.HASSAN_ANDROID_PASSWORD }}
+        run: |
+          test -n "$HASSAN_SIGNING_B64" && test -n "$HASSAN_SIGNING_PASSWORD"
+          export HASSAN_SIGNING_FILE="$RUNNER_TEMP/hassan-phone.p12"
+          printf '%s' "$HASSAN_SIGNING_B64" | base64 --decode > "$HASSAN_SIGNING_FILE"
+          trap 'rm -f "$HASSAN_SIGNING_FILE"' EXIT
+          gradle --no-daemon assembleRelease lintRelease
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v4
         with:
           name: hassan-phone-apk
-          path: android-companion/app/build/outputs/apk/debug/*.apk
+          path: android-companion/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 30

@@ -1,6 +1,8 @@
 package ai.hassan.phone;
 
 import android.accessibilityservice.AccessibilityService;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.accessibilityservice.GestureDescription;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -36,7 +38,12 @@ public final class PhoneAccessibilityService extends AccessibilityService {
             Rect bounds = windows.getMaximumWindowMetrics().getBounds(); SessionState.width = bounds.width(); SessionState.height = bounds.height();
         } else { Point size = new Point(); windows.getDefaultDisplay().getRealSize(size); SessionState.width = size.x; SessionState.height = size.y; }
     }
-    void refreshControl() { main.post(this::syncControl); }
+    void refreshControl() {
+        main.post(() -> {
+            syncControl();
+            if (remote != null) remote.refreshMetadata();
+        });
+    }
     private void syncControl() {
         boolean allowed = SessionState.preferences(this).getBoolean("control_allowed", false);
         boolean connected = !SessionState.preferences(this).getString("token", "").isEmpty() && (allowed || SessionState.active);
@@ -45,18 +52,17 @@ public final class PhoneAccessibilityService extends AccessibilityService {
             if (remote != null) { remote.close(); remote = null; }
             getSystemService(NotificationManager.class).cancel(43); return;
         }
-        if (remote != null) return;
         try {
             updateDimensions();
             NotificationManager manager = getSystemService(NotificationManager.class);
             manager.createNotificationChannel(new NotificationChannel("phone_control", "السماح الدائم بالتحكّم", NotificationManager.IMPORTANCE_LOW));
             PendingIntent stop = PendingIntent.getBroadcast(this, 2, new Intent(this, StopControlReceiver.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             PendingIntent open = PendingIntent.getActivity(this, 3, new Intent(this, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            if (allowed) manager.notify(43, new Notification.Builder(this, "phone_control").setSmallIcon(android.R.drawable.ic_menu_view)
+            if (allowed && (Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)) manager.notify(43, new Notification.Builder(this, "phone_control").setSmallIcon(android.R.drawable.ic_menu_view)
                 .setContentTitle("Hassan: السماح الدائم بالتحكّم مفعّل")
                 .setContentText("الكمبيوتر المربوط يستطيع التحكّم عند فتح قفل الهاتف. عرض الشاشة مستقل.")
                 .setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null, "إيقاف كل التحكّم", stop).build()).build());
-            remote = new RemoteControlLoop(this); remote.start();
+            if (remote == null) { remote = new RemoteControlLoop(this); remote.start(); }
         } catch (Exception ex) { SessionState.status = "تعذّر اتصال التحكّم. تأكد من الربط والأذونات."; }
     }
     @Override public void onAccessibilityEvent(AccessibilityEvent event) { /* No background collection. */ }
@@ -69,6 +75,7 @@ public final class PhoneAccessibilityService extends AccessibilityService {
             try {
                 if (result.isDone()) return;
                 if (!sessionRunning.getAsBoolean() || !SessionState.mayControl(this)) throw new IllegalStateException("Sharing is stopped, locked or unavailable");
+                updateDimensions();
                 if (System.currentTimeMillis() >= expiry) throw new IllegalStateException("Command expired");
                 switch (action) {
                     case "inspect": result.complete(inspect()); break;
@@ -93,8 +100,8 @@ public final class PhoneAccessibilityService extends AccessibilityService {
         path.moveTo(coordinate(args, swipe ? "x1" : "x", SessionState.width), coordinate(args, swipe ? "y1" : "y", SessionState.height));
         int duration = 65;
         if (swipe) {
-            duration = args.optInt("duration_ms", 400);
-            if (duration < 100 || duration > 1000) throw new IllegalArgumentException("Swipe duration must be 100..1000 ms");
+            duration = args.optInt("duration_ms", 300);
+            if (duration < 50 || duration > 2000) throw new IllegalArgumentException("Swipe duration must be 50..2000 ms");
             path.lineTo(coordinate(args, "x2", SessionState.width), coordinate(args, "y2", SessionState.height));
         }
         GestureDescription gesture = new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(path, 0, duration)).build();
@@ -126,7 +133,7 @@ public final class PhoneAccessibilityService extends AccessibilityService {
         return success("key_sent");
     }
     private JSONObject setText(String text) throws Exception {
-        if (text.length() > 2000) throw new IllegalArgumentException("Text exceeds 2000 characters");
+        if (text.isEmpty() || text.length() > 1000) throw new IllegalArgumentException("Text must contain 1..1000 characters");
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) throw new IllegalStateException("No active window");
         AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
@@ -155,13 +162,17 @@ public final class PhoneAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) throw new IllegalStateException("No accessible window");
         try {
-            JSONArray nodes = new JSONArray(); walk(root, nodes, 0);
-            return new JSONObject().put("package", trim(root.getPackageName())).put("width", SessionState.width)
-                .put("height", SessionState.height).put("nodes", nodes).put("truncated", nodes.length() >= 100);
+            JSONArray nodes = new JSONArray(); int[] visited = {0}; walk(root, nodes, 0, visited);
+            JSONObject result = new JSONObject().put("package", trim(root.getPackageName())).put("width", SessionState.width)
+                .put("height", SessionState.height).put("nodes", nodes).put("truncated", nodes.length() >= 100 || visited[0] >= 500);
+            while (nodes.length() > 0 && result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 48 * 1024) {
+                nodes.remove(nodes.length() - 1); result.put("truncated", true);
+            }
+            return result;
         } finally { root.recycle(); }
     }
-    private void walk(AccessibilityNodeInfo node, JSONArray output, int depth) throws Exception {
-        if (node == null || depth > 35 || output.length() >= 100 || !node.isVisibleToUser()) return;
+    private void walk(AccessibilityNodeInfo node, JSONArray output, int depth, int[] visited) throws Exception {
+        if (node == null || depth > 35 || output.length() >= 100 || visited[0]++ >= 500 || !node.isVisibleToUser()) return;
         Rect rect = new Rect(); node.getBoundsInScreen(rect);
         JSONArray bounds = new JSONArray().put(normalize(rect.left, SessionState.width)).put(normalize(rect.top, SessionState.height))
             .put(normalize(rect.right, SessionState.width)).put(normalize(rect.bottom, SessionState.height));
@@ -173,9 +184,9 @@ public final class PhoneAccessibilityService extends AccessibilityService {
             .put("clickable", node.isClickable()).put("editable", node.isEditable()).put("scrollable", node.isScrollable())
             .put("enabled", node.isEnabled()).put("focused", node.isFocused());
         output.put(item);
-        for (int i = 0; i < node.getChildCount() && output.length() < 100; i++) {
+        for (int i = 0; i < node.getChildCount() && output.length() < 100 && visited[0] < 500; i++) {
             AccessibilityNodeInfo child = node.getChild(i);
-            try { walk(child, output, depth + 1); } finally { if (child != null) child.recycle(); }
+            try { walk(child, output, depth + 1, visited); } finally { if (child != null) child.recycle(); }
         }
     }
     private static double normalize(int coordinate, int size) { return Math.max(0, Math.min(1, coordinate / (double) Math.max(1, size))); }

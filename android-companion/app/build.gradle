@@ -6,8 +6,22 @@ android {
         applicationId 'ai.hassan.phone'
         minSdk 26
         targetSdk 35
-        versionCode 1
+        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
         versionName '0.1.0'
+    }
+    signingConfigs {
+        release {
+            if (System.getenv('HASSAN_SIGNING_FILE')) {
+                storeFile file(System.getenv('HASSAN_SIGNING_FILE'))
+                storeType 'PKCS12'
+                storePassword System.getenv('HASSAN_SIGNING_PASSWORD')
+                keyAlias 'hassan-phone'
+                keyPassword System.getenv('HASSAN_SIGNING_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release { signingConfig signingConfigs.release }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

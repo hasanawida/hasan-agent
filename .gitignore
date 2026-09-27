@@ -8,3 +8,11 @@ data/
 configs/litellm.yaml
 .pytest_cache/
 hassan.env
+
+# Android build outputs and local SDK paths
+android-companion/.gradle/
+android-companion/**/build/
+android-companion/local.properties
+*.jks
+*.keystore
+*.p12

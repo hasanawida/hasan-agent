@@ -3,9 +3,11 @@ package ai.hassan.phone;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.PowerManager;
 
 final class SessionState {
     static volatile boolean active;
+    static volatile boolean enrolling;
     static volatile boolean captureReady;
     static volatile boolean coordinatesReady;
     static volatile int width, height;
@@ -13,7 +15,8 @@ final class SessionState {
     static SharedPreferences preferences(Context c) { return c.getSharedPreferences("paired_phone", Context.MODE_PRIVATE); }
     static boolean locked(Context c) {
         KeyguardManager keyguard = c.getSystemService(KeyguardManager.class);
-        return keyguard == null || keyguard.isKeyguardLocked();
+        PowerManager power = c.getSystemService(PowerManager.class);
+        return keyguard == null || keyguard.isKeyguardLocked() || power == null || !power.isInteractive();
     }
     static boolean mayControl(Context c) {
         return preferences(c).getBoolean("control_allowed", false) && !locked(c)

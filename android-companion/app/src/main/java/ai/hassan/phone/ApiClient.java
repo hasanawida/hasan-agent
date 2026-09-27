@@ -8,7 +8,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 final class ApiClient implements AutoCloseable {
@@ -18,7 +18,7 @@ final class ApiClient implements AutoCloseable {
     }
     private final String origin;
     private final String token;
-    private final Set<HttpsURLConnection> requests = ConcurrentHashMap.newKeySet();
+    private final Map<HttpsURLConnection, String> requests = new ConcurrentHashMap<>();
     private volatile boolean closed;
     static String validateOrigin(String value) throws Exception {
         URI uri = new URI(value.trim());
@@ -41,7 +41,7 @@ final class ApiClient implements AutoCloseable {
     private byte[] request(String path, byte[] body, String contentType, int timeoutMs) throws Exception {
         if (!path.startsWith("/api/phone/") || path.contains("..") || closed) throw new IOException("Session closed");
         HttpsURLConnection connection = (HttpsURLConnection) new URL(origin + path).openConnection();
-        requests.add(connection);
+        requests.put(connection, path);
         try {
             if (closed) throw new IOException("Session closed");
             connection.setInstanceFollowRedirects(false);
@@ -67,5 +67,10 @@ final class ApiClient implements AutoCloseable {
             }
         } finally { requests.remove(connection); connection.disconnect(); }
     }
-    @Override public void close() { closed = true; for (HttpsURLConnection request : requests) request.disconnect(); requests.clear(); }
+    void cancelPoll() {
+        for (Map.Entry<HttpsURLConnection, String> request : requests.entrySet()) {
+            if ("/api/phone/poll".equals(request.getValue())) request.getKey().disconnect();
+        }
+    }
+    @Override public void close() { closed = true; for (HttpsURLConnection request : requests.keySet()) request.disconnect(); requests.clear(); }
 }

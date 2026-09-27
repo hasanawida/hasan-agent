@@ -41,6 +41,14 @@ public final class ShareService extends Service {
     static final String START = "ai.hassan.phone.START", STOP = "ai.hassan.phone.STOP";
     private static final String CHANNEL = "phone_sharing";
     private static final int NOTIFICATION = 42;
+    private static volatile ShareService instance;
+    static boolean isRunning() { return instance != null; }
+    static void pauseDisplayFrames() {
+        SessionState.active = false; SessionState.captureReady = false; SessionState.coordinatesReady = false;
+        ShareService current = instance;
+        if (current != null) { current.latestFrame.set(null); if (current.api != null) current.api.close(); }
+        SessionState.status = "أوقف الكمبيوتر عرض الشاشة. إذن التحكّم الدائم لم يتغيّر.";
+    }
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Object captureLock = new Object();
     private final AtomicReference<byte[]> latestFrame = new AtomicReference<>();
@@ -48,6 +56,7 @@ public final class ShareService extends Service {
     private HandlerThread imageThread;
     private Handler imageHandler;
     private MediaProjection projection;
+    private MediaProjection.Callback projectionCallback;
     private VirtualDisplay virtualDisplay;
     private ImageReader reader;
     private ApiClient api;
@@ -75,7 +84,7 @@ public final class ShareService extends Service {
             stopSession("المشاركة متوقفة. عرض الشاشة متوقف. إذن التحكّم الدائم يبقى حسب اختيارك."); return START_NOT_STICKY;
         }
         if (!START.equals(intent.getAction()) || started) return START_NOT_STICKY;
-        started = true;
+        started = true; instance = this;
         try {
             SharedPreferences prefs = SessionState.preferences(this);
             String token = prefs.getString("token", "");
@@ -96,7 +105,7 @@ public final class ShareService extends Service {
             api = new ApiClient(prefs.getString("origin", ""), token);
             imageThread = new HandlerThread("hassan-screen"); imageThread.start(); imageHandler = new Handler(imageThread.getLooper());
             projection = getSystemService(MediaProjectionManager.class).getMediaProjection(Activity.RESULT_OK, captureData);
-            projection.registerCallback(new MediaProjection.Callback() {
+            projectionCallback = new MediaProjection.Callback() {
                 @Override public void onStop() { stopSession("انتهت مشاركة الشاشة. ابدأ جلسة جديدة من الهاتف عند الحاجة."); }
                 @Override public void onCapturedContentResize(int width, int height) {
                     if (!SessionState.active || width <= 0 || height <= 0) return;
@@ -106,7 +115,8 @@ public final class ShareService extends Service {
                     }
                     try { resizeCapture(width, height); } catch (Exception ex) { stopSession("تعذّر تحديث أبعاد الشاشة. أعد بدء المشاركة."); }
                 }
-            }, main);
+            };
+            projection.registerCallback(projectionCallback, main);
             SessionState.active = true;
             Point size = screenSize();
             resizeCapture(size.x, size.y);
@@ -163,7 +173,13 @@ public final class ShareService extends Service {
                 lastFrameAt = now;
                 Image.Plane plane = image.getPlanes()[0]; ByteBuffer pixels = plane.getBuffer();
                 int width = image.getWidth(), height = image.getHeight();
+                if (plane.getPixelStride() != 4) throw new IllegalStateException("Unsupported capture pixel layout");
                 int paddedWidth = plane.getRowStride() / plane.getPixelStride();
+                int expectedBytes = paddedWidth * height * 4;
+                if (pixels.remaining() < expectedBytes) {
+                    // Some devices omit padding after the last row in the image buffer.
+                    ByteBuffer complete = ByteBuffer.allocate(expectedBytes); complete.put(pixels); complete.rewind(); pixels = complete;
+                }
                 Bitmap padded = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888);
                 Bitmap cropped = null;
                 try {
@@ -171,7 +187,11 @@ public final class ShareService extends Service {
                     cropped = Bitmap.createBitmap(padded, 0, 0, width, height);
                     ByteArrayOutputStream bytes = new ByteArrayOutputStream(); cropped.compress(Bitmap.CompressFormat.JPEG, 65, bytes);
                     if (bytes.size() <= 1024 * 1024 && SessionState.active && !SessionState.locked(this)) {
-                        latestFrame.set(bytes.toByteArray()); SessionState.captureReady = true;
+                        latestFrame.set(bytes.toByteArray());
+                        if (!SessionState.captureReady) {
+                            SessionState.captureReady = true;
+                            if (PhoneAccessibilityService.instance != null) PhoneAccessibilityService.instance.refreshControl();
+                        }
                     }
                 } finally { if (cropped != null && cropped != padded) cropped.recycle(); padded.recycle(); }
             } catch (Exception ex) {
@@ -187,7 +207,10 @@ public final class ShareService extends Service {
                 if (jpeg != null && SessionState.active && !SessionState.locked(this)) api.frame(jpeg);
                 retry = 500;
             } catch (ApiClient.HttpError ex) {
-                if (ex.status == 401 || ex.status == 403) { unpair(); break; }
+                if (!SessionState.active) break;
+                if (ex.status == 401) { unpair(); break; }
+                // A frame can reach the PC before the next status poll enables display.
+                // 403 is transient here; keep the pairing and projection consent.
                 retry = Math.min(15000, Math.max(1000, retry * 2));
             } catch (Exception ex) { retry = Math.min(15000, Math.max(1000, retry * 2)); }
             if (!pause(retry)) break;
@@ -205,6 +228,7 @@ public final class ShareService extends Service {
         main.post(this::stopSelf);
     }
     @Override public void onDestroy() {
+        if (instance == this) instance = null;
         SessionState.active = false; SessionState.captureReady = false; SessionState.coordinatesReady = false;
         latestFrame.set(null);
         if (api != null) api.close();
@@ -214,7 +238,10 @@ public final class ShareService extends Service {
         synchronized (captureLock) {
             if (virtualDisplay != null) { virtualDisplay.release(); virtualDisplay = null; }
             if (reader != null) { reader.close(); reader = null; }
-            if (projection != null) { projection.stop(); projection = null; }
+            if (projection != null) {
+                if (projectionCallback != null) projection.unregisterCallback(projectionCallback);
+                projection.stop(); projection = null;
+            }
         }
         if (imageThread != null) imageThread.quitSafely();
         if (PhoneAccessibilityService.instance != null) PhoneAccessibilityService.instance.refreshControl();

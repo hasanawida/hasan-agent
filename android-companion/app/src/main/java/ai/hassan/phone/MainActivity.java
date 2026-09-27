@@ -32,7 +32,7 @@ public final class MainActivity extends Activity {
     private EditText server, code, label;
     private TextView status;
     private Button pair, start, disconnect;
-    private boolean pairing, pendingControl, syncingSwitch;
+    private boolean pendingControl, syncingSwitch, capturePending;
     private Switch control;
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
@@ -40,12 +40,12 @@ public final class MainActivity extends Activity {
                 status.setText(SessionState.status + "\n" + (SessionState.preferences(MainActivity.this).getBoolean("control_allowed", false) ? "السماح الدائم بالتحكّم مفعّل." : "السماح بالتحكّم متوقف.") + "\n" + (PhoneAccessibilityService.instance == null
                     ? "إذن إمكانية الوصول غير مفعّل: التحكّم غير متاح." : "إذن إمكانية الوصول جاهز؛ يعمل حسب زر السماح الدائم."));
                 boolean paired = !SessionState.preferences(MainActivity.this).getString("token", "").isEmpty();
-                start.setEnabled(paired && !SessionState.active && !pairing);
-                pair.setEnabled(!SessionState.active && !pairing);
-                disconnect.setEnabled(paired && !pairing);
+                start.setEnabled(paired && !SessionState.active && !ShareService.isRunning() && !capturePending && !SessionState.enrolling);
+                pair.setEnabled(!SessionState.active && !SessionState.enrolling);
+                disconnect.setEnabled(paired && !SessionState.enrolling);
                 syncingSwitch = true;
                 control.setChecked(SessionState.preferences(MainActivity.this).getBoolean("control_allowed", false));
-                control.setEnabled(paired && !pairing);
+                control.setEnabled(paired && !SessionState.enrolling);
                 syncingSwitch = false;
             }
             main.postDelayed(this, 1000);
@@ -53,6 +53,8 @@ public final class MainActivity extends Activity {
     };
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        capturePending = state != null && state.getBoolean("capture_pending", false);
+        pendingControl = state != null && state.getBoolean("pending_control", false);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(22), dp(36), dp(22), dp(30));
@@ -100,30 +102,41 @@ public final class MainActivity extends Activity {
         status = text(content, "", 16);
         text(content, "عرض الشاشة لا يبدأ تلقائيًا، وقفل الهاتف ينهي العرض. لبدء عرض جديد وافق على طلب Android. يمكن إلغاء التحكّم من هنا أو من إشعاره أو بإيقاف خدمة إمكانية الوصول.", 14);
     }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean("capture_pending", capturePending);
+        state.putBoolean("pending_control", pendingControl); super.onSaveInstanceState(state);
+    }
     @Override protected void onResume() { super.onResume(); main.removeCallbacks(refresh); main.post(refresh); }
     @Override protected void onPause() { main.removeCallbacks(refresh); super.onPause(); }
     @Override protected void onDestroy() { main.removeCallbacks(refresh); worker.shutdownNow(); super.onDestroy(); }
     private void pairPhone() {
-        if (SessionState.active || pairing) return;
+        if (SessionState.active || SessionState.enrolling) return;
+        if (SessionState.preferences(this).getBoolean("control_allowed", false)) {
+            SessionState.status = "أوقف كل التحكّم أولًا قبل تغيير ربط الهاتف."; return;
+        }
         final String origin, enteredCode = code.getText().toString().trim(), enteredLabel = label.getText().toString().trim();
         try { origin = ApiClient.validateOrigin(server.getText().toString()); }
         catch (Exception ex) { SessionState.status = "أدخل رابط HTTPS الأساسي الصحيح من صفحة الكمبيوتر."; return; }
         if (enteredCode.isEmpty() || enteredCode.length() > 128 || enteredLabel.isEmpty() || enteredLabel.length() > 80) {
             SessionState.status = "أدخل رمز الربط واسم الهاتف (حتى ٨٠ حرفًا)."; return;
         }
-        pairing = true; pair.setEnabled(false); SessionState.status = "جارٍ الربط…";
+        SessionState.enrolling = true; pair.setEnabled(false); SessionState.status = "جارٍ الربط…";
         worker.submit(() -> {
             try (ApiClient api = new ApiClient(origin, "")) {
                 JSONObject result = api.json("/api/phone/enroll", new JSONObject().put("code", enteredCode).put("label", enteredLabel), 10000);
                 String token = result.getString("token"), device = result.getString("device_id");
                 if (token.isEmpty() || token.length() > 4096 || device.isEmpty()) throw new IllegalStateException("Invalid enrollment");
-                SessionState.preferences(this).edit().putString("origin", origin).putString("token", token)
+                boolean stored = SessionState.preferences(this).edit().putString("origin", origin).putString("token", token)
                     .putString("device_id", device).putString("label", enteredLabel).putBoolean("control_allowed", false).commit();
+                if (!stored) {
+                    SessionState.preferences(this).edit().remove("token").remove("device_id").apply();
+                    throw new IllegalStateException("Could not persist enrollment");
+                }
                 if (PhoneAccessibilityService.instance != null) PhoneAccessibilityService.instance.refreshControl();
                 main.post(() -> { code.setText(""); SessionState.status = "تم الربط. فعّل إمكانية الوصول ثم ابدأ المشاركة."; });
             } catch (Exception ex) {
                 SessionState.status = "تعذّر الربط. تأكد من Tailscale، رابط الكمبيوتر، ورمز ربط جديد غير منتهي.";
-            } finally { pairing = false; }
+            } finally { SessionState.enrolling = false; }
         });
     }
     private void enableControl() {
@@ -139,7 +152,7 @@ public final class MainActivity extends Activity {
         SessionState.status = "السماح الدائم مفعّل. تقدر توقف العرض وحده أو توقف كل التحكّم.";
     }
     private void beginSharing() {
-        if (SessionState.active) return;
+        if (SessionState.active || ShareService.isRunning() || capturePending) return;
         if (SessionState.preferences(this).getString("token", "").isEmpty()) { SessionState.status = "اربط الهاتف أولًا."; return; }
         if (SessionState.locked(this)) { SessionState.status = "افتح قفل الهاتف أولًا."; return; }
         if (PhoneAccessibilityService.instance == null) {
@@ -152,6 +165,7 @@ public final class MainActivity extends Activity {
         Intent capture = Build.VERSION.SDK_INT >= 34
             ? manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
             : manager.createScreenCaptureIntent();
+        capturePending = true;
         startActivityForResult(capture, CAPTURE);
     }
     @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
@@ -163,6 +177,7 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == CAPTURE) capturePending = false;
         if (request == CAPTURE && result == RESULT_OK && data != null) {
             Intent service = new Intent(this, ShareService.class).setAction(ShareService.START)
                 .putExtra("capture_result", result).putExtra("capture_data", data);
