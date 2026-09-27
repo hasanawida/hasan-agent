@@ -358,13 +358,15 @@ class Orchestrator:
             tier, reason = classify_heuristic(task.prompt, "operate" if not task.workspace else task.kind)
             if tier is None and self.tiered:
                 try:
-                    comp = await self.llm.complete("triage@simple", TRIAGE_SYSTEM, task.prompt[:4000])
+                    # a quick free guess only: never a paid brain, never more than 30 s
+                    alias = "triage@simple#free" if self.gated else "triage@simple"
+                    comp = await asyncio.wait_for(self.llm.complete(alias, TRIAGE_SYSTEM, task.prompt[:4000]), 30)
                     level = str((extract_json(comp.text) or {}).get("level", "")).lower()
                     self.memory.record_usage(task.id, "triage", comp.model, comp.input_tokens, comp.output_tokens,
                                              comp.cost_usd, comp.duration)
                     if level in TIER_ORDER:
                         tier, reason = level, f"فرز سريع ({comp.model})"
-                except LLMError:
+                except (LLMError, asyncio.TimeoutError):
                     pass
             if tier is None:
                 tier, reason = "medium", "افتراضي"
