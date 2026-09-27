@@ -17,7 +17,7 @@ def readiness(settings, llm, desktop, mcp, active_jobs):
         "أداة البث مثبّتة؛ جرّب عرض الشاشة" if ffmpeg else "ثبّت FFmpeg ثم أعد تشغيل الإيجنت")
     ds = desktop.status()
     add("الماوس والكيبورد", "ready" if ds["enabled"] else "limited" if ds["supported"] else "setup",
-        "التحكّم مسموح مؤقتًا" if ds["enabled"] else "فعّل السماح من صفحة الكمبيوتر" if ds["supported"] else
+        ("السماح دائم؛ الجلسة تبدأ بزر تحكّم" if ds["persistent"] else "التحكّم مسموح مؤقتًا") if ds["enabled"] else "فعّل السماح من صفحة الكمبيوتر" if ds["supported"] else
         "يحتاج ويندوز ومكتبة التحكّم")
     windows = mcp.servers.get("windows")
     configured = bool(windows and windows.enabled and importlib.util.find_spec("mcp"))

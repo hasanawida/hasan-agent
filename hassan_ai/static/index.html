@@ -10,8 +10,9 @@
 <meta name="theme-color" content="#0b1020">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="/static/desktop-control.css?v=3">
-<script src="/static/desktop-control.js?v=3" defer></script>
+<link rel="stylesheet" href="/static/desktop-control.css?v=5">
+<script src="/static/desktop-touch.js?v=5" defer></script>
+<script src="/static/desktop-control.js?v=5" defer></script>
 <script src="/static/readiness.js?v=1" defer></script>
 <style>
 :root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429}
@@ -164,13 +165,13 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   <div class="card" id="screenCard">
     <h2>🖥️ شاشة الكمبيوتر مباشرة</h2>
     <p class="muted" style="font-size:12px;margin-top:0">اعرض الشاشة، ثم تحكّم بالماوس والكيبورد بنفسك، أو احكي للإيجنت شو يعمل.</p>
-    <div id="desktopGrant" hidden><button id="desktopEnable" class="ghost">السماح بالتحكّم لمدة 30 دقيقة</button><p class="muted">يسمح لأجهزتك المسجّلة بالدخول بالتحكّم. بينتهي تلقائيًا، أو أوقفه من الزر أعلاه.</p></div>
+    <div id="desktopGrant" hidden><button id="desktopEnable" class="ghost">السماح بالتحكّم لمدة 30 دقيقة</button><button id="desktopAlways" class="ghost" style="width:100%;margin-top:8px">السماح الدائم لأجهزتي</button><p class="muted">السماح الدائم يبقى بعد إعادة التشغيل، لكن التحكّم يبدأ فقط بكبسة منك. ينطبق على أجهزتك المسجّلة؛ ألغِه بزر إلغاء السماح.</p></div>
     <p id="desktopState" class="muted" role="status" aria-live="polite">جارٍ التحقق من التحكّم اليدوي…</p>
     <div class="row">
       <button class="ghost small" id="scrBtn">▶ اعرض الشاشة</button>
       <button class="ghost small" id="scrFull" style="display:none">⛶ ملء الشاشة</button>
     </div>
-    <button id="desktopConnect" class="ghost" disabled>تحكّم بالماوس والكيبورد</button>
+    <button id="desktopConnect" class="ghost" disabled>افتح الشاشة وتحكّم</button>
     <div id="scrErr" style="color:var(--bad);font-size:12px"></div>
     <div id="scrBox" style="display:none">
       <div id="desktopSurface">
@@ -181,6 +182,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
         <button id="desktopMore" class="ghost" aria-controls="desktopTools" aria-expanded="false">⋯ أدوات</button>
         <button id="desktopLeaveFull" class="ghost" aria-label="تصغير العرض">✕</button>
       </div>
+      <p id="desktopTouchHint">كبسة للنقر · اسحب للتمرير · ثبّت إصبعك ثم اسحب للتظليل</p>
       <div id="desktopViewport">
       <img id="scrView" alt="شاشة الكمبيوتر البعيد" tabindex="0" draggable="false" style="width:100%;border-radius:8px;margin-top:8px;background:#000">
       </div>

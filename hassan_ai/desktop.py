@@ -1,4 +1,4 @@
-"""Time-limited manual desktop control for Hassan's authenticated dashboard.
+"""Opt-in manual desktop control for Hassan's authenticated dashboard.
 
 Screen viewing stays on the existing FFmpeg stream. Input is opt-in on the PC,
 belongs to one WebSocket, and is released on disconnect, expiry or revocation.
@@ -12,10 +12,12 @@ import importlib.util
 import json
 import math
 import os
+from pathlib import Path
 import time
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException, Request, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, StrictBool
 
 from . import remote
 
@@ -154,7 +156,9 @@ class DesktopControl:
     HEARTBEAT_SECONDS = 10
     RELEASE_SECONDS = 3
 
-    def __init__(self):
+    def __init__(self, permission_file: Path | None = None):
+        self.permission_file = permission_file
+        self.persistent = self._read_permission()
         self.supported = os.name == "nt" and importlib.util.find_spec("pynput") is not None
         self.backend_factory = windows_input
         self.backend = None
@@ -168,25 +172,62 @@ class DesktopControl:
     async def work(self, fn, *args):
         return await asyncio.get_running_loop().run_in_executor(self.executor, fn, *args)
 
+    def _read_permission(self) -> bool:
+        try:
+            if self.permission_file is None or self.permission_file.stat().st_size > 1024:
+                return False
+            data = json.loads(self.permission_file.read_text(encoding="utf-8"))
+            return isinstance(data, dict) and data.get("persistent") is True
+        except (OSError, ValueError):
+            return False
+
+    def _save_permission(self, persistent: bool) -> None:
+        if self.permission_file is None:
+            if persistent:
+                raise RuntimeError("Persistent permission storage is not configured")
+            return
+        if not persistent and not self.permission_file.exists():
+            return
+        self.permission_file.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.permission_file.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"persistent": persistent}), encoding="utf-8")
+        temporary.replace(self.permission_file)
+
+    def permitted(self) -> bool:
+        return self.supported and (self.persistent or self.expires > time.monotonic())
+
     def status(self):
         seconds = max(0, math.ceil(self.expires - time.monotonic()))
-        return {"supported": self.supported, "enabled": seconds > 0, "expires_in": seconds,
+        return {"supported": self.supported, "enabled": self.permitted(),
+                "persistent": self.persistent, "expires_in": None if self.persistent else seconds,
                 "connected": self.owner is not None}
 
-    async def enable(self):
+    async def _initialize(self):
+        if not self.supported:
+            raise HTTPException(503, "التحكّم اليدوي يحتاج Windows ومكتبة pynput.")
+        if self.backend is None:
+            try:
+                self.backend = await self.work(self.backend_factory)
+            except Exception as exc:
+                raise HTTPException(503, "تعذّر تهيئة التحكّم على ويندوز.") from exc
+
+    async def enable(self, persistent: bool = False):
         async with self.lock:
-            if not self.supported:
-                raise HTTPException(503, "التحكّم اليدوي يحتاج Windows ومكتبة pynput. حدّث التثبيت ثم أعد تشغيل Hassan.")
-            if self.backend is None:
-                try:
-                    self.backend = await self.work(self.backend_factory)
-                except Exception as exc:
-                    raise HTTPException(503, "تعذّر تهيئة التحكّم على ويندوز.") from exc
-            self.expires = time.monotonic() + self.GRANT_SECONDS
+            await self._initialize()
+            self._save_permission(persistent)
+            self.persistent = persistent
+            self.expires = 0.0 if persistent else time.monotonic() + self.GRANT_SECONDS
             return self.status()
 
-    async def disable(self):
+    async def disable(self, *, forget: bool = True):
+        storage_error = None
         async with self.lock:
+            if forget:
+                try:
+                    self._save_permission(False)
+                except OSError as exc:
+                    storage_error = exc
+            self.persistent = False
             self.expires = 0
             owner, self.owner = self.owner, None
             if self.backend:
@@ -197,12 +238,16 @@ class DesktopControl:
             except (RuntimeError, asyncio.TimeoutError, OSError):
                 pass
 
+        if storage_error:
+            raise HTTPException(500, "توقف التحكّم، لكن تعذّر حفظ إلغاء السماح. أصلح صلاحية مجلد البيانات قبل إعادة التشغيل.") from storage_error
+
     async def connect(self, socket):
         async with self.lock:
-            if self.expires <= time.monotonic() or self.backend is None:
+            if not self.permitted() or self.owner is not None:
                 return False
-            if self.owner is not None:
-                return False
+            # Persistent permission does not initialize input or start a session
+            # until an authenticated user presses Control.
+            await self._initialize()
             self.owner = socket
             self.last_seen = self.last_input = time.monotonic()
             return True
@@ -216,7 +261,7 @@ class DesktopControl:
 
     async def input(self, socket, data):
         async with self.lock:
-            if self.owner is not socket or self.expires <= time.monotonic():
+            if self.owner is not socket or not self.permitted():
                 raise ValueError("Control is no longer enabled")
             self.last_seen = time.monotonic()
             if data["action"] != "heartbeat":
@@ -227,7 +272,7 @@ class DesktopControl:
         while True:
             await asyncio.sleep(.25)
             now = time.monotonic()
-            if self.expires and now >= self.expires:
+            if not self.persistent and self.expires and now >= self.expires:
                 await self.disable()
                 continue
             stale = None
@@ -251,7 +296,7 @@ class DesktopControl:
         if self.watchdog:
             self.watchdog.cancel()
             await asyncio.gather(self.watchdog, return_exceptions=True)
-        await self.disable()
+        await self.disable(forget=False)
         self.executor.shutdown(wait=True)
 
 
@@ -268,16 +313,20 @@ def same_origin(connection) -> bool:
             and not parsed.username and not parsed.password and not parsed.path and not parsed.query and not parsed.fragment)
 
 
+class DesktopGrant(BaseModel):
+    persistent: StrictBool = False
+
+
 def attach_routes(app, settings, desktop):
     @app.get("/api/desktop")
     async def status(request: Request):
         return {**desktop.status(), "local": request.state.local}
 
     @app.post("/api/desktop/enable")
-    async def enable(request: Request):
+    async def enable(request: Request, grant: DesktopGrant | None = None):
         if not request.state.local or not same_origin(request):
             raise HTTPException(403, "فعّل التحكّم من صفحة Hassan على الكمبيوتر نفسه.")
-        return await desktop.enable()
+        return await desktop.enable(persistent=grant.persistent if grant else False)
 
     @app.post("/api/desktop/disable")
     async def disable(request: Request):
@@ -297,7 +346,13 @@ def attach_routes(app, settings, desktop):
             await socket.close(code=1008)
             return
         await socket.accept()
-        if not await desktop.connect(socket):
+        try:
+            connected = await desktop.connect(socket)
+        except HTTPException as exc:
+            await socket.send_json({"type": "error", "message": exc.detail})
+            await socket.close(code=1011)
+            return
+        if not connected:
             await socket.send_json({"type": "error", "message": "فعّل التحكّم من الكمبيوتر أولًا، أو أنهِ جلسة التحكّم المفتوحة."})
             await socket.close(code=4003)
             return

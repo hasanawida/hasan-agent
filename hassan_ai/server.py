@@ -105,7 +105,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     telegram = TelegramBot(orchestrator, settings.env_file, settings.data_dir / "media", api_base=telegram_api,
                            transport=telegram_transport, scheduler=scheduler, transcriber=groq_transcriber)
     roster.agents["operator"].extra_system = orchestrator.operator.system_prompt()
-    desktop = DesktopControl()
+    desktop = DesktopControl(settings.data_dir / "desktop-permission.json")
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):

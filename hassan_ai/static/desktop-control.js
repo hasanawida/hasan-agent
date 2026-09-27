@@ -2,13 +2,15 @@
 (() => {
   'use strict';
   const el = id => document.getElementById(id), view = el('scrView');
-  let socket = null, ready = false, state = null, pollBusy = false, beat = null, movingAt = 0;
+  let socket = null, ready = false, state = null, pollBusy = false, beat = null, movingAt = 0, opening = false;
   let immersive=false, more=false, zoomed=false, panning=false;
   const surface=el('desktopSurface'), viewport=el('desktopViewport');
   const held = new Map();
   const pressedPointers = new Set();
-  async function request(path, method='GET') {
-    const response = await fetch(path, {method, credentials:'same-origin'});
+  async function request(path, method='GET', body) {
+    const options={method,credentials:'same-origin'};
+    if(body!==undefined){options.headers={'Content-Type':'application/json'};options.body=JSON.stringify(body);}
+    const response = await fetch(path, options);
     const data = await response.json().catch(()=>({}));
     if (!response.ok) throw Error(data.detail || 'تعذّر الاتصال');
     return data;
@@ -19,24 +21,27 @@
     if (socket.bufferedAmount>65536) { stop('الاتصال بطيء؛ توقف التحكّم.',false); return false; }
     socket.send(JSON.stringify(data));return true;
   }
-  function release() { send({action:'release'}); held.clear(); pressedPointers.clear(); }
+  const touch=new DesktopTouch(send,{changed:mode=>{view.dataset.gesture=mode;}});
+  function release() { touch.reset();send({action:'release'}); held.clear(); pressedPointers.clear(); }
   function render() {
     el('desktopTools').hidden=!ready || (immersive && !more);
     el('desktopZoomTools').hidden=!immersive || !more;
     el('desktopFullConnect').textContent=ready?'⏹ تحكّم':'تحكّم';
-    el('desktopFullConnect').disabled=socket ? !ready : !state?.enabled || !view.naturalWidth;
+    el('desktopFullConnect').disabled=opening || (socket ? !ready : !state?.enabled);
     el('desktopKeyboard').disabled=!ready;
     el('desktopFullStatus').textContent=ready?'متصل':socket?'جارٍ الاتصال…':state?.enabled?'عرض فقط':'السماح مطفأ';
     if(!ready)hideKeyboard();
     view.dataset.control=String(ready);
-    el('desktopConnect').textContent=socket?'وقف التحكّم':'تحكّم بالماوس والكيبورد';
-    el('desktopConnect').disabled=!socket && (!state?.enabled || view.dataset.streaming!=='true' || !view.naturalWidth);
+    el('desktopConnect').textContent=socket?'وقف التحكّم':opening?'جارٍ فتح الشاشة…':'افتح الشاشة وتحكّم';
+    el('desktopConnect').disabled=opening || (!socket && !state?.enabled);
     if (!state) return;
     el('desktopGrant').hidden=!state.local || !state.supported;
-    el('desktopEnable').textContent=state.enabled?'إيقاف السماح بالتحكّم':'السماح بالتحكّم لمدة 30 دقيقة';
+    el('desktopEnable').textContent=state.enabled?'إلغاء السماح بالتحكّم':'السماح بالتحكّم لمدة 30 دقيقة';
+    el('desktopAlways').textContent=state.persistent?'السماح الدائم مفعّل':'السماح الدائم لأجهزتي';
+    el('desktopAlways').disabled=state.persistent;
     el('desktopBanner').hidden=!state.enabled;
     document.body.classList.toggle('desktopGranted',state.enabled);
-    el('desktopBannerText').textContent=`التحكّم اليدوي ${state.connected?'متصل':'مسموح لأجهزتك'} · متبقي ${Math.ceil(state.expires_in/60)} دقيقة`;
+    el('desktopBannerText').textContent=`التحكّم اليدوي ${state.connected?'متصل':'مسموح لأجهزتك'} · ${state.persistent?'سماح دائم':`متبقي ${Math.ceil(state.expires_in/60)} دقيقة`}`;
   }
   async function refresh() {
     if(pollBusy)return;pollBusy=true;
@@ -47,7 +52,7 @@
         if(!state.supported)message('التحكّم اليدوي يحتاج Windows وتحديث مكتبات Hassan. عرض الشاشة يبقى متاحًا.');
         else if(!state.enabled)message(state.local?'فعّل السماح، ثم اعرض الشاشة وابدأ التحكّم.':'فعّل السماح بالتحكّم من صفحة Hassan على الكمبيوتر أولًا.');
         else if(state.connected)message('جهاز آخر يتحكّم الآن. أنهِ جلسته قبل بدء جلسة جديدة.');
-        else message('اعرض الشاشة، ثم اضغط تحكّم بالماوس والكيبورد.');
+        else message(state.persistent?'جاهز دائمًا؛ اضغط افتح الشاشة وتحكّم من هاتفك.':'اضغط افتح الشاشة وتحكّم.');
       }
       render();
     } catch(error) { if(!socket)message(error.message); }
@@ -55,7 +60,7 @@
   }
   function stop(text='توقّف التحكّم. عرض الشاشة مستمر.',flush=true) {
     // Release before removing the socket; the server also releases on close.
-    if(flush)release(); const old=socket;socket=null;ready=false;held.clear();clearInterval(beat);old?.close();
+    if(flush)release(); const old=socket;socket=null;ready=false;touch.reset();held.clear();pressedPointers.clear();clearInterval(beat);old?.close();
     message(text);render();
   }
   async function disable() {
@@ -69,6 +74,12 @@
     try {state=await request('/api/desktop/enable','POST');await refresh();}
     catch(error){message(error.message);}
     finally{el('desktopEnable').disabled=false;}
+  };
+  el('desktopAlways').onclick=async()=>{
+    el('desktopAlways').disabled=true;
+    try {state=await request('/api/desktop/enable','POST',{persistent:true});await refresh();}
+    catch(error){message(error.message);}
+    finally{render();}
   };
   el('desktopEmergency').onclick=disable;
   function sizeSurface() {
@@ -127,9 +138,24 @@
   window.visualViewport?.addEventListener('scroll',sizeSurface);view.addEventListener('load',()=>{sizeSurface();render();});
   new ResizeObserver(sizeSurface).observe(viewport);
   el('desktopDisconnect').onclick=()=>stop();
-  el('desktopConnect').onclick=()=>{
+  el('desktopConnect').onclick=async()=>{
     if(socket)return stop();
-    if(!state?.enabled || view.dataset.streaming!=='true' || !view.naturalWidth)return;
+    if(opening || !state?.enabled)return;
+    opening=true;render();
+    try {
+      if(view.dataset.streaming!=='true')await el('scrBtn').onclick();
+      if(view.dataset.streaming!=='true')return;
+      if(!view.naturalWidth)await new Promise((resolve,reject)=>{
+        const cleanup=()=>{clearTimeout(timeout);view.removeEventListener('load',loaded);view.removeEventListener('error',failed);document.removeEventListener('hassan:screen-stopped',failed);};
+        const loaded=()=>{cleanup();resolve();};
+        const failed=()=>{cleanup();reject(Error('تعذّر فتح الشاشة. جرّب مرة ثانية.'));};
+        const timeout=setTimeout(failed,15000);
+        view.addEventListener('load',loaded,{once:true});view.addEventListener('error',failed,{once:true});
+        document.addEventListener('hassan:screen-stopped',failed,{once:true});
+      });
+    } catch(error){message(error.message);return;}
+    finally{opening=false;render();}
+    if(!state?.enabled || view.dataset.streaming!=='true')return;
     if(location.protocol!=='https:'&&!['127.0.0.1','localhost','[::1]'].includes(location.hostname)){
       message('للتحكّم عن بُعد، افتح رابط HTTPS الخاص بـ Tailscale.');return;
     }
@@ -154,21 +180,31 @@
     if(!Number.isFinite(x)||!Number.isFinite(y)||(!clamp&&(x<0||x>1||y<0||y>1)))return null;
     return {x:Math.max(0,Math.min(1,x)),y:Math.max(0,Math.min(1,y))};
   }
+  function touchData(event) {return {clientX:event.clientX,clientY:event.clientY,position:point(event,true)};}
   view.addEventListener('pointerdown',event=>{
-    if(!ready||panning||event.button>2||!event.isPrimary)return;
+    if(!ready||panning||event.button>2)return;
     const position=point(event);if(!position)return;
     event.preventDefault();view.focus({preventScroll:true});pressedPointers.add(event.pointerId);view.setPointerCapture(event.pointerId);
+    if(event.pointerType==='touch'){touch.down(event.pointerId,touchData(event));return;}
     send({action:'move',...position});send({action:'button',button:['left','middle','right'][event.button],down:true});
   });
   view.addEventListener('pointermove',event=>{
-    if(!ready||panning||!event.isPrimary||performance.now()-movingAt<40)return;
-    const position=point(event,view.hasPointerCapture(event.pointerId));if(!position)return;
+    if(!ready||panning||!pressedPointers.has(event.pointerId))return;
+    if(event.pointerType==='touch') {
+      event.preventDefault();touch.move(event.pointerId,touchData(event));return;
+    }
+    if(performance.now()-movingAt<40)return;
+    const position=point(event,true);if(!position)return;
     movingAt=performance.now();send({action:'move',...position});
   });
   view.addEventListener('pointerup',event=>{
-    if(!ready||panning||event.button>2||!event.isPrimary)return;
-    const position=point(event,true);if(position)send({action:'move',...position});
-    send({action:'button',button:['left','middle','right'][event.button],down:false});
+    if(!ready||panning||!pressedPointers.has(event.pointerId))return;
+    event.preventDefault();
+    if(event.pointerType==='touch')touch.up(event.pointerId,touchData(event));
+    else {
+      const position=point(event,true);if(position)send({action:'move',...position});
+      send({action:'button',button:['left','middle','right'][event.button],down:false});
+    }
     pressedPointers.delete(event.pointerId);
     if(view.hasPointerCapture(event.pointerId))view.releasePointerCapture(event.pointerId);
   });

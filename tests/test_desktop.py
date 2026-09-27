@@ -213,3 +213,103 @@ def test_shortcut_protocol_reaches_input_backend(client):
         socket.send_json({"action": "shortcut", "name": "files"})
         flush(socket)
     assert fake.events == [{"action": "shortcut", "name": "files"}]
+
+
+def test_persistent_permission_survives_restart_but_does_not_start_session(app_factory):
+    with app_factory() as first:
+        controller, _ = enable(first)
+        response = first.post("/api/desktop/enable", headers=LOCAL, json={"persistent": True})
+        assert response.json()["persistent"] is True
+        assert response.json()["expires_in"] is None
+        assert not response.json()["connected"]
+    with app_factory() as second:
+        controller = second.app.state.desktop
+        controller.supported = True
+        fake = FakeInput()
+        controller.backend_factory = lambda: fake
+        state = second.get("/api/desktop").json()
+        assert state["enabled"] and state["persistent"] and not state["connected"]
+        assert controller.backend is None  # no input initialized before a user connects
+        with second.websocket_connect("/api/desktop/control", headers=LOCAL) as socket:
+            assert socket.receive_json()["type"] == "ready"
+            flush(socket)
+        assert fake.events == []
+        second.post("/api/desktop/disable", headers=LOCAL).raise_for_status()
+    with app_factory() as third:
+        assert third.get("/api/desktop").json()["enabled"] is False
+        assert third.get("/api/desktop").json()["persistent"] is False
+
+
+def test_persistent_permission_is_local_only_and_strict_boolean(client):
+    key = client.app.state.access_key
+    phone = {**PHONE, "authorization": f"Bearer {key}"}
+    assert client.post("/api/desktop/enable", headers=phone, json={"persistent": True}).status_code == 403
+    assert client.post("/api/desktop/enable", json={"persistent": True}).status_code == 403
+    assert client.post("/api/desktop/enable", headers=LOCAL, json={"persistent": "true"}).status_code == 422
+    assert client.get("/api/desktop").json()["persistent"] is False
+
+
+def test_key_rotation_revokes_saved_persistent_permission(client):
+    service, _ = enable(client)
+    client.post("/api/desktop/enable", headers=LOCAL, json={"persistent": True}).raise_for_status()
+    assert service._read_permission()
+    client.post("/api/remote/rotate").raise_for_status()
+    assert not service._read_permission()
+    assert not client.get("/api/desktop").json()["enabled"]
+
+
+def test_temporary_permission_clears_persistent_preference(app_factory):
+    with app_factory() as c:
+        enable(c)
+        c.post("/api/desktop/enable", headers=LOCAL, json={"persistent": True}).raise_for_status()
+        state = c.post("/api/desktop/enable", headers=LOCAL).json()
+        assert not state["persistent"] and state["expires_in"] > 0
+    with app_factory() as c:
+        assert not c.get("/api/desktop").json()["enabled"]
+
+
+def test_invalid_permission_file_fails_closed(tmp_path):
+    from hassan_ai.desktop import DesktopControl
+    permission = tmp_path / "permission.json"
+    for text in ('{bad', '{"persistent":"true"}', '[]', '{"persistent":true}' + ' ' * 1024):
+        permission.write_text(text)
+        controller = DesktopControl(permission)
+        assert not controller.persistent
+        controller.executor.shutdown(wait=True)
+
+
+def test_persistent_input_initialization_error_is_reported(app_factory):
+    with app_factory() as c:
+        enable(c)
+        c.post("/api/desktop/enable", headers=LOCAL, json={"persistent": True}).raise_for_status()
+    with app_factory() as c:
+        service = c.app.state.desktop
+        service.supported = True
+        def broken():
+            raise RuntimeError("no desktop session")
+        service.backend_factory = broken
+        with c.websocket_connect("/api/desktop/control", headers=LOCAL) as socket:
+            assert socket.receive_json()["type"] == "error"
+        assert not c.get("/api/desktop").json()["connected"]
+
+
+def test_failed_revocation_save_still_releases_and_disconnects(client, monkeypatch):
+    controller, fake = enable(client)
+    client.post("/api/desktop/enable", headers=LOCAL, json={"persistent": True}).raise_for_status()
+    with client.websocket_connect("/api/desktop/control", headers=LOCAL) as socket:
+        assert socket.receive_json()["type"] == "ready"
+        socket.send_json({"action": "button", "button": "left", "down": True})
+        flush(socket)
+        before = fake.releases
+        def cannot_save(value):
+            raise PermissionError("read-only data directory")
+        with monkeypatch.context() as patch:
+            patch.setattr(controller, "_save_permission", cannot_save)
+            response = client.post("/api/desktop/disable", headers=LOCAL)
+            assert response.status_code == 500
+            assert not controller.status()["enabled"]
+            assert not controller.status()["connected"]
+            assert fake.releases > before
+    # Retry persists the revoked state after storage is writable again.
+    client.post("/api/desktop/disable", headers=LOCAL).raise_for_status()
+    assert not controller._read_permission()

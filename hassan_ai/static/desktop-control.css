@@ -42,3 +42,8 @@ html.desktopImmersive,body.desktopImmersive{overflow:hidden;padding:0}
 @media(max-width:600px){#desktopBanner{font-size:12px;padding:8px;gap:8px}#desktopBanner button{font-size:12px;padding:10px}.desktopKeys button{font-size:12px}#desktopFullStatus{display:none}.desktopFullscreenBar button:not(:last-child){flex:1}.desktopFullscreenBar{padding-bottom:4px!important}}
 
 @media(max-height:450px){#desktopKeyboardPanel .desktopKeys{display:none}#desktopKeyboardPanel label{font-size:11px;margin-bottom:4px}#desktopKeyboardPanel{padding:6px}}
+
+#scrView{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#desktopTouchHint{display:none}
+#desktopSurface.immersive #desktopTouchHint{display:block;flex:none;margin:0;padding:4px 8px;background:var(--panel);color:var(--muted);font-size:11px;text-align:center}
+#scrView[data-gesture="selecting"]{outline:3px solid var(--warn);outline-offset:-3px;cursor:grabbing}
