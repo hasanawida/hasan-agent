@@ -108,11 +108,16 @@ class PairingCodes:
 
     TTL = 600
     MAX_TRIES = 5
+    TICKET_TTL = 300
 
     def __init__(self) -> None:
         self.code: str | None = None
         self.expires = 0.0
         self.tries = 0
+        self.ticket: str | None = None
+        self.ticket_expires = 0.0
+        import threading
+        self._ticket_lock = threading.Lock()
 
     def new(self) -> dict:
         import time
@@ -135,6 +140,36 @@ class PairingCodes:
         if self.tries >= self.MAX_TRIES:
             self.code = None
         return False
+
+
+    def new_ticket(self) -> dict:
+        """Create an opaque one-use QR credential, independent of the typed code.
+
+        Only the newest QR ticket is valid. Ticket state is memory-only and dies
+        on server restart; no master credential belongs in a QR URL.
+        """
+        import time
+
+        with self._ticket_lock:
+            self.ticket = "qr_" + secrets.token_urlsafe(32)
+            self.ticket_expires = time.time() + self.TICKET_TTL
+            return {"ticket": self.ticket, "expires_in": self.TICKET_TTL}
+
+    def redeem_ticket(self, candidate: str | None) -> bool:
+        """Consume one QR ticket without touching the numeric fallback code."""
+        import time
+
+        if not isinstance(candidate, str) or not 40 <= len(candidate) <= 128 or not candidate.startswith("qr_"):
+            return False
+        with self._ticket_lock:
+            if not self.ticket or time.time() >= self.ticket_expires:
+                self.ticket = None
+                return False
+            if not hmac.compare_digest(candidate.encode(), self.ticket.encode()):
+                return False
+            self.ticket = None
+            self.ticket_expires = 0.0
+            return True
 
 
 LOGIN_PAGE = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">

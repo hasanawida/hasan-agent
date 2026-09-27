@@ -166,6 +166,9 @@ class DesktopControl:
         self.lock = asyncio.Lock()
         self.expires = 0.0
         self.owner = None
+        self.agent_owner = None
+        self.manual_waiting = None
+        self.on_takeover = None  # async callback(task_id): cancel task and await complete cleanup
         self.last_seen = self.last_input = 0.0
         self.watchdog = None
 
@@ -200,7 +203,9 @@ class DesktopControl:
         seconds = max(0, math.ceil(self.expires - time.monotonic()))
         return {"supported": self.supported, "enabled": self.permitted(),
                 "persistent": self.persistent, "expires_in": None if self.persistent else seconds,
-                "connected": self.owner is not None}
+                "connected": self.owner is not None,
+                "owner_kind": "manual" if self.owner else "agent" if self.agent_owner else None,
+                "agent_task_id": self.agent_owner, "handoff_pending": self.manual_waiting is not None}
 
     async def _initialize(self):
         if not self.supported:
@@ -241,16 +246,47 @@ class DesktopControl:
         if storage_error:
             raise HTTPException(500, "توقف التحكّم، لكن تعذّر حفظ إلغاء السماح. أصلح صلاحية مجلد البيانات قبل إعادة التشغيل.") from storage_error
 
+    async def claim_agent(self, task_id: str):
+        """Serialize agent changes with manual input without changing the manual grant."""
+        async with self.lock:
+            if self.owner is not None or self.manual_waiting is not None:
+                raise HTTPException(409, "التحكّم اليدوي شغّال؛ أوقفه قبل تشغيل الإيجنت على الكمبيوتر.")
+            if self.agent_owner not in (None, task_id):
+                raise HTTPException(409, "إيجنت آخر يستخدم الكمبيوتر حاليًا.")
+            self.agent_owner = task_id
+
+    async def release_agent(self, task_id: str):
+        async with self.lock:
+            if self.agent_owner == task_id:
+                self.agent_owner = None
+
     async def connect(self, socket):
         async with self.lock:
-            if not self.permitted() or self.owner is not None:
+            if not self.permitted() or self.owner is not None or self.manual_waiting is not None:
                 return False
-            # Persistent permission does not initialize input or start a session
-            # until an authenticated user presses Control.
-            await self._initialize()
-            self.owner = socket
-            self.last_seen = self.last_input = time.monotonic()
-            return True
+            agent = self.agent_owner
+            if agent is not None and self.on_takeover is None:
+                return False
+            self.manual_waiting = socket
+        try:
+            if agent is not None:
+                # Never hold the lock while waiting: agent cleanup releases its own lease.
+                # A timeout refuses manual input; it never forces ownership away from live work.
+                try:
+                    await asyncio.wait_for(self.on_takeover(agent), 30)
+                except (asyncio.TimeoutError, RuntimeError, HTTPException):
+                    return False
+            async with self.lock:
+                if not self.permitted() or self.owner is not None or self.agent_owner is not None:
+                    return False
+                await self._initialize()
+                self.owner = socket
+                self.last_seen = self.last_input = time.monotonic()
+                return True
+        finally:
+            async with self.lock:
+                if self.manual_waiting is socket:
+                    self.manual_waiting = None
 
     async def disconnect(self, socket):
         async with self.lock:
@@ -340,9 +376,12 @@ def attach_routes(app, settings, desktop):
         # HTTP middleware does NOT run on WebSockets. Repeat authentication and
         # origin checks here, and never put the long-lived key in a URL.
         local = remote.is_local(socket, settings.allowed_hosts, settings.trusted_clients)
-        key = remote.presented_key(socket)
+        def authenticated():
+            helper = getattr(app.state, "authenticate_browser", None)
+            authenticated = bool(helper(socket)) if helper else remote.key_ok(remote.presented_key(socket), app.state.access_key)
+            return local or authenticated
         secure = socket.url.scheme == "wss" or socket.headers.get("x-forwarded-proto", "").lower() == "https"
-        if not same_origin(socket) or (not local and (not secure or not remote.key_ok(key, app.state.access_key))):
+        if not same_origin(socket) or (not local and not secure) or not authenticated():
             await socket.close(code=1008)
             return
         await socket.accept()
@@ -363,7 +402,8 @@ def attach_routes(app, settings, desktop):
                 raw = await socket.receive_text()
                 if len(raw.encode("utf-8")) > 4096:
                     raise ValueError("Input too large")
-                if not local and not remote.key_ok(key, app.state.access_key):
+                if not authenticated():
+                    await socket.close(code=1008, reason="Browser authorization revoked")
                     break
                 now = time.monotonic()
                 if now - started >= 1:

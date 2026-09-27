@@ -1,0 +1,57 @@
+<section class="card phone-panel" id="androidCard" aria-labelledby="phoneTitle">
+  <h2 id="phoneTitle">📱 تلفونك من الكمبيوتر</h2>
+  <p class="muted">اعرض شاشة تلفون Android، وتحكّم فيه بنفسك أو اطلب من الإيجنت يشتغل عليه.</p>
+  <details id="phoneSetup">
+    <summary>ربط تلفون جديد</summary>
+    <ol class="phone-steps">
+      <li>نزّل <a href="/api/phones/app" id="phoneAppLink">تطبيق Hassan للهاتف</a> وثبّته على تلفونك.</li>
+      <li>خلّي التلفون والكمبيوتر متصلين بـ Tailscale. افتح التطبيق وأدخل عنوان الكمبيوتر ورمز الربط الظاهر هون.</li>
+      <li>من التلفون، فعّل خدمة Hassan ضمن «تسهيل الاستخدام» للسماح بالنقر والكتابة.</li>
+      <li>السماح بالتحكّم يبقى مفعّلًا لحد ما تطفّيه. لعرض الشاشة، اضغط «ابدأ عرض الشاشة» في تطبيق الهاتف ووافق على المشاركة. فيك توقف العرض من التلفون بأي وقت.</li>
+    </ol>
+    <p class="muted" id="phonePairHelp">إنشاء رمز الربط متاح من صفحة Hassan المفتوحة على الكمبيوتر نفسه.</p>
+    <button class="ghost" id="phonePair" disabled>اعمل رمز ربط للهاتف</button>
+    <div id="phonePairResult" hidden>
+      <label for="phoneServerUrl">عنوان الكمبيوتر في تطبيق الهاتف</label>
+      <input id="phoneServerUrl" type="url" readonly dir="ltr" autocomplete="off">
+      <p class="phone-code" id="phonePairCode" dir="ltr" aria-label="رمز ربط الهاتف"></p>
+      <p class="muted" id="phonePairExpiry"></p>
+    </div>
+  </details>
+  <label for="phoneDevice">التلفون</label>
+  <div class="phone-row">
+    <select id="phoneDevice" disabled aria-label="اختيار الهاتف"><option value="">جارٍ فحص الهواتف…</option></select>
+    <button class="ghost" id="phoneRefresh" aria-label="تحديث حالة الهواتف">تحديث</button>
+  </div>
+  <p id="phoneDeviceStatus" class="muted" role="status" aria-live="polite">جارٍ فحص الاتصال…</p>
+  <div class="phone-actions">
+    <button id="phoneView" class="ghost" disabled>اعرض شاشة التلفون</button>
+    <button id="phoneControl" disabled>ابدأ التحكّم</button>
+    <button id="phoneStopScreen" class="ghost" disabled>إيقاف مشاركة شاشة الهاتف</button>
+  </div>
+  <div id="phoneScreenWrap" hidden>
+    <div id="phoneScreen" class="phone-screen">
+      <img id="phoneFrame" alt="شاشة الهاتف المربوط" draggable="false" hidden>
+      <span id="phoneFrameWait" class="muted">بانتظار صورة من التلفون…</span>
+    </div>
+    <p class="muted phone-hint" id="phoneGestureHint">العرض فقط. اضغط «ابدأ التحكّم» لتستخدم النقر والسحب.</p>
+  </div>
+  <div id="phoneManual" hidden>
+    <div class="phone-actions phone-nav" aria-label="أزرار الهاتف">
+      <button class="ghost" data-phone-key="back">رجوع</button>
+      <button class="ghost" data-phone-key="home">الرئيسية</button>
+      <button class="ghost" data-phone-key="recents">التطبيقات</button>
+    </div>
+    <form id="phoneTextForm" class="phone-row">
+      <label class="phone-sr-only" for="phoneText">النص المراد كتابته على الهاتف</label>
+      <input id="phoneText" maxlength="1000" dir="auto" placeholder="اضغط خانة على التلفون، ثم اكتب هون" autocomplete="off">
+      <button id="phoneSendText" type="submit">اكتب</button>
+    </form>
+    <button class="ghost small" id="phoneEnter">إدخال ↵</button>
+  </div>
+  <label for="phoneTask">خلي الإيجنت يشتغل على التلفون</label>
+  <textarea id="phoneTask" rows="2" maxlength="12000" placeholder="مثلاً: افتح الإعدادات وخبرني مساحة التخزين المتاحة"></textarea>
+  <button id="phoneRunTask" disabled>شغّل المهمة على هذا التلفون</button>
+  <p class="muted phone-hint">لما تشغّل المهمة، التحكّم اليدوي بيتوقف. بتشوف خطوات الإيجنت وأي طلب موافقة ضمن تفاصيل المهمة.</p>
+  <p id="phoneMessage" class="muted" role="status" aria-live="polite"></p>
+</section>

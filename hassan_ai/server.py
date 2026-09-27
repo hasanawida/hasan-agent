@@ -14,20 +14,23 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from . import __version__, openhands, remote
 from .agents import Roster
 from .config import PACKAGE_DIR, Settings
 from .execution import NO_WINDOW, CheckpointManager, ExecutionManager, SafeLocalRunner
-from .desktop import DesktopControl, attach_routes
+from .desktop import DesktopControl, attach_routes, same_origin
+from .browser_sessions import BrowserSessionStore, COOKIE as SESSION_COOKIE, attach_browser_session_routes
+from .transfers import attach_transfer_routes
+from .phone import PhoneHub, attach_phone_routes, PHONE_PUBLIC_PATHS
 from .diagnostics import readiness
 from .llm import MockLLM
 from .mcp_bus import MCPRegistry
 from .memory import Memory
 from .operator_mode import Operator
 from .orchestrator import Orchestrator
-from .pc_tools import PCTools, editor_argv
+from .pc_tools import PCTools, editor_argv, screen_profiles, list_monitors, resolve_screen_capture
 from .scheduler import Scheduler
 from .telegram import TelegramBot, groq_transcriber
 from .policy import Policy, PolicyError, resolve_workspace
@@ -36,6 +39,22 @@ from .providers import APIBackend, RouterLLM
 from .schemas import TaskCreate
 
 STATIC = PACKAGE_DIR / "static"
+
+
+class ScreenStart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    profile: str = "balanced"
+    monitor: str = "desktop"
+
+
+class StreamStop(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    token: str = ""
+
+
+class ResumeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    resolution: str | None = None
 
 
 class Decision(BaseModel):
@@ -100,12 +119,15 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     pc = PCTools(policy, settings.allowed_roots, settings.data_dir / "trash",
                  protected_dirs=[settings.data_dir, PACKAGE_DIR.parent], mcp=mcp, media_dir=settings.data_dir / "media",
                  command_timeout=settings.command_timeout)
-    orchestrator.operator = Operator(orchestrator, pc, skills_dir=settings.data_dir / "skills")
+    phones = PhoneHub(settings.data_dir)
+    orchestrator.operator = Operator(orchestrator, pc, skills_dir=settings.data_dir / "skills", phone_hub=phones)
     scheduler = Scheduler(orchestrator)
     telegram = TelegramBot(orchestrator, settings.env_file, settings.data_dir / "media", api_base=telegram_api,
                            transport=telegram_transport, scheduler=scheduler, transcriber=groq_transcriber)
     roster.agents["operator"].extra_system = orchestrator.operator.system_prompt()
     desktop = DesktopControl(settings.data_dir / "desktop-permission.json")
+    orchestrator.operator.desktop = desktop
+    desktop.on_takeover = orchestrator.take_over_desktop
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -119,6 +141,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
         await stop_camera()
         await scheduler.stop()
         await orchestrator.drain()
+        await phones.close()
         if hasattr(llm, "aclose"):
             await llm.aclose()
 
@@ -129,40 +152,81 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     app.state.scheduler = scheduler
     app.state.desktop = desktop
     attach_routes(app, settings, desktop)
+    app.state.phones = phones
+    attach_phone_routes(app, settings, phones)
 
     access_key = remote.load_or_create_key(settings.data_dir)
     app.state.access_key = access_key
     pairing = remote.PairingCodes()
-    PUBLIC_PATHS = {"/login", "/manifest.webmanifest", "/static/icon.svg"}
+    browser_sessions = BrowserSessionStore(settings.data_dir)
+    attach_browser_session_routes(app, settings, browser_sessions)
+    attach_transfer_routes(app, settings, desktop)
+    PUBLIC_PATHS = {"/login", "/manifest.webmanifest", "/static/icon.svg"} | PHONE_PUBLIC_PATHS
+
+    def authenticate_browser(request) -> bool:
+        token = request.cookies.get(SESSION_COOKIE)
+        if token is not None:
+            session = browser_sessions.authenticate(token)
+            request.state.browser_session = session
+            return session is not None
+        return remote.key_ok(remote.presented_key(request), app.state.access_key)
+
+    app.state.authenticate_browser = authenticate_browser
+
+    def set_browser_cookie(response, token: str, request):
+        response.set_cookie(SESSION_COOKIE, token, max_age=browser_sessions.ttl_seconds,
+                            httponly=True, samesite="strict", secure=remote.is_https(request))
+        response.delete_cookie(remote.COOKIE, httponly=True, samesite="strict", secure=remote.is_https(request))
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
+    def browser_label(request):
+        ua = request.headers.get("user-agent", "").lower()
+        return "هاتف Android" if "android" in ua else "iPhone / iPad" if any(x in ua for x in ("iphone", "ipad")) else "متصفح مرتبط"
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
         local = remote.is_local(request, settings.allowed_hosts, settings.trusted_clients)
         request.state.local = local
+        migration = None
         if not local and request.url.path not in PUBLIC_PATHS:
-            # Phone / other devices: need the access key (cookie from /login or Bearer header).
-            if not remote.key_ok(remote.presented_key(request), app.state.access_key):
+            if not authenticate_browser(request):
                 if request.url.path.startswith("/api/"):
-                    return JSONResponse({"detail": "Access key required"}, status_code=401)
+                    return JSONResponse({"detail": "Pair this browser from the computer"}, status_code=401)
                 return RedirectResponse("/login", status_code=303)
-        # Cross-site protection: a web page on another site must not drive this API.
+            # Existing phones upgrade once without losing access. An invalid/revoked
+            # session is rejected above and can never remigrate via a leftover cookie.
+            if SESSION_COOKIE not in request.cookies and not request.headers.get("authorization") and remote.key_ok(request.cookies.get(remote.COOKIE), app.state.access_key):
+                try:
+                    migration = browser_sessions.issue(browser_label(request), legacy_migrated=True)
+                    request.state.browser_session = browser_sessions.authenticate(migration)
+                except HTTPException as exc:
+                    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
         origin = request.headers.get("origin")
-        if origin and request.method not in ("GET", "HEAD", "OPTIONS"):
-            origin_host = (urlsplit(origin).hostname or "").lower()
-            if origin_host != remote.request_host(request) and origin_host not in settings.allowed_hosts:
-                return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
-        return await call_next(request)
+        if origin and request.method not in ("GET", "HEAD", "OPTIONS") and not same_origin(request):
+            return JSONResponse({"detail": "Cross-site request blocked"}, status_code=403)
+        response = await call_next(request)
+        if migration:
+            set_browser_cookie(response, migration, request)
+        return response
 
     def login_response(key: str | None, request: Request):
-        if key and key.strip().isdigit() and len(key.strip()) == 6 and pairing.redeem(key):
-            key = app.state.access_key
-        if remote.key_ok(key, app.state.access_key):
-            resp = RedirectResponse("/", status_code=303)
-            resp.set_cookie(remote.COOKIE, app.state.access_key, max_age=400 * 86400, httponly=True,
-                            samesite="strict", secure=remote.is_https(request))
-            return resp
-        err = '<p class="err">المفتاح غلط</p>' if key else ""
-        return HTMLResponse(remote.LOGIN_PAGE.replace("__ERR__", err), status_code=401 if key else 200)
+        candidate = (key or "").strip()
+        valid = False
+        if candidate:
+            if candidate.isdigit() and len(candidate) == 6:
+                valid = pairing.redeem(candidate)
+            elif candidate.startswith("qr_"):
+                valid = pairing.redeem_ticket(candidate)
+            else:
+                valid = remote.key_ok(candidate, app.state.access_key)
+        if valid:
+            token = browser_sessions.issue(browser_label(request))
+            return set_browser_cookie(RedirectResponse("/", status_code=303), token, request)
+        err = '<p class="err">الرمز غلط أو انتهت صلاحيته؛ جدّده من الكمبيوتر</p>' if key else ""
+        return HTMLResponse(remote.LOGIN_PAGE.replace("__ERR__", err), status_code=401 if key else 200,
+                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
     @app.get("/login", include_in_schema=False)
     async def login_get(request: Request, key: str | None = None):
@@ -197,8 +261,10 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
             urls.append({"kind": "tailscale", "base": settings.public_url})
         if settings.host in ("0.0.0.0", "::"):
             urls += [{"kind": "wifi", "base": f"http://{ip}:{port}"} for ip in remote.lan_addresses()]
+        ticket = pairing.new_ticket() if urls else {}
         for u in urls:
-            u["pair_url"] = f"{u['base']}/login?key={app.state.access_key}"
+            u["pair_url"] = f"{u['base']}/login?key={ticket['ticket']}"
+            u["expires_in"] = ticket["expires_in"]
             u["qr_html"] = remote.qr_html(u["pair_url"])
         return {"enabled": bool(urls), "urls": urls, "public_url": settings.public_url, "bind": settings.host}
 
@@ -211,7 +277,9 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     async def remote_rotate(request: Request):
         require_local(request)
         app.state.access_key = remote.rotate_key(settings.data_dir)
+        browser_sessions.revoke_all()
         await desktop.disable()
+        await phones.revoke_all()
         return {"ok": True}
 
     def api_backends() -> dict:
@@ -321,6 +389,14 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
+    @app.get("/api/phones/app")
+    async def phone_app():
+        apk = settings.data_dir / "phone-app" / "hassan-phone.apk"
+        if not apk.is_file():
+            raise HTTPException(404, "ملف تطبيق الهاتف غير متاح في هذا التثبيت بعد")
+        return FileResponse(apk, media_type="application/vnd.android.package-archive", filename="Hassan-Phone.apk",
+                            headers={"Cache-Control": "no-store"})
+
     @app.get("/api/health")
     async def health():
         return {"name": "Hassan AI OS", "version": __version__, "mode": settings.mode,
@@ -355,6 +431,16 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
 
     @app.post("/api/tasks", status_code=201)
     async def create_task(req: TaskCreate):
+        if req.device_id:
+            if req.kind != "operate":
+                raise HTTPException(422, "Phone tasks must use operate mode")
+            device = next((d for d in phones.list_devices() if d["device_id"] == req.device_id), None)
+            if device is None:
+                raise HTTPException(404, "الهاتف غير مربوط")
+            if not device["online"] or not device["control_enabled"]:
+                raise HTTPException(409, "شغّل المشاركة والتحكّم من تطبيق الهاتف أولًا")
+            if device.get("busy"):
+                raise HTTPException(409, "أنه جلسة التحكّم الحالية قبل تشغيل الإيجنت")
         if req.workspace:
             try:
                 resolve_workspace(req.workspace, settings.allowed_roots)
@@ -376,6 +462,15 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
             raise HTTPException(404, "Task not found")
         return {**task.model_dump(), "approvals": [a.model_dump() for a in memory.approvals(task_id)],
                 "usage": memory.task_usage(task_id)}
+
+    @app.post("/api/tasks/{task_id}/resume", status_code=201)
+    async def resume_task(task_id: str, body: ResumeBody | None = None):
+        try:
+            return orchestrator.resume(task_id, resolution=body.resolution if body else None)
+        except KeyError as exc:
+            raise HTTPException(404, "Task not found") from exc
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     @app.get("/api/tasks/{task_id}/events")
     async def task_events(task_id: str, after: int = 0):
@@ -399,7 +494,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     # ---- live webcam / microphone (Hassan presses the button; one viewer each) --
     LIVE_TYPES = {"camera": "multipart/x-mixed-replace;boundary=ffmpeg", "mic": "audio/mpeg",
                   "screen": "multipart/x-mixed-replace;boundary=ffmpeg"}
-    live: dict = {k: {"token": None, "expires": 0.0, "proc": None} for k in LIVE_TYPES}
+    live: dict = {k: {"token": None, "owner": None, "expires": 0.0, "proc": None, "options": {}, "lock": asyncio.Lock()} for k in LIVE_TYPES}
 
     async def stop_live(kind: str) -> None:
         proc, live[kind]["proc"] = live[kind]["proc"], None
@@ -416,45 +511,95 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
             raise HTTPException(404, "Unknown live source")
         return kind
 
+    @app.get("/api/screen/options")
+    async def screen_options():
+        return {"profiles": screen_profiles(), "monitors": list_monitors()}
+
     @app.post("/api/live/{kind}")
-    async def live_start(kind: str):
-        # POST first (cross-site pages can't POST here), then the <img>/<audio> GETs the stream with the token
+    async def live_start(kind: str, options: ScreenStart | None = None):
         slot = live[live_kind(kind)]
-        slot["token"], slot["expires"] = secrets.token_urlsafe(18), time.time() + 60
-        return {"url": f"/api/live/{kind}?token={slot['token']}"}
+        capture = None
+        if kind == "screen":
+            options = options or ScreenStart()
+            try:
+                capture = resolve_screen_capture(options.profile, options.monitor)
+            except (ValueError, RuntimeError) as exc:
+                raise HTTPException(422, str(exc)) from exc
+        async with slot["lock"]:
+            if kind == "screen" and ((slot["proc"] and slot["proc"].returncode is None)
+                                       or (slot["token"] and slot["expires"] > time.time())):
+                raise HTTPException(409, "عرض الشاشة مفتوح في جلسة ثانية. أوقف العرض هناك أولًا.")
+            slot["owner"] = slot["token"] = secrets.token_urlsafe(18)
+            slot["expires"] = time.time() + 60
+            slot["options"] = options.model_dump() if kind == "screen" else {}
+            slot["capture"] = capture
+            result = {"url": f"/api/live/{kind}?token={slot['token']}", "stream_id": slot["owner"]}
+            if capture:
+                result.update(capture=capture["monitor"], virtual=capture["virtual"], profile=capture["profile"]["id"])
+            return result
 
     @app.post("/api/live/{kind}/stop")
-    async def live_stop(kind: str):
-        await stop_live(live_kind(kind))
+    async def live_stop(kind: str, body: StreamStop | None = None):
+        slot = live[live_kind(kind)]
+        async with slot["lock"]:
+            if kind == "screen" and (not body or not slot["owner"] or not secrets.compare_digest(body.token, slot["owner"])):
+                raise HTTPException(403, "هذه الجلسة لا تملك عرض الشاشة")
+            await stop_live(kind)
+            slot["owner"] = slot["token"] = None
+            slot["expires"] = 0
         return {"ok": True}
 
     @app.get("/api/live/{kind}")
     async def live_stream(kind: str, request: Request, token: str = ""):
         slot = live[live_kind(kind)]
-        if not slot["token"] or time.time() > slot["expires"] or not secrets.compare_digest(token, slot["token"]):
-            raise HTTPException(403, "Press the button again")
-        slot["token"] = None
-        await stop_live(kind)
-        try:
-            argv = await {"camera": pc.live_camera_argv, "mic": pc.live_mic_argv, "screen": pc.live_screen_argv}[kind]()
-        except RuntimeError as exc:
-            raise HTTPException(503, str(exc)) from exc
-        proc = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE,
-                                                    stderr=asyncio.subprocess.DEVNULL,
-                                                    stdin=asyncio.subprocess.DEVNULL, **NO_WINDOW)
-        slot["proc"] = proc
+        async with slot["lock"]:
+            if not slot["token"] or time.time() > slot["expires"] or not secrets.compare_digest(token, slot["token"]):
+                raise HTTPException(403, "Press the button again")
+            slot["token"] = None
+            await stop_live(kind)
+            try:
+                if kind == "screen":
+                    if resolve_screen_capture(**slot["options"]) != slot["capture"]:
+                        raise RuntimeError("تغيّر ترتيب الشاشات؛ افتح العرض من جديد لضبط مكان النقر.")
+                    argv = await pc.live_screen_argv(**slot["options"])
+                    if resolve_screen_capture(**slot["options"]) != slot["capture"]:
+                        raise RuntimeError("تغيّر ترتيب الشاشات؛ افتح العرض من جديد.")
+                else:
+                    argv = await {"camera": pc.live_camera_argv, "mic": pc.live_mic_argv}[kind]()
+                proc = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE,
+                                                            stderr=asyncio.subprocess.DEVNULL,
+                                                            stdin=asyncio.subprocess.DEVNULL, **NO_WINDOW)
+            except (RuntimeError, ValueError, OSError) as exc:
+                slot["owner"] = None
+                raise HTTPException(503, str(exc)) from exc
+            slot["proc"] = proc
 
+        capture_at_start = slot.get("capture")
+        capture_options = dict(slot["options"])
         async def chunks():
+            checked = 0.0
             try:
                 while chunk := await proc.stdout.read(16384):
+                    if time.monotonic() - checked > 2:
+                        checked = time.monotonic()
+                        if not request.state.local and not authenticate_browser(request):
+                            break
+                        if kind == "screen":
+                            try:
+                                if resolve_screen_capture(**capture_options) != capture_at_start:
+                                    break
+                            except (ValueError, RuntimeError):
+                                break
                     if await request.is_disconnected():
                         break
                     yield chunk
-            finally:  # the viewer closed the page or pressed stop: the device turns off
-                if slot["proc"] is proc:
-                    await stop_live(kind)
-                elif proc.returncode is None:
-                    proc.kill()
+            finally:
+                async with slot["lock"]:
+                    if slot["proc"] is proc:
+                        await stop_live(kind)
+                        slot["owner"] = None
+                    elif proc.returncode is None:
+                        proc.kill()
 
         return StreamingResponse(chunks(), media_type=LIVE_TYPES[kind], headers={"Cache-Control": "no-store"})
 

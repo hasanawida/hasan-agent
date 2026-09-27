@@ -10,10 +10,12 @@
 <meta name="theme-color" content="#0b1020">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="/static/desktop-control.css?v=5">
+<link rel="stylesheet" href="/static/desktop-control.css?v=6">
 <script src="/static/desktop-touch.js?v=5" defer></script>
-<script src="/static/desktop-control.js?v=5" defer></script>
+<script src="/static/desktop-control.js?v=6" defer></script>
 <script src="/static/readiness.js?v=1" defer></script>
+<link rel="stylesheet" href="/static/phone-control.css?v=1">
+<script src="/static/phone-control.js?v=1" defer></script>
 <style>
 :root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429}
 *{box-sizing:border-box}
@@ -81,6 +83,10 @@ main>*{min-width:0}
 details summary{cursor:pointer;color:var(--muted);font-size:13px}
 .muted{color:var(--muted);font-size:13px}
 </style>
+<link rel="stylesheet" href="/static/browser-devices.css?v=1">
+<script src="/static/browser-devices.js?v=1" defer></script>
+<link rel="stylesheet" href="/static/transfer-panel.css?v=1">
+<script src="/static/transfer-panel.js?v=1" defer></script>
 </head>
 <body>
 <div id="alertBar"></div>
@@ -167,6 +173,14 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <p class="muted" style="font-size:12px;margin-top:0">اعرض الشاشة، ثم تحكّم بالماوس والكيبورد بنفسك، أو احكي للإيجنت شو يعمل.</p>
     <div id="desktopGrant" hidden><button id="desktopEnable" class="ghost">السماح بالتحكّم لمدة 30 دقيقة</button><button id="desktopAlways" class="ghost" style="width:100%;margin-top:8px">السماح الدائم لأجهزتي</button><p class="muted">السماح الدائم يبقى بعد إعادة التشغيل، لكن التحكّم يبدأ فقط بكبسة منك. ينطبق على أجهزتك المسجّلة؛ ألغِه بزر إلغاء السماح.</p></div>
     <p id="desktopState" class="muted" role="status" aria-live="polite">جارٍ التحقق من التحكّم اليدوي…</p>
+    <details id="screenPreferences">
+      <summary>جودة العرض والشاشة</summary>
+      <label for="screenQuality">جودة العرض</label>
+      <select id="screenQuality"><option value="auto">تلقائي عند بدء العرض</option><option value="economy">توفير البيانات — 6 إطارات/ث</option><option value="balanced">متوازن — 12 إطارًا/ث</option><option value="sharp">أوضح وأنعم — 15 إطارًا/ث</option></select>
+      <label for="screenMonitor">الشاشة المعروضة</label>
+      <div class="row"><select id="screenMonitor"><option value="desktop">كل الشاشات</option></select><button id="screenOptionsRefresh" class="ghost small" style="flex:0 0 auto">تحديث</button></div>
+      <p id="screenPreferenceNote" class="muted">الجودة الأعلى تستخدم بيانات أكثر. التغيير يطبق عند فتح العرض من جديد.</p>
+    </details>
     <div class="row">
       <button class="ghost small" id="scrBtn">▶ اعرض الشاشة</button>
       <button class="ghost small" id="scrFull" style="display:none">⛶ ملء الشاشة</button>
@@ -209,7 +223,96 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
       <div id="scrStatus" style="font-size:13px;margin-top:6px"></div>
     </div>
   </div>
-  <div class="card" id="camCard">
+<section class="card phone-panel" id="androidCard" aria-labelledby="phoneTitle">
+  <h2 id="phoneTitle">📱 تلفونك من الكمبيوتر</h2>
+  <p class="muted">اعرض شاشة تلفون Android، وتحكّم فيه بنفسك أو اطلب من الإيجنت يشتغل عليه.</p>
+  <details id="phoneSetup">
+    <summary>ربط تلفون جديد</summary>
+    <ol class="phone-steps">
+      <li>نزّل <a href="/api/phones/app" id="phoneAppLink">تطبيق Hassan للهاتف</a> وثبّته على تلفونك.</li>
+      <li>خلّي التلفون والكمبيوتر متصلين بـ Tailscale. افتح التطبيق وأدخل عنوان الكمبيوتر ورمز الربط الظاهر هون.</li>
+      <li>من التلفون، فعّل خدمة Hassan ضمن «تسهيل الاستخدام» للسماح بالنقر والكتابة.</li>
+      <li>السماح بالتحكّم يبقى مفعّلًا لحد ما تطفّيه. لعرض الشاشة، اضغط «ابدأ عرض الشاشة» في تطبيق الهاتف ووافق على المشاركة. فيك توقف العرض من التلفون بأي وقت.</li>
+    </ol>
+    <p class="muted" id="phonePairHelp">إنشاء رمز الربط متاح من صفحة Hassan المفتوحة على الكمبيوتر نفسه.</p>
+    <button class="ghost" id="phonePair" disabled>اعمل رمز ربط للهاتف</button>
+    <div id="phonePairResult" hidden>
+      <label for="phoneServerUrl">عنوان الكمبيوتر في تطبيق الهاتف</label>
+      <input id="phoneServerUrl" type="url" readonly dir="ltr" autocomplete="off">
+      <p class="phone-code" id="phonePairCode" dir="ltr" aria-label="رمز ربط الهاتف"></p>
+      <p class="muted" id="phonePairExpiry"></p>
+    </div>
+  </details>
+  <label for="phoneDevice">التلفون</label>
+  <div class="phone-row">
+    <select id="phoneDevice" disabled aria-label="اختيار الهاتف"><option value="">جارٍ فحص الهواتف…</option></select>
+    <button class="ghost" id="phoneRefresh" aria-label="تحديث حالة الهواتف">تحديث</button>
+  </div>
+  <p id="phoneDeviceStatus" class="muted" role="status" aria-live="polite">جارٍ فحص الاتصال…</p>
+  <div class="phone-actions">
+    <button id="phoneView" class="ghost" disabled>اعرض شاشة التلفون</button>
+    <button id="phoneControl" disabled>ابدأ التحكّم</button>
+    <button id="phoneStopScreen" class="ghost" disabled>إيقاف مشاركة شاشة الهاتف</button>
+  </div>
+  <div id="phoneScreenWrap" hidden>
+    <div id="phoneScreen" class="phone-screen">
+      <img id="phoneFrame" alt="شاشة الهاتف المربوط" draggable="false" hidden>
+      <span id="phoneFrameWait" class="muted">بانتظار صورة من التلفون…</span>
+    </div>
+    <p class="muted phone-hint" id="phoneGestureHint">العرض فقط. اضغط «ابدأ التحكّم» لتستخدم النقر والسحب.</p>
+  </div>
+  <div id="phoneManual" hidden>
+    <div class="phone-actions phone-nav" aria-label="أزرار الهاتف">
+      <button class="ghost" data-phone-key="back">رجوع</button>
+      <button class="ghost" data-phone-key="home">الرئيسية</button>
+      <button class="ghost" data-phone-key="recents">التطبيقات</button>
+    </div>
+    <form id="phoneTextForm" class="phone-row">
+      <label class="phone-sr-only" for="phoneText">النص المراد كتابته على الهاتف</label>
+      <input id="phoneText" maxlength="1000" dir="auto" placeholder="اضغط خانة على التلفون، ثم اكتب هون" autocomplete="off">
+      <button id="phoneSendText" type="submit">اكتب</button>
+    </form>
+    <button class="ghost small" id="phoneEnter">إدخال ↵</button>
+  </div>
+  <label for="phoneTask">خلي الإيجنت يشتغل على التلفون</label>
+  <textarea id="phoneTask" rows="2" maxlength="12000" placeholder="مثلاً: افتح الإعدادات وخبرني مساحة التخزين المتاحة"></textarea>
+  <button id="phoneRunTask" disabled>شغّل المهمة على هذا التلفون</button>
+  <p class="muted phone-hint">لما تشغّل المهمة، التحكّم اليدوي بيتوقف. بتشوف خطوات الإيجنت وأي طلب موافقة ضمن تفاصيل المهمة.</p>
+  <p id="phoneMessage" class="muted" role="status" aria-live="polite"></p>
+</section>
+
+  <section class="card browser-devices" id="browserDevicesCard" aria-labelledby="browserDevicesTitle">
+  <div class="browser-devices-heading">
+    <h2 id="browserDevicesTitle">أجهزة تدخل لصفحتك</h2>
+    <button class="ghost small" type="button" id="browserDevicesRefresh">تحديث</button>
+  </div>
+  <p class="browser-devices-help" id="browserDevicesHelp">لكل متصفح دخول مستقل. تقدر تسمّي جهازك لتعرفه بسهولة.</p>
+  <p class="browser-devices-legacy" id="browserDevicesLegacy" hidden>بعض الأجهزة انتقلت من مفتاح الدخول المشترك القديم. إلغاء الجهاز يوقف جلسته الجديدة؛ لإبطال أي نسخة قديمة من المفتاح أيضًا، غيّر مفتاح الدخول من الكمبيوتر.</p>
+  <div class="browser-devices-list" id="browserDevicesList" aria-label="المتصفحات المربوطة"></div>
+  <p class="browser-devices-message" id="browserDevicesMessage" role="status" aria-live="polite"></p>
+</section>
+
+<section class="card transfer-panel" id="transferCard" aria-labelledby="transferTitle">
+  <h2 id="transferTitle">📂 ملفات ونسخ بين أجهزتك</h2>
+  <p class="muted">اختار ملف من هذا الجهاز وارفعه هون، ثم افتح نفس الصفحة من جهازك الثاني لتنزيله. حد الملف 25 ميغابايت.</p>
+  <label for="transferFile">ملف من هذا الجهاز</label>
+  <input id="transferFile" type="file">
+  <div class="transfer-row"><button id="transferUpload">ارفع الملف</button><button id="transferRefresh" class="ghost">حدّث الملفات</button></div>
+  <p id="transferStatus" class="muted" role="status" aria-live="polite"></p>
+  <ul id="transferList" aria-label="الملفات المتاحة للنقل"></ul>
+  <details id="transferClipboard">
+    <summary>نسخ نص بين الجهازين</summary>
+    <p id="transferClipboardHint" class="muted">ابدأ التحكّم اليدوي بالكمبيوتر أولًا. القراءة والكتابة تحصل فقط بكبسة منك.</p>
+    <label for="transferText">النص المنقول</label>
+    <textarea id="transferText" maxlength="65536" dir="auto" placeholder="الصق نصك هون، أو اضغط اقرأ حافظة الكمبيوتر"></textarea>
+    <div class="transfer-row"><button id="transferClipboardRead" class="ghost" disabled>اقرأ حافظة الكمبيوتر</button><button id="transferClipboardWrite" disabled>ضع النص في حافظة الكمبيوتر</button></div>
+    <button id="transferSelectText" class="ghost small">حدّد النص لنسخه على هذا الجهاز</button>
+    <p class="muted">بعد التحديد استخدم «نسخ» من جهازك. وضع النص في حافظة الكمبيوتر لا يلصقه داخل أي برنامج تلقائيًا.</p>
+    <p id="transferClipboardStatus" class="muted" role="status" aria-live="polite"></p>
+  </details>
+</section>
+
+<div class="card" id="camCard">
     <h2>📷 كاميرا الكمبيوتر مباشرة</h2>
     <p class="muted" style="font-size:12px;margin-top:0">بتشتغل بس لما تكبس، وبتطفى لما تكبس وقّف أو تسكّر الصفحة.</p>
     <button class="ghost small" id="camBtn">▶ شغّل الكاميرا</button>
@@ -267,10 +370,16 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
         <div style="flex:0;display:flex;gap:6px">
           <button class="ghost small" id="openTaskWs" style="display:none">VS Code ↗</button>
           <button class="ghost small" id="rollback" style="display:none">↩ Rollback</button>
+          <button class="ghost small" id="resumeTask" style="display:none">كمّل المهمة</button>
           <button class="bad small" id="stopTask" style="display:none">⏹ أوقف</button></div>
       </div>
       <p id="taskPrompt" class="muted"></p>
       <div id="taskUsage" class="muted" style="font-size:12px"></div>
+      <div id="resumeResolution" hidden>
+        <p class="muted">انقطع الرد على آخر خطوة. افحص نتيجتها على الجهاز قبل الاستكمال، حتى ما تتكرر بالغلط.</p>
+        <label for="resumeChoice">نتيجة آخر خطوة <span id="resumeTool"></span></label>
+        <select id="resumeChoice"><option value="">اختر بعد الفحص</option><option value="completed">الخطوة تمت على الجهاز</option><option value="not_completed">الخطوة لم تتم على الجهاز</option></select>
+      </div>
       <div id="errorBox" style="color:var(--bad)"></div>
     </div>
     <div id="approvals"></div>
@@ -619,26 +728,76 @@ $("talkBtn").onclick = async () => {
   catch (e) { $("lineInfo").textContent = "ما انسمع: " + e.message; }
 };
 // ---- live screen + telling the agent what to do while watching ----
-let scrOn = false, scrTask = null, scrTimer = null;
+let scrOn = false, scrTask = null, scrTimer = null, scrOpening = false, scrEpoch = 0;
+let scrActiveProfile = '', scrActiveMonitor = '', scrToken = null;
+function screenProfile() {
+  const selected = $("screenQuality").value;
+  if (selected !== "auto") return selected;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  return connection?.saveData || ['slow-2g', '2g', '3g'].includes(connection?.effectiveType) ? 'economy' : 'balanced';
+}
+function screenPreferenceNote() {
+  const pending = scrOn && (screenProfile() !== scrActiveProfile || $("screenMonitor").value !== scrActiveMonitor);
+  $("screenPreferenceNote").textContent = pending ? "اختيارك الجديد محفوظ للعرض القادم. وقف العرض وافتحه لتطبيقه." :
+    "الجودة الأعلى تستخدم بيانات أكثر. التلقائي يختار عند البدء فقط؛ التغيير يطبق عند فتح العرض من جديد.";
+}
+async function loadScreenOptions() {
+  $("screenOptionsRefresh").disabled = true;
+  try {
+    const options = await api('/api/screen/options');
+    const selected = $("screenMonitor").value;
+    $("screenMonitor").replaceChildren();
+    for (const monitor of options.monitors || []) $("screenMonitor").add(new Option(monitor.label, monitor.id));
+    if ([...$("screenMonitor").options].some(option => option.value === selected)) $("screenMonitor").value = selected;
+    else $("screenMonitor").value = 'desktop';
+    screenPreferenceNote();
+  } catch (e) { $("screenPreferenceNote").textContent = "تعذّر تحديث قائمة الشاشات: " + e.message; }
+  finally { $("screenOptionsRefresh").disabled = false; }
+}
+$("screenOptionsRefresh").onclick = loadScreenOptions;
+$("screenQuality").onchange = screenPreferenceNote;
+$("screenMonitor").onchange = screenPreferenceNote;
+function stopScreenToken(token) {
+  if (!token) return Promise.resolve();
+  return api('/api/live/screen/stop', {method: 'POST', body: JSON.stringify({token})}).catch(() => {});
+}
 function scrStop() {
+  scrEpoch++;
+  const token = scrToken; scrToken = null;
   document.dispatchEvent(new Event("hassan:screen-stopped"));
   $("scrView").dataset.streaming = "false";
+  delete $("scrView").dataset.capture;
   scrOn = false; $("scrView").src = ""; $("scrBox").style.display = "none"; $("scrFull").style.display = "none";
   $("scrBtn").textContent = "▶ اعرض الشاشة";
-  api("/api/live/screen/stop", {method: "POST"}).catch(() => {});
+  screenPreferenceNote();
+  return stopScreenToken(token);
 }
 $("scrBtn").onclick = async () => {
   if (scrOn) return scrStop();
+  if (scrOpening) return;
+  scrOpening = true; $("scrBtn").disabled = true;
+  const epoch = ++scrEpoch;
+  const profile = screenProfile(), monitor = $("screenMonitor").value || 'desktop';
   $("scrErr").textContent = "";
   $("scrBox").style.display = "";
   document.dispatchEvent(new Event("hassan:screen-opening"));
   try {
-    const r = await api("/api/live/screen", {method: "POST"});
+    const r = await api("/api/live/screen", {method: "POST", body: JSON.stringify({profile, monitor})});
+    const token = r.stream_id || new URL(r.url, location.href).searchParams.get('token');
+    if (epoch !== scrEpoch) { await stopScreenToken(token); return; }
+    if (!token) throw Error('تعذّر تأكيد جلسة العرض. حدّث الصفحة وجرب مجددًا.');
+    scrToken = token;
+    if (monitor !== 'desktop' && (!r.capture || !r.virtual)) throw Error('تعذّر تحديد إحداثيات الشاشة المختارة. حدّث الصفحة وجرب مجددًا.');
+    $("scrView").dataset.capture = JSON.stringify({monitor: r.capture || null, virtual: r.virtual || null});
+    scrActiveProfile = profile; scrActiveMonitor = monitor;
     scrOn = true; $("scrView").src = r.url; $("scrBox").style.display = ""; $("scrFull").style.display = "";
     $("scrView").dataset.streaming = "true";
     $("scrBtn").textContent = "⏹ وقّف العرض";
+    screenPreferenceNote();
   } catch (e) { scrStop(); $("scrErr").textContent = e.message; }
+  finally { scrOpening = false; $("scrBtn").disabled = false; }
 };
+loadScreenOptions();
 $("scrView").onerror = () => { if (scrOn) { scrStop(); $("scrErr").textContent = "ما قدرت أعرض الشاشة (ffmpeg مثبت؟)"; } };
 $("scrFull").onclick = () => document.dispatchEvent(new Event("hassan:screen-fullscreen"));
 async function scrSend() {
@@ -751,6 +910,17 @@ async function checkApprovals() {
   } catch {}
 }
 setInterval(checkApprovals, 4000);
+$("resumeTask").onclick = async () => {
+  if (!currentTask) return;
+  if(currentTask.resume_child){openTask(currentTask.resume_child);return;}
+  const uncertain = !!currentTask.operator_pending?.mutation;
+  const resolution = uncertain ? $("resumeChoice").value : null;
+  if (uncertain && !resolution) { $("errorBox").textContent="افحص آخر خطوة واختر نتيجتها أولًا."; return; }
+  $("resumeTask").disabled=true;
+  try { const next=await api(`/api/tasks/${currentTask.id}/resume`, {method:"POST",body:JSON.stringify({resolution})}); openTask(next.id);loadHistory(); }
+  catch(error){$("errorBox").textContent=error.message;}
+  finally{$("resumeTask").disabled=false;}
+};
 $("stopTask").onclick = async () => {
   if (!confirm("توقف المهمة؟ أي طلب موافقة معلّق رح ينرفض.")) return;
   try { await api(`/api/tasks/${current}/cancel`, {method: "POST"}); } catch (e) { alert(e.message); }
@@ -792,7 +962,7 @@ $("run").onclick = async () => {
   finally { $("run").disabled = false; }
 };
 function openTask(id) {
-  approvalKey = null; current = id;
+  approvalKey = null; current = id; $("resumeChoice").value="";
   if (window.innerWidth < 900) setTimeout(() => $("taskView").scrollIntoView({behavior: "smooth"}), 150); lastSeq = 0; $("log").innerHTML = ""; $("taskView").style.display = "";
   clearInterval(timer); poll(); timer = setInterval(poll, 1200);
 }
@@ -827,7 +997,12 @@ function render(t) {
   $("stopTask").style.display = ["running", "awaiting_approval", "queued", "cancelling"].includes(t.status) ? "" : "none";
   $("stopTask").disabled = t.status === "cancelling";
   $("stopTask").textContent = t.status === "cancelling" ? "جارٍ الإيقاف…" : "أوقف المهمة";
-  $("evTitle").textContent = t.kind === "operate" ? "🖥️ خطوات على الكمبيوتر" : "الأدلة (Evidence)";
+  const canResume=t.kind==="operate" && ["failed","incomplete","cancelled"].includes(t.status);
+  $("resumeTask").style.display=canResume?"":"none";
+  $("resumeTask").textContent=t.resume_child?"افتح المهمة المستكملة":"كمّل المهمة";
+  $("resumeResolution").hidden=!canResume || !t.operator_pending?.mutation || !!t.resume_child;
+  $("resumeTool").textContent=t.operator_pending?.tool || "";
+  $("evTitle").textContent = t.kind === "operate" ? (t.device_id ? "📱 خطوات على الهاتف" : "🖥️ خطوات على الكمبيوتر") : "الأدلة (Evidence)";
   if (t.status === "completed" && t.decision && $("speakReply").checked && !spoken.has(t.id)) {
     spoken.add(t.id); speak(t.decision); loadUsage();
   }

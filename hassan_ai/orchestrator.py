@@ -5,6 +5,7 @@ Reviewer → Judge → [approval → apply → verify → repair] → Decision.
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import time
 from pathlib import Path
@@ -69,13 +70,60 @@ class Orchestrator:
 
     # ------------------------------------------------------------------ API
     def submit(self, req: TaskCreate) -> TaskRecord:
+        if req.device_id and req.kind != "operate":
+            raise ValueError("Phone tasks must use operate mode")
         task = TaskRecord(prompt=req.prompt, mode=req.mode, workspace=req.workspace,
                           execute=req.execute, project=req.project, kind=req.kind, origin=req.origin,
-                          budget=req.budget, conversation=req.conversation)
+                          budget=req.budget, conversation=req.conversation, device_id=req.device_id)
         self.memory.save_task(task)
         self._emit(task, "created", "Task received", {"mode": task.mode.value, "execute": task.execute})
         self._spawn(self.run(task.id), task.id)
         return task
+
+    def resume(self, task_id: str, resolution: str | None = None) -> TaskRecord:
+        """Start a linked continuation only after an explicit request, never during recovery."""
+        previous = self._load(task_id)
+        if previous.kind != "operate" or previous.status not in (
+                TaskStatus.failed, TaskStatus.incomplete, TaskStatus.cancelled):
+            raise ValueError("Only interrupted, failed or incomplete operator tasks can be continued")
+        if task_id in self._jobs:
+            raise ValueError("Wait for the previous task to finish stopping")
+        if previous.resume_child:
+            return self._load(previous.resume_child)  # idempotent double click; resume the child for a later attempt
+        pending = previous.operator_pending
+        uncertain = bool(pending and pending.get("mutation"))
+        if uncertain and resolution not in {"completed", "not_completed"}:
+            raise ValueError("Last action is uncertain; check the device and explicitly resolve completed or not_completed")
+        if not uncertain and resolution is not None:
+            raise ValueError("This task has no uncertain action to resolve")
+        if previous.device_id:
+            hub = self.operator.phone_hub if self.operator else None
+            device = next((d for d in hub.list_devices() if d["device_id"] == previous.device_id), None) if hub else None
+            if not device or not device["online"] or not device["control_enabled"] or device.get("busy"):
+                raise ValueError("The same phone must be online, enabled and free before continuing")
+        history = copy.deepcopy(previous.operator_history)
+        completed = list(previous.operator_completed)
+        if uncertain:
+            confirmed = resolution == "completed"
+            history.append({"tool": pending["tool"], "args": pending["args"], "mutation": True,
+                            "ok": confirmed, "acknowledged": confirmed,
+                            "result": "User checked the device: " + resolution})
+            if confirmed and pending["signature"] not in completed:
+                completed.append(pending["signature"])
+            previous.operator_pending = {**pending, "resolution": resolution, "resolved_at": now()}
+            previous.resume_blocked = False
+        resumed = TaskRecord(prompt=previous.prompt, mode=previous.mode, kind=previous.kind,
+                             device_id=previous.device_id, workspace=previous.workspace, project=previous.project,
+                             execute=previous.execute, origin=previous.origin, budget=previous.budget,
+                             conversation=previous.conversation, operator_history=history,
+                             operator_completed=completed, resume_of=previous.id,
+                             resume_count=previous.resume_count + 1, phase="resuming")
+        previous.resume_child = resumed.id
+        self.memory.save_resumption(previous, resumed)
+        self._emit(resumed, "resumed", "Continuing after fresh observation; acknowledged changes will not be replayed",
+                   {"previous_task_id": previous.id, "resolution": resolution})
+        self._spawn(self.run(resumed.id), resumed.id)
+        return resumed
 
     def recover_interrupted(self) -> int:
         """Tasks cut off by a restart are marked failed (awaiting-approval tasks survive)."""
@@ -90,7 +138,8 @@ class Orchestrator:
                     self.memory.save_approval(a)
                 task.status = TaskStatus.running
             if task.status in (TaskStatus.running, TaskStatus.queued, TaskStatus.cancelling):
-                task.status, task.error = TaskStatus.failed, "Interrupted by server restart"
+                task.status, task.phase, task.error = TaskStatus.failed, "interrupted", "Interrupted by server restart"
+                task.resume_blocked = bool(task.operator_pending and task.operator_pending.get("mutation"))
                 self.memory.save_task(task)
                 count += 1
         return count
@@ -134,6 +183,14 @@ class Orchestrator:
             job.cancel()
         else:
             self._mark_cancelled(task_id)
+
+    async def take_over_desktop(self, task_id: str) -> None:
+        """Manual input waits for the agent's process/tool cleanup before taking ownership."""
+        job = self._jobs.get(task_id)
+        if job is None:
+            return  # DesktopControl still checks the lease; stale owners are never overridden here.
+        self.cancel(task_id)
+        await asyncio.gather(asyncio.shield(job), return_exceptions=True)
 
     def _mark_cancelled(self, task_id: str) -> None:
         task = self._load(task_id)
@@ -501,7 +558,8 @@ class Orchestrator:
         errors: list[str] = []
         for alias in chain:
             try:
-                comp = await self.llm.complete(alias, spec.system_prompt, user,
+                system = self.operator.system_prompt(task) if agent == "operator" and task.device_id and self.operator else spec.system_prompt
+                comp = await self.llm.complete(alias, system, user,
                                                json_mode=agent in ("manager", "planner", "coder", "judge"))
                 self.memory.record_model_call(alias, agent, True, comp.duration)
                 self.memory.record_usage(task.id, label or agent, comp.model, comp.input_tokens,

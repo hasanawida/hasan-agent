@@ -1,0 +1,19 @@
+.browser-devices{min-width:0}
+.browser-devices-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.browser-devices-heading h2{margin-bottom:0}
+.browser-devices-help,.browser-devices-message,.browser-devices-legacy{font-size:13px;line-height:1.7}
+.browser-devices-help{color:var(--muted,#8d9bbd)}
+.browser-devices-legacy{padding:9px;border:1px solid var(--warn,#f0b429);border-radius:8px;color:var(--warn,#f0b429)}
+.browser-devices-list{display:grid;gap:9px}
+.browser-device{border:1px solid var(--line,#243052);border-radius:9px;padding:10px;min-width:0}
+.browser-device-heading{display:flex;align-items:center;gap:7px;flex-wrap:wrap;overflow-wrap:anywhere}
+.browser-device-current{font-size:11px;border:1px solid var(--ok,#2fbf71);color:var(--ok,#2fbf71);border-radius:20px;padding:2px 7px}
+.browser-device-seen{font-size:12px;color:var(--muted,#8d9bbd);margin:7px 0;line-height:1.6}
+.browser-device-form{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0 4px}
+.browser-device-form input{flex:1 1 130px;min-width:0;font-size:14px}
+.browser-device-form button{flex:0 0 auto;padding:9px;font-size:12px}
+.browser-device-revoke{margin-top:7px;color:var(--bad,#ef5b5b)!important;font-size:12px}
+.browser-devices-message{margin-bottom:0;min-height:1.5em;color:var(--muted,#8d9bbd);overflow-wrap:anywhere}
+.browser-devices-message[data-error="true"]{color:var(--bad,#ef5b5b)}
+.browser-devices-empty{font-size:13px;line-height:1.7;color:var(--muted,#8d9bbd)}
+@media(max-width:600px){.browser-device-form input{font-size:16px}.browser-device-form button,.browser-device-revoke{min-height:42px}}

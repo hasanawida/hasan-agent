@@ -47,3 +47,7 @@ html.desktopImmersive,body.desktopImmersive{overflow:hidden;padding:0}
 #desktopTouchHint{display:none}
 #desktopSurface.immersive #desktopTouchHint{display:block;flex:none;margin:0;padding:4px 8px;background:var(--panel);color:var(--muted);font-size:11px;text-align:center}
 #scrView[data-gesture="selecting"]{outline:3px solid var(--warn);outline-offset:-3px;cursor:grabbing}
+
+#screenPreferences{border:1px solid var(--line);border-radius:8px;padding:9px;margin:10px 0}
+#screenPreferences select{min-width:0;font-size:13px}
+#screenPreferenceNote{font-size:12px;line-height:1.6;margin-bottom:0}

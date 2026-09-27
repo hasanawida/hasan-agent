@@ -32,7 +32,7 @@
     el('desktopFullStatus').textContent=ready?'متصل':socket?'جارٍ الاتصال…':state?.enabled?'عرض فقط':'السماح مطفأ';
     if(!ready)hideKeyboard();
     view.dataset.control=String(ready);
-    el('desktopConnect').textContent=socket?'وقف التحكّم':opening?'جارٍ فتح الشاشة…':'افتح الشاشة وتحكّم';
+    el('desktopConnect').textContent=socket?'وقف التحكّم':opening?'جارٍ فتح الشاشة…':state?.owner_kind==='agent'?'استلم التحكّم من الإيجنت':'افتح الشاشة وتحكّم';
     el('desktopConnect').disabled=opening || (!socket && !state?.enabled);
     if (!state) return;
     el('desktopGrant').hidden=!state.local || !state.supported;
@@ -51,6 +51,8 @@
       if(!socket){
         if(!state.supported)message('التحكّم اليدوي يحتاج Windows وتحديث مكتبات Hassan. عرض الشاشة يبقى متاحًا.');
         else if(!state.enabled)message(state.local?'فعّل السماح، ثم اعرض الشاشة وابدأ التحكّم.':'فعّل السماح بالتحكّم من صفحة Hassan على الكمبيوتر أولًا.');
+        else if(state.handoff_pending)message('جارٍ إيقاف الإيجنت وتسليم التحكّم…');
+        else if(state.owner_kind==='agent')message('الإيجنت يتحكّم الآن؛ اضغط استلم التحكّم لإيقافه والبدء بنفسك.');
         else if(state.connected)message('جهاز آخر يتحكّم الآن. أنهِ جلسته قبل بدء جلسة جديدة.');
         else message(state.persistent?'جاهز دائمًا؛ اضغط افتح الشاشة وتحكّم من هاتفك.':'اضغط افتح الشاشة وتحكّم.');
       }
@@ -160,8 +162,8 @@
       message('للتحكّم عن بُعد، افتح رابط HTTPS الخاص بـ Tailscale.');return;
     }
     const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/desktop/control`);
-    socket=ws;render();message('جارٍ توصيل الماوس والكيبورد…');let failure='';
-    const timeout=setTimeout(()=>{if(socket===ws&&!ready)stop('تعذّر بدء التحكّم. جرّب مرة أخرى.');},10000);
+    socket=ws;render();message(state?.owner_kind==='agent'?'جارٍ إيقاف الإيجنت وتسليم التحكّم…':'جارٍ توصيل الماوس والكيبورد…');let failure='';
+    const timeout=setTimeout(()=>{if(socket===ws&&!ready)stop('تعذّر بدء التحكّم. جرّب مرة أخرى.');},35000);
     ws.onmessage=event=>{
       if(socket!==ws)return;
       let data;try{data=JSON.parse(event.data);}catch{stop('رد غير صالح من الخادم.');return;}
@@ -178,7 +180,17 @@
     const width=view.naturalWidth*scale,height=view.naturalHeight*scale;
     const x=(event.clientX-rect.left-(rect.width-width)/2)/width,y=(event.clientY-rect.top-(rect.height-height)/2)/height;
     if(!Number.isFinite(x)||!Number.isFinite(y)||(!clamp&&(x<0||x>1||y<0||y>1)))return null;
-    return {x:Math.max(0,Math.min(1,x)),y:Math.max(0,Math.min(1,y))};
+    const position={x:Math.max(0,Math.min(1,x)),y:Math.max(0,Math.min(1,y))};
+    // Capture can show one monitor; input still addresses the full virtual desktop.
+    let capture;
+    try {capture=JSON.parse(view.dataset.capture || '{}');} catch {return null;}
+    const monitor=capture.monitor, desktop=capture.virtual;
+    if(monitor && desktop && desktop.width>1 && desktop.height>1 && monitor.width>0 && monitor.height>0) {
+      position.x=(monitor.left+position.x*(monitor.width-1)-desktop.left)/(desktop.width-1);
+      position.y=(monitor.top+position.y*(monitor.height-1)-desktop.top)/(desktop.height-1);
+      if(!Number.isFinite(position.x)||!Number.isFinite(position.y)||position.x<0||position.x>1||position.y<0||position.y>1)return null;
+    }
+    return position;
   }
   function touchData(event) {return {clientX:event.clientX,clientY:event.clientY,position:point(event,true)};}
   view.addEventListener('pointerdown',event=>{

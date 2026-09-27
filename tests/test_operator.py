@@ -140,7 +140,7 @@ def test_phone_can_approve_operator_actions(client, tmp_path):
     src.write_text("a")
     t = start(client, op("copy", src=str(src), dst=str(tmp_path / "b.txt")))
     _, approval = pending(client, t["id"])
-    phone = {"host": "pc.ts.net", "x-forwarded-for": "100.64.0.9", "origin": "https://pc.ts.net"}
+    phone = {"host": "pc.ts.net", "x-forwarded-for": "100.64.0.9", "origin": "https://pc.ts.net", "x-forwarded-proto": "https"}
     assert client.post(f"/api/approvals/{approval['id']}", json={"approve": True}, headers=phone).status_code == 401
     client.cookies.set("hassan_key", client.app.state.access_key)
     assert client.post(f"/api/approvals/{approval['id']}", json={"approve": True}, headers=phone).status_code == 200

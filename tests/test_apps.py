@@ -271,7 +271,7 @@ def test_dashboard_voice_goes_to_whisper(client, monkeypatch):
 def test_live_screen_is_view_only_stream(client):
     tools = client.app.state.orchestrator.operator.tools
 
-    async def fake_screen():
+    async def fake_screen(**_options):
         return [tools._ffmpeg(), "-loglevel", "error", "-f", "lavfi", "-i",
                 "testsrc=size=640x360:rate=6:duration=1", "-f", "mpjpeg", "pipe:1"]
 

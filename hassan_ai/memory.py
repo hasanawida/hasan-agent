@@ -95,6 +95,17 @@ class Memory:
             )
             self._conn.commit()
 
+    def save_resumption(self, previous: TaskRecord, resumed: TaskRecord) -> None:
+        """Atomically link the prior attempt and its explicitly requested continuation."""
+        previous.updated_at = resumed.updated_at = now()
+        with self._lock, self._conn:
+            for task in (previous, resumed):
+                self._conn.execute(
+                    "INSERT INTO tasks(id,status,created_at,updated_at,body) VALUES(?,?,?,?,?) "
+                    "ON CONFLICT(id) DO UPDATE SET status=excluded.status, updated_at=excluded.updated_at, body=excluded.body",
+                    (task.id, task.status.value, task.created_at, task.updated_at, task.model_dump_json()),
+                )
+
     def get_task(self, task_id: str) -> TaskRecord | None:
         with self._lock:
             row = self._conn.execute("SELECT body FROM tasks WHERE id=?", (task_id,)).fetchone()

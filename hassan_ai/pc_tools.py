@@ -42,6 +42,94 @@ import httpx
 from .execution import NO_WINDOW
 from .policy import APPROVAL, AUTO, FORBIDDEN, Policy, PolicyError
 
+# MJPEG presets bound bandwidth/CPU without accepting raw ffmpeg arguments.
+_SCREEN_PROFILES = (
+    {"id": "economy", "label": "توفير البيانات", "fps": 6, "max_width": 960, "max_height": 540, "jpeg_quality": 10},
+    {"id": "balanced", "label": "متوازن", "fps": 12, "max_width": 1280, "max_height": 720, "jpeg_quality": 7},
+    {"id": "sharp", "label": "أوضح وأنعم", "fps": 15, "max_width": 1920, "max_height": 1080, "jpeg_quality": 5},
+)
+
+
+def screen_profiles() -> list[dict]:
+    """Return independent metadata; capture settings are fixed server-side."""
+    return [dict(profile) for profile in _SCREEN_PROFILES]
+
+
+def _windows_monitors() -> list[dict]:
+    """Read physical display rectangles without changing process-wide DPI mode."""
+    import ctypes
+    from ctypes import wintypes
+
+    class MonitorInfo(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
+                    ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD),
+                    ("szDevice", wintypes.WCHAR * 32)]
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HANDLE, wintypes.HDC,
+                                     ctypes.POINTER(wintypes.RECT), wintypes.LPARAM)
+    user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MonitorInfo)]
+    user32.GetMonitorInfoW.restype = wintypes.BOOL
+    user32.EnumDisplayMonitors.argtypes = [wintypes.HDC, ctypes.POINTER(wintypes.RECT), callback_type, wintypes.LPARAM]
+    user32.EnumDisplayMonitors.restype = wintypes.BOOL
+    displays: list[dict] = []
+
+    @callback_type
+    def visit(handle, _dc, _rect, _data):
+        info = MonitorInfo()
+        info.cbSize = ctypes.sizeof(info)
+        if user32.GetMonitorInfoW(handle, ctypes.byref(info)):
+            rect = info.rcMonitor
+            width, height = rect.right - rect.left, rect.bottom - rect.top
+            if width > 0 and height > 0:
+                displays.append({"id": info.szDevice, "left": rect.left, "top": rect.top,
+                                 "width": width, "height": height, "primary": bool(info.dwFlags & 1)})
+        return True
+
+    previous = None
+    dpi_context = getattr(user32, "SetThreadDpiAwarenessContext", None)
+    if dpi_context:
+        dpi_context.argtypes = [ctypes.c_void_p]
+        dpi_context.restype = ctypes.c_void_p
+        previous = dpi_context(ctypes.c_void_p(-4))
+    try:
+        if not user32.EnumDisplayMonitors(None, None, visit, 0) or not displays:
+            raise RuntimeError("تعذّر قراءة الشاشات المتصلة بويندوز.")
+    finally:
+        if previous and dpi_context:
+            dpi_context(previous)
+    displays.sort(key=lambda item: (not item["primary"], item["left"], item["top"], item["id"]))
+    for index, item in enumerate(displays, 1):
+        item["label"] = f"الشاشة {index}" + (" — الرئيسية" if item["primary"] else "")
+    return displays
+
+
+def list_monitors() -> list[dict]:
+    """Windows physical monitors plus their virtual-desktop union; X11 keeps its root."""
+    if os.name != "nt":
+        return [{"id": "desktop", "label": "سطح المكتب", "left": 0, "top": 0,
+                 "width": 0, "height": 0, "primary": False}]
+    displays = _windows_monitors()
+    left = min(item["left"] for item in displays)
+    top = min(item["top"] for item in displays)
+    right = max(item["left"] + item["width"] for item in displays)
+    bottom = max(item["top"] + item["height"] for item in displays)
+    return [{"id": "desktop", "label": "كل الشاشات", "left": left, "top": top,
+             "width": right - left, "height": bottom - top, "primary": False}, *displays]
+
+
+def resolve_screen_capture(profile: str = "balanced", monitor: str = "desktop") -> dict:
+    """Validate public identifiers and resolve only known display rectangles."""
+    chosen = next((item for item in screen_profiles() if item["id"] == profile), None)
+    if chosen is None:
+        raise ValueError("جودة العرض غير معروفة. اختر جودة من القائمة.")
+    monitors = list_monitors()
+    display = next((item for item in monitors if item["id"] == monitor), None)
+    if display is None:
+        raise ValueError("الشاشة المختارة غير متصلة. حدّث قائمة الشاشات واختر من جديد.")
+    return {"profile": chosen, "monitor": display, "virtual": monitors[0]}
+
+
 MAX_READ = 60_000
 MAX_OUTPUT = 12_000
 EXECUTABLE_SUFFIXES = {".exe", ".bat", ".cmd", ".ps1", ".msi", ".vbs", ".js", ".jse", ".wsf", ".scr",
@@ -651,14 +739,20 @@ class PCTools:
             src.unlink(missing_ok=True)
             wav.unlink(missing_ok=True)
 
-    async def live_screen_argv(self) -> list[str]:
-        """ffmpeg capturing the whole desktop (view only) as a multipart MJPEG stream to stdout."""
+    async def live_screen_argv(self, profile: str = "balanced", monitor: str = "desktop") -> list[str]:
+        """Capture a known display with bounded MJPEG presets; no OS input is sent."""
+        selection = resolve_screen_capture(profile, monitor)
+        quality, display = selection["profile"], selection["monitor"]
         if os.name == "nt":
-            src = ["-f", "gdigrab", "-framerate", "6", "-draw_mouse", "1", "-i", "desktop"]
+            src = ["-f", "gdigrab", "-framerate", str(quality["fps"]), "-draw_mouse", "1",
+                   "-offset_x", str(display["left"]), "-offset_y", str(display["top"]),
+                   "-video_size", f"{display['width']}x{display['height']}", "-i", "desktop"]
         else:
-            src = ["-f", "x11grab", "-framerate", "6", "-i", os.environ.get("DISPLAY", ":0")]
-        return [self._ffmpeg(), "-hide_banner", "-loglevel", "error", *src, "-vf", "scale='min(1280,iw)':-2",
-                "-q:v", "7", "-f", "mpjpeg", "pipe:1"]
+            src = ["-f", "x11grab", "-framerate", str(quality["fps"]), "-i", os.environ.get("DISPLAY", ":0")]
+        scale = (f"scale=w='min({quality['max_width']},iw)':h='min({quality['max_height']},ih)':"
+                 "force_original_aspect_ratio=decrease:force_divisible_by=2")
+        return [self._ffmpeg(), "-hide_banner", "-loglevel", "error", *src, "-vf", scale,
+                "-q:v", str(quality["jpeg_quality"]), "-flush_packets", "1", "-f", "mpjpeg", "pipe:1"]
 
     async def live_mic_argv(self, device: str = "") -> list[str]:
         """ffmpeg reading the microphone and writing a low-latency MP3 stream to stdout."""
