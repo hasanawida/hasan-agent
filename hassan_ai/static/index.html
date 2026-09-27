@@ -7,7 +7,10 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
 <link rel="apple-touch-icon" href="/static/icon.svg">
-<meta name="theme-color" content="#0b1020">
+<meta name="theme-color" content="#22261D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Reem+Kufi:wght@500;700&display=swap">
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -17,44 +20,44 @@
    Components only use semantic/component tokens, never raw values.
    ===================================================================== */
 :root{
-  /* ---- 1. primitives (raw values) ---- */
-  --navy-950:#0b1020; --navy-925:#0e1427; --navy-900:#131a2e; --navy-850:#1c2542; --navy-800:#243052;
-  --navy-700:#2c3f73; --navy-650:#1d2b52;
-  --slate-50:#e7ecf7; --slate-400:#8d9bbd; --white:#ffffff;
-  --blue-400:#4f8cff; --blue-500:#2a63cc; --blue-600:#2f6ad9;  --black:#000000;           /* 600 = 5.0:1 under white text */
-  --green-400:#2fbf71; --green-700:#157a44;
-  --red-400:#ef5b5b;  --red-600:#c93434;
-  --amber-400:#f0b429; --amber-950:#1b1300;
+  /* ---- 1. primitives (raw values) — "field radio": olive night, bone, signal amber ---- */
+  --olive-990:#1A1D16; --olive-950:#22261D; --olive-900:#2C3125; --olive-850:#353B2C; --olive-800:#3E4434; --olive-700:#555C47;
+  --bone-100:#ECE9DF; --sage-400:#A9AC98; --black:#000000; --white:#ffffff;   /* white: QR codes must stay scannable */
+  --amber-400:#F2A531; --amber-300:#F7B955; --amber-200:#F2C94C;
+  --led-400:#8DBF6A;   --coral-400:#F08570;
+  --amber-ring-1:rgba(242,165,49,.22); --amber-ring-2:rgba(242,165,49,.09); --coral-ring:rgba(240,133,112,.45);
+  --led-glow:rgba(141,191,106,.55); --faceplate-hi:rgba(236,233,223,.05);
 
   --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
-  --text-xs:12px; --text-sm:13px; --text-md:14px; --text-base:16px; --text-lg:18px; --text-xl:20px; --text-2xl:24px;
-  --radius-sm:8px; --radius-md:12px; --radius-lg:16px; --radius-xl:20px; --radius-full:999px;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-glow:0 4px 18px rgba(79,140,255,.35);
+  --text-xs:12px; --text-sm:13px; --text-md:14px; --text-base:16px; --text-lg:18px; --text-xl:22px; --text-2xl:28px; --text-3xl:36px;
+  --radius-xs:4px; --radius-sm:6px; --radius-md:8px; --radius-lg:16px; --radius-xl:24px; --radius-full:999px;
   --dur-fast:150ms; --dur:220ms; --ease-out:cubic-bezier(.2,.8,.2,1);
-  --font-sans:"Segoe UI",Tahoma,"Noto Kufi Arabic","Noto Sans Arabic",sans-serif;
+  --font-sans:"IBM Plex Sans Arabic","Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;
+  --font-display:"Reem Kufi","IBM Plex Sans Arabic","Noto Kufi Arabic",sans-serif;
   --font-mono:Consolas,"SFMono-Regular",Menlo,monospace;
 
-  /* ---- 2. semantic (purpose) — the JS also reads --accent/--ok/--bad/--warn ---- */
-  --bg:var(--navy-950); --surface:var(--navy-900); --surface-sunken:var(--navy-925); --surface-raised:var(--navy-650);
-  --line:var(--navy-800); --line-subtle:var(--navy-850); --line-strong:var(--navy-700);
-  --text:var(--slate-50); --muted:var(--slate-400); --on-fill:var(--white);
-  --accent:var(--blue-400); --accent-fill:var(--blue-600);
-  --ok:var(--green-400);    --ok-fill:var(--green-700);
-  --bad:var(--red-400);     --bad-fill:var(--red-600);
-  --warn:var(--amber-400);  --on-warn:var(--amber-950);
+  /* ---- 2. semantic (purpose) — the JS also reads --accent/--ok/--bad/--warn as text colors ---- */
+  --bg:var(--olive-950); --surface:var(--olive-900); --surface-sunken:var(--olive-990); --surface-raised:var(--olive-850);
+  --line:var(--olive-800); --line-subtle:var(--olive-850); --line-strong:var(--olive-700);
+  --text:var(--bone-100); --muted:var(--sage-400); --on-fill:var(--olive-990);   /* fills carry dark ink, not white */
+  --accent:var(--amber-400); --accent-fill:var(--amber-400);                      /* ink on amber 8.3:1 */
+  --ok:var(--led-400);       --ok-fill:var(--led-400);
+  --bad:var(--coral-400);    --bad-fill:var(--coral-400);
+  --warn:var(--amber-200);   --on-warn:var(--olive-990);
   --focus-ring:0 0 0 2px var(--bg),0 0 0 4px var(--accent);
   --tap:44px;                                        /* minimum touch target */
-  --header-h:53px; --nav-h:62px; --safe-b:env(safe-area-inset-bottom,0px);
+  --header-h:57px; --nav-h:62px; --safe-b:env(safe-area-inset-bottom,0px);
 
   /* ---- 3. component ---- */
   --card-bg:var(--surface); --card-border:var(--line); --card-radius:var(--radius-md); --card-pad:var(--space-4);
   --field-bg:var(--surface-sunken); --field-border:var(--line); --field-radius:var(--radius-sm);
-  --btn-bg:var(--accent-fill); --btn-bg-hover:var(--blue-500); --btn-fg:var(--on-fill); --btn-radius:var(--radius-sm);
+  --btn-bg:var(--accent-fill); --btn-bg-hover:var(--amber-300); --btn-fg:var(--on-fill); --btn-radius:var(--radius-sm);
   --btn-ghost-hover:var(--line-subtle);
-  --bubble-me-bg:var(--surface-raised); --bubble-me-border:var(--line-strong);
-  --nav-bg:var(--surface); --nav-item-active:var(--surface);
+  --bubble-me-bg:var(--surface-raised); --bubble-me-border:var(--line);
+  --nav-bg:var(--surface-sunken); --nav-item-active:transparent;
   --composer-bg:var(--surface); --composer-radius:var(--radius-xl);
-  --mic-size:60px;
+  --mic-size:64px; --mic-ring:0 0 0 7px var(--amber-ring-1),0 0 0 14px var(--amber-ring-2);
+  --shadow-glow:var(--mic-ring); --shadow-md:inset 0 1px 0 var(--faceplate-hi);
 }
 
 /* ---- base ---- */
@@ -229,10 +232,50 @@ details.fold>:not(summary){margin:var(--space-3) var(--card-pad) var(--card-pad)
   .composer .top #chatInfo{display:none}
   #newChat .lbl{display:none}#newChat{margin-inline-start:auto}
 }
+/* ---- field-radio identity ---- */
+header h1{font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;letter-spacing:.01em}
+header .meta{display:flex;align-items:center;gap:var(--space-2)}
+#health::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--led-glow);flex:0 0 auto}
+.vtitle{font-family:var(--font-display);font-size:var(--text-2xl);font-weight:500}
+.card h2{color:var(--text);font-weight:600}
+.card h2 .ico{color:var(--muted)}
+
+/* the tuned channel: an amber bar, not a filled pill */
+.nav button{position:relative}
+.nav button[aria-current="page"]{background:var(--nav-item-active);border-color:transparent;font-weight:600}
+.nav button[aria-current="page"]::before{content:"";position:absolute;inset-block:10px;inset-inline-start:-12px;width:3px;border-radius:var(--radius-xs);background:var(--accent)}
+@media(max-width:900px){
+  .nav button[aria-current="page"]::before{inset-block:0 auto;inset-inline:30% 30%;width:auto;height:3px}
+}
+
+/* the reply reads like a transcript line, not another card */
+.bubble-ai{background:transparent;border:0;border-inline-start:3px solid var(--accent);border-radius:0;padding:var(--space-1) var(--space-4)}
+.bubble-ai h2{margin-bottom:var(--space-2)}
+.decision{font-size:17px;line-height:1.8}
+.bubble-me{border-radius:var(--radius-lg) var(--radius-lg) var(--radius-xs) var(--radius-lg)}
+
+/* push-to-talk: the one loud element. The JS writes 🎤/⏹ into it; we hide that text and draw the icon. */
+#mic{font-size:0;color:var(--on-fill);position:relative;transition:box-shadow var(--dur) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+#mic::before{content:"";width:26px;height:26px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='2' width='6' height='12' rx='3'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2M12 19v3'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='2' width='6' height='12' rx='3'/%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2M12 19v3'/%3E%3C/svg%3E") center/contain no-repeat}
+#mic.on{animation:none;background:var(--bad-fill)}
+#mic.on::before{-webkit-mask:none;mask:none;width:18px;height:18px;border-radius:var(--radius-xs)}
+#mic.on::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--coral-ring);animation:signal 1.4s var(--ease-out) infinite}
+@keyframes signal{from{transform:scale(1);opacity:1}to{transform:scale(1.7);opacity:0}}
+
+.empty .callsign{display:block;font-family:var(--font-display);font-size:var(--text-3xl);font-weight:700;color:var(--accent);margin-bottom:var(--space-2)}
+.composer .box{border-color:var(--line-strong)}
+/* amber is spent on the mic alone; send and the mode switch stay quiet */
+#run{background:var(--surface-raised);color:var(--accent);border:1px solid var(--line-strong)}
+#run:hover{background:var(--line)}
+.kinds button.on{background:var(--surface-raised);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.kinds button.on .ico{color:var(--accent)}
 /* touch screens: every control at least 44px tall */
 @media(pointer:coarse){
   button,.small,.kinds button,.chip,input:not([type=checkbox]),select{min-height:var(--tap)}
   .voice label{min-height:var(--tap)}
+  details summary{min-height:var(--tap);display:flex;align-items:center}
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
@@ -314,7 +357,7 @@ details.fold>:not(summary){margin:var(--space-3) var(--card-pad) var(--card-pad)
       <details class="card fold"><summary><svg class="ico" aria-hidden="true"><use href="#i-layers"/></svg>مخرجات الوكلاء</summary><div id="outputs"></div></details>
       <details class="card fold"><summary><svg class="ico" aria-hidden="true"><use href="#i-file"/></svg>السجل</summary><div class="log" id="log"></div></details>
     </div>
-    <div class="empty"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg>اكتب شو بدك، أو اكبس المايك واحكي.</div>
+    <div class="empty"><span class="callsign">على السمع</span>اكبس المايك واحكي، أو اكتب تحت.</div>
   </div>
 
   <div class="composer">
