@@ -26,7 +26,7 @@ if args == ["--version"]:
 assert "-p" in args and args[args.index("--tools") + 1] == ""
 system = open(args[args.index("--system-prompt-file") + 1], encoding="utf-8").read()
 user = sys.stdin.read()
-with open(os.environ["FAKE_LOG"], "a") as log:
+with open(os.environ["FAKE_LOG"] + "." + str(os.getpid()) + ".json", "w", encoding="utf-8") as log:
     log.write(json.dumps({{"cli": "claude", "cwd": os.getcwd(), "key": os.environ.get("ANTHROPIC_API_KEY")}}) + "\\n")
 text = asyncio.run(MockLLM().complete("claude", system, user)).text
 print(json.dumps({{"type": "result", "is_error": False, "result": text, "total_cost_usd": 0.01,
@@ -46,7 +46,7 @@ if args == ["login", "status"]:
 assert args[0] == "exec" and args[args.index("--sandbox") + 1] == "read-only" and args[-1] == "-"
 prompt = sys.stdin.read()
 system = re.search(r"<instructions>\\n(.*?)\\n</instructions>", prompt, re.S).group(1)
-with open(os.environ["FAKE_LOG"], "a") as log:
+with open(os.environ["FAKE_LOG"] + "." + str(os.getpid()) + ".json", "w", encoding="utf-8") as log:
     log.write(json.dumps({{"cli": "codex", "cwd": os.getcwd(), "key": os.environ.get("OPENAI_API_KEY")}}) + "\\n")
 text = asyncio.run(MockLLM().complete("chatgpt", system, prompt)).text
 open(args[args.index("-o") + 1], "w", encoding="utf-8").write(text)
@@ -133,7 +133,8 @@ def test_claude_and_chatgpt_work_together(tmp_path, fake_clis, py_project):
         coders = [o["model"] for o in task["outputs"] if o["agent"] == "coder"]
         assert any(m.startswith("claude_cli") for m in coders) and any(m.startswith("codex_cli") for m in coders)
 
-    calls = [json.loads(line) for line in log.read_text().splitlines()]
+    # Parallel fake CLIs must not append to the same Windows text stream.
+    calls = [json.loads(p.read_text(encoding="utf-8")) for p in log.parent.glob(log.name + ".*.json")]
     assert {c["cli"] for c in calls} == {"claude", "codex"}
     # subscription mode: API keys are not passed to the CLIs
     assert all(c["key"] is None for c in calls)
