@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#0b1020">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="/static/desktop-control.css">
+<script src="/static/desktop-control.js" defer></script>
 <style>
 :root{--bg:#0b1020;--panel:#131a2e;--line:#243052;--text:#e7ecf7;--muted:#8d9bbd;--accent:#4f8cff;--ok:#2fbf71;--bad:#ef5b5b;--warn:#f0b429}
 *{box-sizing:border-box}
@@ -80,6 +82,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
 </head>
 <body>
 <div id="alertBar"></div>
+<div id="desktopBanner" hidden role="status"><span id="desktopBannerText"></span><button id="desktopEmergency" class="bad">إيقاف التحكّم فورًا</button></div>
 <header>
   <h1>🧠 Hassan AI OS</h1>
   <div class="meta" id="health">…</div>
@@ -152,14 +155,29 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   </div>
   <div class="card" id="screenCard">
     <h2>🖥️ شاشة الكمبيوتر مباشرة</h2>
-    <p class="muted" style="font-size:12px;margin-top:0">بتشوف الشاشة، وبتحكي للإيجنت شو يعمل — بتتفرّج عليه عم يشتغل وبتوافق على خطواته من هون.</p>
+    <p class="muted" style="font-size:12px;margin-top:0">اعرض الشاشة، ثم تحكّم بالماوس والكيبورد بنفسك، أو احكي للإيجنت شو يعمل.</p>
+    <div id="desktopGrant" hidden><button id="desktopEnable" class="ghost">السماح بالتحكّم لمدة 30 دقيقة</button><p class="muted">يسمح لأجهزتك المسجّلة بالدخول بالتحكّم. بينتهي تلقائيًا، أو أوقفه من الزر أعلاه.</p></div>
+    <p id="desktopState" class="muted" role="status" aria-live="polite">جارٍ التحقق من التحكّم اليدوي…</p>
     <div class="row">
       <button class="ghost small" id="scrBtn">▶ اعرض الشاشة</button>
       <button class="ghost small" id="scrFull" style="display:none">⛶ ملء الشاشة</button>
     </div>
+    <button id="desktopConnect" class="ghost" disabled>تحكّم بالماوس والكيبورد</button>
     <div id="scrErr" style="color:var(--bad);font-size:12px"></div>
     <div id="scrBox" style="display:none">
-      <img id="scrView" alt="" style="width:100%;border-radius:8px;margin-top:8px;background:#000">
+      <div id="desktopSurface">
+      <div class="desktopFullscreenBar"><b>شاشة الكمبيوتر</b><button id="desktopLeaveFull" class="ghost">تصغير العرض</button></div>
+      <img id="scrView" alt="شاشة الكمبيوتر البعيد" tabindex="0" draggable="false" style="width:100%;border-radius:8px;margin-top:8px;background:#000">
+      <div id="desktopTools" hidden>
+        <p class="muted">انقر الشاشة للكتابة. Esc يحرّر لوحة المفاتيح؛ استخدم الزر أدناه لإرساله للجهاز.</p>
+        <div class="desktopKeys" dir="ltr"><button data-desktop-key="Escape" class="ghost">Esc</button><button data-desktop-key="Tab" class="ghost">Tab</button><button data-desktop-key="Enter" class="ghost">Enter</button><button data-desktop-key="Backspace" class="ghost">⌫</button><button data-desktop-shortcut="copy" class="ghost">Ctrl+C</button><button data-desktop-shortcut="paste" class="ghost">Ctrl+V</button></div>
+        <div class="desktopKeys"><button id="desktopRight" class="ghost">نقرة يمين</button><button id="desktopUp" class="ghost">تمرير ↑</button><button id="desktopDown" class="ghost">تمرير ↓</button><button id="desktopDisconnect" class="bad">وقف التحكّم</button></div>
+        <label for="desktopShortcut">اختصارات الكمبيوتر</label>
+        <div class="row"><select id="desktopShortcut"><option value="start">قائمة ابدأ</option><option value="files">مستكشف الملفات</option><option value="switch">التبديل بين البرامج</option><option value="desktop">إظهار سطح المكتب</option><option value="run">نافذة تشغيل (Win+R)</option><option value="task-manager">مدير المهام</option><option value="select-all">تحديد الكل</option><option value="cut">قص</option><option value="undo">تراجع</option><option value="redo">إعادة</option></select><button id="desktopRunShortcut" class="ghost" style="flex:0 0 auto">تنفيذ</button></div>
+        <label for="desktopText">كتابة من الهاتف (حتى 256 حرفًا)</label>
+        <div class="row"><input id="desktopText" maxlength="256" placeholder="اكتب نصًا لإرساله للخانة المحددة على الكمبيوتر" autocomplete="off"><button id="desktopSendText" class="ghost" style="flex:0 0 auto">إرسال</button></div>
+      </div>
+      </div>
       <div class="row" style="margin-top:8px">
         <input id="scrCmd" placeholder="قلّه شو يعمل: افتح CapCut وحط الفيديو اللي على الديسكتوب">
         <button class="ghost small" style="flex:0 0 auto" id="scrMic" title="احكي">🎤</button>
@@ -580,6 +598,8 @@ $("talkBtn").onclick = async () => {
 // ---- live screen + telling the agent what to do while watching ----
 let scrOn = false, scrTask = null, scrTimer = null;
 function scrStop() {
+  document.dispatchEvent(new Event("hassan:screen-stopped"));
+  $("scrView").dataset.streaming = "false";
   scrOn = false; $("scrView").src = ""; $("scrBox").style.display = "none"; $("scrFull").style.display = "none";
   $("scrBtn").textContent = "▶ اعرض الشاشة";
   api("/api/live/screen/stop", {method: "POST"}).catch(() => {});
@@ -590,11 +610,12 @@ $("scrBtn").onclick = async () => {
   try {
     const r = await api("/api/live/screen", {method: "POST"});
     scrOn = true; $("scrView").src = r.url; $("scrBox").style.display = ""; $("scrFull").style.display = "";
+    $("scrView").dataset.streaming = "true";
     $("scrBtn").textContent = "⏹ وقّف العرض";
   } catch (e) { $("scrErr").textContent = e.message; }
 };
 $("scrView").onerror = () => { if (scrOn) { scrStop(); $("scrErr").textContent = "ما قدرت أعرض الشاشة (ffmpeg مثبت؟)"; } };
-$("scrFull").onclick = () => ($("scrView").requestFullscreen || $("scrView").webkitRequestFullscreen)?.call($("scrView"));
+$("scrFull").onclick = () => ($("desktopSurface").requestFullscreen || $("desktopSurface").webkitRequestFullscreen)?.call($("desktopSurface"));
 async function scrSend() {
   const prompt = $("scrCmd").value.trim();
   if (!prompt) return;

@@ -18,6 +18,8 @@ dependencies = [
   "pillow>=10",
   "arabic-reshaper>=3",
   "python-bidi>=0.4",
+  "websockets>=15",
+  "pynput>=1.8.2; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,24 @@
+[hidden]{display:none!important}
+#desktopBanner{position:fixed;top:0;inset-inline:0;z-index:11;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 20px;background:#293521;color:#ebf6d8;border-bottom:1px solid #668344;font-size:14px}
+body.desktopGranted{padding-top:72px}
+#desktopBanner button{flex-shrink:0}
+#desktopGrant{padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+#desktopGrant p{line-height:1.6;margin-bottom:0}
+#desktopEnable,#desktopConnect{width:100%;margin-top:8px;min-height:44px}
+#desktopState{line-height:1.6;min-height:22px}
+#desktopSurface{min-width:0}
+.desktopFullscreenBar{display:none}
+#desktopSurface:fullscreen .desktopFullscreenBar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;padding-bottom:8px}
+#scrView[data-control="true"]{cursor:crosshair;touch-action:none;outline:2px solid var(--ok);outline-offset:2px}
+#scrView:focus-visible{outline:3px solid var(--warn);outline-offset:3px}
+#desktopTools p{line-height:1.5}
+#desktopTools input,#desktopTools select{min-width:0}
+#desktopTools label{display:block;margin-top:10px;margin-bottom:5px;font-size:13px}
+.desktopKeys{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.desktopKeys button{min-width:44px;min-height:44px;flex:1;padding:6px 10px;font-size:13px;white-space:nowrap}
+#desktopTools button:focus-visible,#desktopConnect:focus-visible,#desktopEnable:focus-visible{outline:2px solid var(--warn);outline-offset:3px}
+#desktopTools button:hover:not(:disabled),#desktopConnect:hover:not(:disabled),#desktopEnable:hover:not(:disabled){filter:brightness(1.15)}
+#desktopSurface:fullscreen{display:flex;flex-direction:column;width:100%;height:100%;padding:12px;background:var(--bg);overflow:auto}
+#desktopSurface:fullscreen #scrView{flex:1;min-height:0;height:0;width:100%;object-fit:contain;margin:0!important}
+#desktopSurface:fullscreen #desktopTools{flex:none;width:min(100%,900px);margin:auto;max-height:45vh;overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:600px){#desktopBanner{font-size:12px;padding:8px;gap:8px}#desktopBanner button{font-size:12px;padding:10px}.desktopKeys button{font-size:12px}#desktopSurface:fullscreen{padding:6px}}

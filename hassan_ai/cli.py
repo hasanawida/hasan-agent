@@ -55,7 +55,7 @@ def serve(settings: Settings) -> None:
     try:
         # Quiet console: the dashboard polls every second, so per-request access logs are noise.
         uvicorn.run(create_app(settings), host=settings.host, port=settings.port,
-                    access_log=False, use_colors=False)
+                    access_log=False, use_colors=False, ws_max_size=4096, ws_max_queue=16)
     finally:
         _pid_file(settings).unlink(missing_ok=True)
 

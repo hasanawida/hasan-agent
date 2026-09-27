@@ -20,6 +20,7 @@ from . import __version__, openhands, remote
 from .agents import Roster
 from .config import PACKAGE_DIR, Settings
 from .execution import NO_WINDOW, CheckpointManager, ExecutionManager, SafeLocalRunner
+from .desktop import DesktopControl, attach_routes
 from .llm import MockLLM
 from .mcp_bus import MCPRegistry
 from .memory import Memory
@@ -102,13 +103,16 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     telegram = TelegramBot(orchestrator, settings.env_file, settings.data_dir / "media", api_base=telegram_api,
                            transport=telegram_transport, scheduler=scheduler, transcriber=groq_transcriber)
     roster.agents["operator"].extra_system = orchestrator.operator.system_prompt()
+    desktop = DesktopControl()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         orchestrator.recover_interrupted()
         scheduler.start()
         await telegram.start()
+        desktop.start()
         yield
+        await desktop.close()
         await telegram.stop()
         await stop_camera()
         await scheduler.stop()
@@ -121,6 +125,8 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     app.state.memory = memory
     app.state.telegram = telegram
     app.state.scheduler = scheduler
+    app.state.desktop = desktop
+    attach_routes(app, settings, desktop)
 
     access_key = remote.load_or_create_key(settings.data_dir)
     app.state.access_key = access_key
@@ -203,6 +209,7 @@ def create_app(settings: Settings | None = None, llm=None, telegram_transport=No
     async def remote_rotate(request: Request):
         require_local(request)
         app.state.access_key = remote.rotate_key(settings.data_dir)
+        await desktop.disable()
         return {"ok": True}
 
     def api_backends() -> dict:
