@@ -1,0 +1,11 @@
+[
+ {"name": "Tayibe", "ll": [34.98, 32.27], "label": "الطيبة"},
+ {"name": "Haifa", "ll": [34.99, 32.79], "label": "حيفا"},
+ {"name": "Nazareth", "ll": [35.30, 32.70], "label": "الناصرة"},
+ {"name": "Jenin", "ll": [35.30, 32.46], "label": "جنين"},
+ {"name": "Nablus", "ll": [35.26, 32.22], "label": "نابلس"},
+ {"name": "Jerusalem", "ll": [35.22, 31.78], "label": "القدس"},
+ {"name": "Hebron", "ll": [35.10, 31.53], "label": "الخليل"},
+ {"name": "Beersheba", "ll": [34.79, 31.25], "label": "بئر السبع"},
+ {"name": "Eilat", "ll": [34.95, 29.56], "label": "إيلات"}
+]

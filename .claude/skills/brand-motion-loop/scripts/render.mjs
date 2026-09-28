@@ -57,9 +57,14 @@ if (mode === 'beats') {
   }
   console.log('debug', JSON.stringify(await page.evaluate(() => window.DEBUG)));
   await browser.close();
-  execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-pattern_type', 'glob', '-i', join(dir, 'b*.png'),
-    '-vf', `scale=${2 * Math.round(180 * W / Math.max(W, H))}:${2 * Math.round(180 * H / Math.max(W, H))},tile=${timing.BEATS % 7 ? 8 : 7}x${Math.ceil(timing.BEATS / (timing.BEATS % 7 ? 8 : 7))}:padding=6:color=0xC9C5BC`,
-    '-frames:v', '1', join(out, 'beats_sheet.png')]);
+  // explicit grid (xstack): the tile filter dropped frames for some counts (40 beats came out as frames 21–39)
+  const files = readdirSync(dir).filter((f) => /^b\d+_.*\.png$/.test(f)).sort();
+  const cols = timing.BEATS % 7 ? 8 : 7, tw = 2 * Math.round(180 * W / Math.max(W, H)), th = 2 * Math.round(180 * H / Math.max(W, H)), pad = 6;
+  const scaled = files.map((_, i) => `[${i}]scale=${tw}:${th}[v${i}]`).join(';');
+  const layout = files.map((_, i) => `${(i % cols) * (tw + pad)}_${Math.floor(i / cols) * (th + pad)}`).join('|');
+  execFileSync(FFMPEG, ['-y', '-loglevel', 'error', ...files.flatMap((f) => ['-i', join(dir, f)]),
+    '-filter_complex', `${scaled};${files.map((_, i) => `[v${i}]`).join('')}xstack=inputs=${files.length}:layout=${layout}:fill=0xC9C5BC`,
+    '-frames:v', '1', '-update', '1', join(out, 'beats_sheet.png')]);
   console.log('beats →', dir);
 } else if (mode === 'stills') {
   const { browser, shot } = await open();

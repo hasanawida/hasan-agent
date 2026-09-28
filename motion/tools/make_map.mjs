@@ -1,5 +1,5 @@
 // Country outline (Natural Earth 1:10m via the world-atlas package) + route stops, projected into a map card.
-//   node make_map.mjs "<Country name>" stops.json <out-dir> [cardW=560] [areaTop=118] [areaH=672]
+//   node make_map.mjs "<Country name>[+<Other>]" stops.json <out-dir> [cardW=560] [areaTop=118] [areaH=672] [--drop-bbox=…]
 // stops.json: [{ "name": "Haifa", "ll": [lon, lat], "label": "الشمال" | null }, …] in route order.
 // Writes <out-dir>/map_path.txt (SVG path d) and <out-dir>/pins.json ([{name, xy:[x,y], label}] in card px).
 // Needs: npm i world-atlas topojson-client (in the motion/ package).
@@ -11,10 +11,23 @@ const require = createRequire(resolve('package.json'));
 const topo = require('topojson-client');
 const world = require('world-atlas/countries-10m.json');
 
-const [country, stopsFile, outDir, cardW = '560', areaTop = '118', areaH = '672'] = process.argv.slice(2);
-const feature = topo.feature(world, world.objects.countries).features.find((f) => f.properties.name === country);
-if (!feature) { console.error(`no country named "${country}" in Natural Earth`); process.exit(1); }
-const rings = feature.geometry.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
+const pos = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const [country, stopsFile, outDir, cardW = '560', areaTop = '118', areaH = '672'] = pos;
+// several areas as one shape: "Israel+Palestine" is merged (shared borders removed) into a single service area;
+// --drop-bbox=minLon,minLat,maxLon,maxLat drops any polygon whose centre lies inside (e.g. an area not served)
+const dropArg = process.argv.find((a) => a.startsWith('--drop-bbox='));
+const drop = dropArg ? dropArg.split('=')[1].split(',').map(Number) : null;
+const centre = (ring) => ring.reduce((c, [x, y]) => [c[0] + x / ring.length, c[1] + y / ring.length], [0, 0]);
+const geoms = country.split('+').map((name) => {
+  const g = world.objects.countries.geometries.find((q) => q.properties.name === name);
+  if (!g) { console.error(`no country named "${name}" in Natural Earth`); process.exit(1); }
+  if (!drop || g.type !== 'MultiPolygon') return g;
+  const polys = topo.feature(world, g).geometry.coordinates;
+  const keep = polys.map((poly) => { const [x, y] = centre(poly[0]); return !(x > drop[0] && y > drop[1] && x < drop[2] && y < drop[3]); });
+  return { ...g, arcs: g.arcs.filter((_, i) => keep[i]) };
+});
+const merged = geoms.length > 1 || drop ? topo.merge(world, geoms) : topo.feature(world, geoms[0]).geometry;
+const rings = merged.type === 'Polygon' ? [merged.coordinates] : merged.coordinates;
 
 const AREA = { x: 60, y: +areaTop, w: +cardW - 120, h: +areaH };
 let lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];

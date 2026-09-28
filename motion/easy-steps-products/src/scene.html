@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Easy Steps · المنتجات والتوصيل</title>
+<style>
+/*@FONTS@*/
+/* every motion below is a CSS keyframe track compiled from springs by scene.py (tools/beat_engine.py) */
+@TEXT:scene.css@
+
+:root {
+  --canvas: #E8F1EE; --ink: #123F45; --teal: #008F95; --mint: #E3F2EC; --soft: #F3F6F5;
+  --purple: #652D90; --muted: #697B7C; --line: #DCE4DE;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0B1D20; }
+#stage {
+  position: absolute; left: 50%; top: 50%; width: 1080px; height: 1920px; overflow: hidden;
+  translate: -50% -50%; scale: min(tan(atan2(100vh, 1920px)), tan(atan2(100vw, 1080px)));
+  background: var(--canvas); color: var(--ink);
+  font-family: 'AlmaraiAr', 'AlmaraiLat', sans-serif; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision;
+}
+@media (width: 1080px) and (height: 1920px) { #stage { scale: 1; } }
+
+.abs { position: absolute; }
+.c { position: absolute; transform: translate(-50%, -50%); }
+.r { position: absolute; transform: translateY(-50%); }
+.t { white-space: nowrap; line-height: 1.15; }
+.lat { font-family: 'AlmaraiLat', 'HeeboHe', 'AlmaraiAr', sans-serif; direction: ltr; unicode-bidi: isolate; }
+.row { display: flex; align-items: center; direction: rtl; }
+.fx { opacity: var(--p); filter: blur(calc(max(0, 1 - var(--p)) * 9px)); translate: 0 calc((1 - var(--p)) * 18px); }
+.fxs { opacity: min(1, var(--p)); filter: blur(calc(max(0, 1 - var(--p)) * 7px)); scale: calc(0.9 + 0.1 * var(--p)); }
+.ico { fill: none; stroke: currentColor; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+svg { display: block; overflow: visible; }
+
+#shape {
+  position: absolute; left: 540px; top: 870px; overflow: hidden; transform: translate(-50%, -50%);
+  width: calc(var(--sw) * 1px); height: calc(var(--sh) * 1px); border-radius: calc(var(--sr) * 1px);
+  background: color-mix(in srgb, var(--ink) calc(clamp(0, var(--dk), 1) * 100%), color-mix(in srgb, var(--teal) calc(clamp(0, var(--tl), 1) * 100%), #fff));
+  box-shadow: 0 34px 70px -40px rgba(18, 63, 69, .5), 0 2px 8px rgba(18, 63, 69, .05);
+}
+.L { position: absolute; left: 50%; top: 50%; }
+
+#logo { position: absolute; left: 540px; top: 232px; width: 350px; transform: translate(-50%, -50%); }
+#cta {
+  position: absolute; left: 540px; top: 1500px; width: 700px; height: 124px; border-radius: 62px; background: var(--teal); color: #fff;
+  transform: translate(-50%, -50%); scale: calc((1 + 0.03 * var(--cpu)) * (1 - 0.05 * var(--cpr)));
+  display: flex; align-items: center; justify-content: center; gap: 18px; direction: rtl;
+}
+#info { position: absolute; left: 540px; top: 1624px; transform: translate(-50%, -50%); gap: 22px; font-size: 34px; color: var(--ink); }
+.chip { height: 88px; padding: 0 38px; border-radius: 44px; background: var(--mint); display: flex; align-items: center; gap: 12px; direction: rtl; }
+
+/* categories */
+.tile { position: absolute; width: 400px; }
+.tile img { display: block; width: 400px; height: 220px; object-fit: cover; border-radius: 32px; }
+.tile .lb { margin-top: 18px; text-align: center; font-size: 30px; font-weight: 800; }
+.ring { position: absolute; top: 144px; width: 412px; height: 232px; margin-left: -206px; border-radius: 38px; box-shadow: inset 0 0 0 4px var(--teal); }
+
+/* product card */
+.slide { position: absolute; top: 0; width: 820px; height: 520px; overflow: hidden; background: var(--soft); }
+.slide .obj { position: absolute; left: 50%; top: 50%; max-width: 92%; max-height: 94%; transform: translate(-50%, -50%); mix-blend-mode: multiply; }
+.slide .cov { position: absolute; left: 0; top: 0; width: 820px; height: 520px; object-fit: cover; object-position: 50% 60%; }
+.badge { position: absolute; right: 28px; top: 28px; height: 64px; padding: 0 24px; border-radius: 32px; background: var(--purple); color: #fff;
+  display: flex; align-items: center; gap: 10px; direction: rtl; font-size: 30px; font-weight: 800; transform-origin: 100% 0; }
+.cat { font-size: 27px; font-weight: 700; color: var(--teal); }
+.nm { font-size: 40px; font-weight: 800; }
+.pr { font-size: 58px; font-weight: 800; }
+.old { position: relative; font-size: 36px; font-weight: 700; color: var(--muted); }
+.old i { position: absolute; left: -4px; right: -4px; top: 52%; height: 3px; border-radius: 2px; background: var(--muted); transform-origin: 100% 50%;
+  scale: clamp(0, calc((var(--p) - 0.3) / 0.6), 1) 1; }
+.opt { position: absolute; top: 778px; height: 74px; border-radius: 22px; box-shadow: inset 0 0 0 2px var(--line);
+  display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 30px; font-weight: 700; direction: rtl; }
+.sel { position: absolute; border-radius: 22px; background: var(--mint); box-shadow: inset 0 0 0 4px var(--teal); opacity: min(1, var(--q)); scale: calc(0.97 + 0.03 * var(--q)); }
+.btn { position: absolute; left: 40px; width: 820px; height: 96px; border-radius: 48px; background: var(--ink); color: #fff;
+  display: flex; align-items: center; justify-content: center; gap: 16px; direction: rtl; font-size: 34px; font-weight: 800; }
+
+/* map */
+.land { fill: #EEF4F2; fill-opacity: var(--md); stroke: #9DB2B0; stroke-width: 1.6; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - var(--md)); }
+.arc { fill: none; stroke: var(--teal); stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 1 1; }
+.head { position: absolute; left: 0; top: 0; width: 16px; height: 16px; border-radius: 8px; background: var(--teal); offset-rotate: 0deg; offset-anchor: 50% 50%; }
+.pin { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 13px; background: var(--ink); box-shadow: 0 0 0 4px #fff;
+  opacity: min(1, var(--p)); scale: calc(0.4 + 0.6 * var(--p)); }
+.plbl { position: absolute; transform: translateY(-50%); font-size: 32px; font-weight: 800; opacity: var(--p); filter: blur(calc(max(0, 1 - var(--p)) * 6px)); }
+.hub { position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 32px; background: var(--teal); color: #fff;
+  display: flex; align-items: center; justify-content: center; opacity: min(1, var(--hb)); scale: calc(0.5 + 0.5 * var(--hb)); box-shadow: 0 0 0 5px #fff; }
+.hlbl { position: absolute; transform: translateY(-50%); font-size: 34px; font-weight: 800; color: var(--teal); opacity: var(--hb); }
+.free { position: absolute; transform: translateY(-50%); height: 50px; padding: 0 18px; border-radius: 25px; background: var(--teal); color: #fff;
+  font-size: 25px; font-weight: 800; display: flex; align-items: center; transform-origin: 100% 50%; }
+.reg { height: 84px; padding: 0 26px; border-radius: 42px; background: var(--mint); display: flex; align-items: center; gap: 10px; font-size: 32px; font-weight: 800; direction: rtl; }
+
+.touch { position: absolute; width: 96px; height: 96px; margin-left: -48px; margin-top: -48px; border-radius: 48px;
+  background: rgba(18, 63, 69, .2); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .95), 0 6px 16px rgba(18, 63, 69, .18);
+  opacity: min(1, var(--a)); scale: calc((1.3 - 0.3 * min(1, var(--a))) * (1 - 0.16 * var(--pr))); z-index: 5; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <img id="logo" src="@IMG:logo.png@" alt="Easy Steps">
+
+  <div id="shape">
+    <!-- 1 · hook -->
+    <div class="L" style="width:900px;height:620px;margin:-310px 0 0 -450px">
+      <div class="c t fx" style="--p:var(--h1);left:450px;top:180px;font-size:84px;font-weight:800">أحذية طبية ومشدات</div>
+      <div class="c t fx" style="--p:var(--h2);left:450px;top:282px;font-size:46px;font-weight:700;color:var(--teal)">من أفضل الماركات العالمية</div>
+      <div class="c" style="left:450px;top:440px">
+        <div class="chip fxs" style="--p:var(--h3);scale:calc((0.9 + 0.1 * var(--h3)) * (1 - 0.05 * var(--h3p)))">
+          <span class="t" style="font-size:34px;font-weight:800">أكثر من</span><span class="t lat" style="font-size:34px;font-weight:800">20</span><span class="t" style="font-size:34px;font-weight:800">ماركة أصلية</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 · categories -->
+    <div class="L" style="width:900px;height:1060px;margin:-530px 0 0 -450px">
+      <div class="c t fx" style="--p:var(--ct);left:450px;top:80px;font-size:50px;font-weight:800">تسوّق حسب الفئة</div>
+      <div class="ring" style="left:calc(var(--csx) * 1px);opacity:var(--cs)"></div>
+      <div class="tile fxs" style="--p:var(--k0);left:465px;top:150px"><img src="@IMG:cat-06.jpg@" alt=""><div class="lb t">أحذية نسائية طبية</div></div>
+      <div class="tile fxs" style="--p:var(--k1);left:35px;top:150px;scale:calc((0.9 + 0.1 * var(--k1)) * (1 - 0.04 * var(--k1p)))"><img src="@IMG:cat-05.jpg@" alt=""><div class="lb t">أحذية رجالية طبية</div></div>
+      <div class="tile fxs" style="--p:var(--k2);left:465px;top:450px"><img src="@IMG:cat-04.jpg@" alt=""><div class="lb t">مشدات الركبة الطبية</div></div>
+      <div class="tile fxs" style="--p:var(--k3);left:35px;top:450px"><img src="@IMG:cat-03.jpg@" alt=""><div class="lb t">مشدات الظهر الطبية</div></div>
+      <div class="tile fxs" style="--p:var(--k4);left:465px;top:750px"><img src="@IMG:cat-07.jpg@" alt=""><div class="lb t">أجهزة المساج</div></div>
+      <div class="tile fxs" style="--p:var(--k5);left:35px;top:750px"><img src="@IMG:cat-13.jpg@" alt=""><div class="lb t">لوازم قدم السكري</div></div>
+    </div>
+
+    <!-- 3 · product card (five products, swiped) -->
+    <div class="L" style="width:900px;height:1060px;margin:-530px 0 0 -450px">
+      <div class="abs" style="left:40px;top:40px;width:820px;height:520px;border-radius:44px;background:var(--soft);overflow:hidden;opacity:var(--pv)">
+        <div class="abs" style="left:0;top:0;width:820px;height:520px;translate:calc(var(--sx) * 1px) 0">
+          <div class="slide" style="left:0"><img class="obj" src="@IMG:nb990.jpg@" alt=""></div>
+          <div class="slide" style="left:-840px"><img class="cov" src="@IMG:ac1213a.jpg@" alt=""><img class="cov" src="@IMG:ac1213b.jpg@" alt="" style="opacity:var(--acg)"></div>
+          <div class="slide" style="left:-1680px"><img class="obj" src="@IMG:genutrain.jpg@" alt=""></div>
+          <div class="slide" style="left:-2520px"><img class="obj" src="@IMG:gcomfort.jpg@" alt=""></div>
+          <div class="slide" style="left:-3360px"><img class="obj" src="@IMG:fm90.jpg@" alt=""></div>
+        </div>
+        <div class="abs" style="left:28px;top:28px;width:72px;height:72px;border-radius:36px;background:#fff;display:flex;align-items:center;justify-content:center;scale:calc(1 + 0.12 * var(--hf) * (1 - var(--hf)) * 4)">
+          <svg width="38" height="38" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"
+            style="fill:var(--purple);fill-opacity:var(--hf);stroke:color-mix(in srgb, var(--purple) calc(clamp(0, var(--hf), 1) * 100%), var(--ink));stroke-width:2.2;stroke-linejoin:round"/></svg>
+        </div>
+        <div class="badge fxs" style="--p:var(--pp0)"><span>خصم</span><span class="lat">22%</span></div>
+        <div class="badge fxs" style="--p:var(--pp1)"><span>خصم</span><span class="lat">20%</span></div>
+        <div class="badge fxs" style="--p:var(--pp2)"><span>خصم</span><span class="lat">22%</span></div>
+        <div class="badge fxs" style="--p:var(--pp4)"><span>خصم</span><span class="lat">19%</span></div>
+      </div>
+
+      <div class="fx" style="--p:var(--pn0)"><div class="r t cat" style="right:40px;top:604px">أحذية رجالية طبية</div><div class="r t nm" style="right:40px;top:656px">حذاء رياضي رجالي New Balance 990v6</div></div>
+      <div class="fx" style="--p:var(--pn1)"><div class="r t cat" style="right:40px;top:604px">أحذية نسائية طبية</div><div class="r t nm" style="right:40px;top:656px">حذاء طبي نسائي Absolute Comfort 1213</div></div>
+      <div class="fx" style="--p:var(--pn2)"><div class="r t cat" style="right:40px;top:604px">مشدات الركبة الطبية</div><div class="r t nm" style="right:40px;top:656px">مشد الركبة Bauerfeind Genutrain</div></div>
+      <div class="fx" style="--p:var(--pn3)"><div class="r t cat" style="right:40px;top:604px">أحذية رجالية طبية</div><div class="r t nm" style="right:40px;top:656px">حذاء رجالي لقدم السكري G Comfort D-121ST</div></div>
+      <div class="fx" style="--p:var(--pn4)"><div class="r t cat" style="right:40px;top:604px">أجهزة المساج</div><div class="r t nm" style="right:40px;top:656px">جهاز تدليك القدمين Beurer FM 90</div></div>
+
+      <div class="r row fx" style="--p:var(--pp0);right:40px;top:728px;gap:20px"><span class="pr t lat">1050 ₪</span><span class="old t lat">1350 ₪<i></i></span></div>
+      <div class="r row fx" style="--p:var(--pp1);right:40px;top:728px;gap:20px"><span class="pr t lat">380 ₪</span><span class="old t lat">480 ₪<i></i></span></div>
+      <div class="r row fx" style="--p:var(--pp2);right:40px;top:728px;gap:20px"><span class="pr t lat">350 ₪</span><span class="old t lat">450 ₪<i></i></span></div>
+      <div class="r row fx" style="--p:var(--pp3);right:40px;top:728px;gap:20px"><span class="pr t lat">590 ₪</span></div>
+      <div class="r row fx" style="--p:var(--pp4);right:40px;top:728px;gap:20px"><span class="pr t lat">890 ₪</span><span class="old t lat">1100 ₪<i></i></span></div>
+
+      <!-- options: sizes (NB), colour (Absolute Comfort), sizes (Genutrain), fit (G Comfort) -->
+      <div class="sel" style="--q:var(--sz0);left:352px;top:778px;width:118px;height:74px"></div>
+      <div class="fx" style="--p:var(--op0)">
+        <div class="opt lat" style="left:742px;width:118px">42</div><div class="opt lat" style="left:612px;width:118px">43</div><div class="opt lat" style="left:482px;width:118px">44</div>
+        <div class="opt lat" style="left:352px;width:118px">44.5</div><div class="opt lat" style="left:222px;width:118px">45</div><div class="opt lat" style="left:92px;width:118px">46</div>
+      </div>
+      <div class="sel" style="--q:var(--op1);left:calc(var(--cox) * 1px - 200px);top:778px;width:400px;height:74px"></div>
+      <div class="fx" style="--p:var(--op1)">
+        <div class="opt" style="left:460px;width:400px"><span style="width:30px;height:30px;border-radius:15px;background:#1c1c1e"></span><span class="t">أسود</span></div>
+        <div class="opt" style="left:50px;width:400px"><span style="position:relative;width:30px;height:30px;border-radius:15px;background:#1c1c1e"><i style="position:absolute;left:7px;top:6px;width:8px;height:8px;border-radius:4px;background:#fff;opacity:.75"></i></span><span class="t">أسود لامع</span></div>
+      </div>
+      <div class="fx" style="--p:var(--op2)">
+        <div class="opt lat" style="left:756px;width:104px">1</div><div class="opt lat" style="left:640px;width:104px">2</div><div class="opt lat" style="left:524px;width:104px">3</div>
+        <div class="opt lat" style="left:408px;width:104px">4</div><div class="opt lat" style="left:292px;width:104px">5</div><div class="opt lat" style="left:176px;width:104px">6</div><div class="opt lat" style="left:60px;width:104px">7</div>
+      </div>
+      <div class="fx" style="--p:var(--op3)">
+        <div class="opt" style="left:400px;width:460px;background:var(--mint);box-shadow:none;color:var(--teal)">
+          <svg class="ico" width="34" height="34" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.4"/></svg>
+          <span class="t" style="font-weight:800">مناسب لقدم السكري</span></div>
+        <div class="opt" style="left:40px;width:344px"><span class="t">مقاسات</span><span class="t lat">40–46</span></div>
+      </div>
+      <div class="btn fx" style="--p:var(--ab);top:925px;scale:calc(1 - 0.04 * var(--abp))">
+        <span class="t">أضف إلى السلة</span>
+        <svg class="ico" width="38" height="38" viewBox="0 0 24 24"><path d="M5.5 8h13l-1.1 11.2a1.5 1.5 0 0 1-1.5 1.3H8.1a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+      </div>
+    </div>
+
+    <!-- 4 · loader, check, island -->
+    <div class="L" style="width:220px;height:220px;margin:-110px 0 0 -110px;opacity:var(--ld)">
+      <svg width="220" height="220" viewBox="0 0 220 220" style="rotate:-90deg">
+        <circle cx="110" cy="110" r="56" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="10"/>
+        <circle cx="110" cy="110" r="56" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" pathLength="1"
+          style="stroke-dasharray:1 1;stroke-dashoffset:calc(1 - var(--rg));stroke-opacity:clamp(0, calc(var(--rg) * 40), 1)"/>
+      </svg>
+    </div>
+    <div class="L" style="width:240px;height:240px;margin:-120px 0 0 -120px;opacity:var(--ck)">
+      <svg width="240" height="240" viewBox="0 0 240 240"><g transform="translate(48 48) scale(6)">
+        <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" pathLength="1"
+          style="stroke-dasharray:1 1;stroke-dashoffset:calc(1 - var(--ckd));stroke-opacity:clamp(0, calc(var(--ckd) * 40), 1)"/></g></svg>
+    </div>
+    <div class="L" style="width:760px;height:150px;margin:-75px 0 0 -380px">
+      <div class="c row fx" style="--p:var(--il);left:380px;top:75px;gap:22px;color:#fff">
+        <div style="position:relative;width:48px;height:48px">
+          <svg class="ico" width="48" height="48" viewBox="0 0 24 24"><path d="M5.5 8h13l-1.1 11.2a1.5 1.5 0 0 1-1.5 1.3H8.1a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+          <div class="lat fxs" style="--p:var(--ilb);position:absolute;right:-12px;top:-10px;width:32px;height:32px;border-radius:16px;background:var(--teal);color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center">1</div>
+        </div>
+        <span class="t" style="font-size:44px;font-weight:800">أُضيف إلى السلة</span>
+      </div>
+    </div>
+
+    <!-- 5 · delivery map -->
+    <div class="L" style="width:900px;height:1060px;margin:-530px 0 0 -450px">
+      <div class="c t fx" style="--p:var(--mp);left:450px;top:70px;font-size:52px;font-weight:800">نوصل لكل البلاد</div>
+      <div class="abs" style="left:90px;top:130px;width:600px;height:860px;scale:1.04;transform-origin:50% 0;opacity:var(--mp)">@TEXT:map.html@</div>
+      <div class="abs" style="right:44px;top:560px;display:flex;flex-direction:column;align-items:flex-end;gap:18px">
+        <div class="reg fxs" style="--p:var(--rc0)"><svg class="ico" width="32" height="32" viewBox="0 0 24 24" style="color:var(--teal)"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><span class="t">الداخل</span></div>
+        <div class="reg fxs" style="--p:var(--rc1)"><svg class="ico" width="32" height="32" viewBox="0 0 24 24" style="color:var(--teal)"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><span class="t">الضفة الغربية</span></div>
+        <div class="reg fxs" style="--p:var(--rc2)"><svg class="ico" width="32" height="32" viewBox="0 0 24 24" style="color:var(--teal)"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><span class="t">القدس</span></div>
+      </div>
+    </div>
+
+    <!-- 6 · order on its way -->
+    <div class="L" style="width:760px;height:150px;margin:-75px 0 0 -380px">
+      <div class="c row fx" style="--p:var(--tt);left:380px;top:75px;gap:24px;color:#fff">
+        <div class="fxs" style="--p:var(--tti);width:84px;height:84px;border-radius:42px;background:var(--teal);display:flex;align-items:center;justify-content:center">
+          <svg class="ico" width="44" height="44" viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
+        </div>
+        <span class="t" style="font-size:46px;font-weight:800">طلبك في الطريق</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="cta">
+    <span class="t" style="font-size:46px;font-weight:800">اطلب الآن</span>
+    <svg class="ico" width="44" height="44" viewBox="0 0 24 24"><path d="M5.5 8h13l-1.1 11.2a1.5 1.5 0 0 1-1.5 1.3H8.1a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+  </div>
+  <div id="info" class="row">
+    <span class="t lat" style="font-weight:700">easy-steps.co.il</span>
+    <span style="width:8px;height:8px;border-radius:4px;background:var(--teal)"></span>
+    <span class="t lat" style="font-weight:700">052-5537334</span>
+  </div>
+
+  <!-- touches: taps, and the finger that swipes the photos -->
+  <div class="touch" style="--a:var(--ta0);--pr:var(--tp0);left:540px;top:1000px"></div>
+  <div class="touch" style="--a:var(--ta1);--pr:var(--tp1);left:325px;top:600px"></div>
+  <div class="touch" style="--a:var(--ta2);--pr:var(--tp2);left:501px;top:1155px"></div>
+  <div class="touch" style="--a:var(--ta3);--pr:var(--tp3);left:340px;top:1155px"></div>
+  <div class="touch" style="--a:var(--ta4);--pr:var(--tp4);left:190px;top:440px"></div>
+  <div class="touch" style="--a:var(--ta5);--pr:var(--tp5);left:540px;top:1313px"></div>
+  <div class="touch" style="--a:var(--ta6);--pr:var(--tp6);left:540px;top:1500px"></div>
+  <div class="touch" style="--a:var(--fga);--pr:var(--fgp);left:290px;top:640px;translate:calc(var(--fgx) * 1px) 0"></div>
+</div>
+<script>
+// The loop plays with CSS only. This hook just lets the renderer freeze any instant (and ?t= to inspect one).
+window.TIMING = @TEXT:timing.json@;
+window.seek = (t) => {
+  const T = TIMING.T, tt = ((t % T) + T) % T;       // wrap: the CSS duration is rounded to the µs
+  for (const a of document.getAnimations()) { a.pause(); a.currentTime = tt * 1000; }
+};
+window.__ready = document.fonts.ready.then(() => Promise.all([...document.images].map((i) => i.decode()))).then(() => true);
+window.DEBUG = {};
+const q = new URLSearchParams(location.search);
+if (q.has('t')) window.__ready.then(() => seek(parseFloat(q.get('t'))));
+</script>
+</body>
+</html>

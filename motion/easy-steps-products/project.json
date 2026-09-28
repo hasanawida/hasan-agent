@@ -1,0 +1,13 @@
+{
+  "output": "easy-steps-products.html",
+  "size": [1080, 1920],
+  "fonts": [
+    ["AlmaraiAr", 400, "@fontsource/almarai/files/almarai-arabic-400-normal.woff2"],
+    ["AlmaraiAr", 700, "@fontsource/almarai/files/almarai-arabic-700-normal.woff2"],
+    ["AlmaraiAr", 800, "@fontsource/almarai/files/almarai-arabic-800-normal.woff2"],
+    ["AlmaraiLat", 400, "@fontsource/almarai/files/almarai-latin-400-normal.woff2"],
+    ["AlmaraiLat", 700, "@fontsource/almarai/files/almarai-latin-700-normal.woff2"],
+    ["AlmaraiLat", 800, "@fontsource/almarai/files/almarai-latin-800-normal.woff2"],
+    ["HeeboHe", 700, "@fontsource/heebo/files/heebo-hebrew-700-normal.woff2"]
+  ]
+}
