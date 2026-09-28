@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440, height=1440">
+<title>Al-Bayan · One Shape</title>
+<style>
+/*@FONTS@*/
+:root {
+  --canvas: #ECEAE4;
+  --ink: #0D0D0F;
+  --paper: #FFFFFF;
+  --accent: #4F46E5;
+  --muted: #7A776F;
+  --muted-dark: #8E8E96;
+  --line: #E6E3DC;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1440px; height: 1440px; overflow: hidden; background: var(--canvas); }
+body {
+  font-family: 'Geist', 'Heebo', 'PlexArabic', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+#stage { position: absolute; left: 0; top: 0; width: 1440px; height: 1440px; overflow: hidden; background: var(--canvas); }
+#world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+#shape {
+  position: absolute; left: 0; top: 0; overflow: hidden;
+}
+.abs { position: absolute; left: 0; top: 0; }
+.t { white-space: nowrap; line-height: 1; }
+.he { direction: rtl; font-family: 'Heebo', 'Geist', sans-serif; }
+.ar { direction: rtl; font-family: 'PlexArabic', sans-serif; }
+.en { direction: ltr; font-family: 'Geist', sans-serif; }
+.num { font-family: 'Geist', sans-serif; font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+svg { display: block; overflow: visible; }
+.ico { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mirror { transform: scaleX(-1); }
+
+/* layer boxes: static layout inside each state's own box */
+#L_button { width: 320px; height: 88px; color: #fff; display: flex; align-items: center; justify-content: center; gap: 12px; direction: rtl; }
+#L_button .lbl { font-size: 27px; font-weight: 500; letter-spacing: -0.1px; }
+#L_loader, #L_check { width: 108px; height: 108px; }
+#L_check { color: #fff; }
+#L_island { width: 380px; height: 76px; color: #fff; }
+#L_player { width: 560px; height: 320px; color: #fff; }
+#L_volume { width: 460px; height: 92px; color: var(--ink); }
+#L_tabs { width: 660px; height: 96px; }
+#L_chart { width: 720px; height: 560px; color: var(--ink); }
+#L_cmdk { width: 660px; height: 360px; color: var(--ink); }
+#L_toast { width: 350px; height: 88px; color: #fff; }
+
+.tabrow { position: absolute; left: 0; top: 0; width: 660px; height: 96px; }
+.tab { position: absolute; top: 48px; font-size: 25px; font-weight: 500; transform: translate(-50%, -50%); }
+.tabrow.gray .tab { color: #8A867E; }
+.tabrow.white .tab { color: #fff; }
+
+#bubble {
+  background: var(--paper); color: var(--ink); height: 34px; padding: 0 12px; border-radius: 17px;
+  font-size: 17px; font-weight: 600; display: flex; align-items: center;
+}
+#tip {
+  background: var(--ink); color: #fff; height: 40px; border-radius: 20px; padding: 0 16px;
+  display: flex; align-items: center;
+}
+#tip .tipt { position: absolute; top: 20px; font-size: 18px; font-weight: 500; }
+
+.row { position: absolute; left: 0; width: 660px; height: 64px; }
+.row .ico-w { position: absolute; right: 34px; top: 20px; width: 24px; height: 24px; color: #3A3935; }
+.row .lbl { position: absolute; right: 72px; top: 32px; font-size: 23px; font-weight: 500; transform: translateY(-50%); }
+
+#cursor { position: absolute; left: 0; top: 0; width: 40px; height: 40px; transform-origin: 0 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="world">
+    <div id="shape">
+      <!-- persistent inner parts: progress/volume bar and the knob/indicator/highlight pill -->
+      <div id="trk" class="abs"><div id="trkFill" class="abs"></div></div>
+      <div id="pill" class="abs"></div>
+      <div id="bubble" class="abs t num">12:04</div>
+
+      <!-- 1 · button -->
+      <div id="L_button" class="abs">
+        <svg class="ico" width="28" height="28" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"/></svg>
+        <span class="lbl t he">העלאת הקלטה</span>
+      </div>
+
+      <!-- 2 · loader -->
+      <div id="L_loader" class="abs">
+        <svg width="108" height="108" viewBox="0 0 108 108">
+          <circle cx="54" cy="54" r="24" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="4"/>
+          <circle id="ring" cx="54" cy="54" r="24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <!-- 3 · check -->
+      <div id="L_check" class="abs">
+        <svg width="108" height="108" viewBox="0 0 108 108">
+          <g transform="translate(30 30) scale(2)"><path id="checkPath" class="ico" stroke="#fff" d="M5 12.5l4.5 4.5L19 7.5"/></g>
+        </svg>
+      </div>
+
+      <!-- 4 · dynamic island -->
+      <div id="L_island" class="abs">
+        <svg class="abs" style="left:34px;top:22px" width="44" height="32" viewBox="0 0 44 32" id="wave">
+          <rect x="0" y="10" width="4" height="12" rx="2" fill="#fff"/>
+          <rect x="10" y="6" width="4" height="20" rx="2" fill="#fff"/>
+          <rect x="20" y="2" width="4" height="28" rx="2" fill="#fff"/>
+          <rect x="30" y="6" width="4" height="20" rx="2" fill="#fff"/>
+          <rect x="40" y="10" width="4" height="12" rx="2" fill="#fff"/>
+        </svg>
+        <span class="abs t he" style="right:34px;left:auto;top:38px;transform:translateY(-50%);font-size:23px;font-weight:500">התמלול מוכן</span>
+      </div>
+
+      <!-- 5 · lesson player -->
+      <div id="L_player" class="abs">
+        <div class="abs pc" data-st="0" style="left:456px;top:30px;width:72px;height:72px;border-radius:17px;background:#232327">
+          <svg width="72" height="72" viewBox="0 0 128 128">
+            <g transform="translate(64 64) scale(0.62) translate(-64 -64)">
+              <path d="M30 50 Q30 76 52 78 L76 78 Q98 76 98 50" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+              <circle cx="64" cy="102" r="5.5" fill="#fff"/>
+            </g>
+          </svg>
+        </div>
+        <span class="abs t he pc" data-st="1" data-base="translateY(-50%)" style="right:120px;left:auto;top:46px;transform:translateY(-50%);font-size:25px;font-weight:600">מבוא לכלכלה</span>
+        <span class="abs t he pc" data-st="2" data-base="translateY(-50%)" style="right:120px;left:auto;top:78px;transform:translateY(-50%);font-size:18px;font-weight:400;color:var(--muted-dark)">שיעור 12 · הקלטה</span>
+        <span id="tElapsed" class="abs t num pc" data-st="3" data-base="translateY(-50%)" style="right:32px;left:auto;top:190px;transform:translateY(-50%);font-size:16px;font-weight:500;color:var(--muted-dark)">12:04</span>
+        <span id="tRemain" class="abs t num pc" data-st="3" data-base="translateY(-50%)" style="left:32px;top:190px;transform:translateY(-50%);font-size:16px;font-weight:500;color:var(--muted-dark)">&minus;46:08</span>
+        <div class="abs pc" data-st="4" style="left:358px;top:248px;width:28px;height:28px;color:#fff">
+          <svg class="ico" width="28" height="28" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v3.2h3.2"/><text x="12" y="15.3" fill="#fff" stroke="none" font-family="Geist" font-weight="600" font-size="7.2" text-anchor="middle">15</text></svg>
+        </div>
+        <div class="abs pc" data-st="4" style="left:174px;top:248px;width:28px;height:28px;color:#fff">
+          <svg class="ico mirror" width="28" height="28" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v3.2h3.2"/><text x="12" y="15.3" fill="#fff" stroke="none" font-family="Geist" font-weight="600" font-size="7.2" text-anchor="middle" transform="translate(24 0) scale(-1 1)">15</text></svg>
+        </div>
+        <div id="spkBtn" class="abs pc" data-st="4" style="left:36px;top:248px;width:28px;height:28px;color:#fff">
+          <svg class="ico" style="transform:scaleX(-1)" width="28" height="28" viewBox="0 0 24 24"><path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z"/><path d="M15 9.6a3.4 3.4 0 0 1 0 4.8"/><path d="M17.8 6.8a7.4 7.4 0 0 1 0 10.4"/></svg>
+        </div>
+        <div id="playBtn" class="abs pc" data-st="4" style="left:250px;top:232px;width:60px;height:60px;border-radius:30px;background:#fff">
+          <svg width="60" height="60" viewBox="-30 -30 60 60"><path id="ppA" fill="#0D0D0F"/><path id="ppB" fill="#0D0D0F"/></svg>
+        </div>
+      </div>
+
+      <!-- 6 · volume -->
+      <div id="L_volume" class="abs">
+        <div id="spk2" class="abs" style="left:412px;top:32px;width:28px;height:28px">
+          <svg class="ico mirror" width="28" height="28" viewBox="0 0 24 24">
+            <path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z"/>
+            <path id="wv1" d="M15 9.6a3.4 3.4 0 0 1 0 4.8"/>
+            <path id="wv2" d="M17.8 6.8a7.4 7.4 0 0 1 0 10.4"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- 7 · tabs (labels; the pill underneath is the indicator) -->
+      <div id="L_tabs" class="abs">
+        <div class="tabrow gray">
+          <span class="tab t he" style="left:543.3px">עברית</span>
+          <span class="tab t ar" style="left:330px">العربية</span>
+          <span class="tab t en" style="left:116.7px">English</span>
+        </div>
+        <div class="tabrow white" id="tabsWhite">
+          <span class="tab t he" style="left:543.3px">עברית</span>
+          <span class="tab t ar" style="left:330px">العربية</span>
+          <span class="tab t en" style="left:116.7px">English</span>
+        </div>
+      </div>
+
+      <!-- 8 · chart -->
+      <div id="L_chart" class="abs">
+        <span class="abs t he cc" data-st="0" style="right:40px;left:auto;top:150px;transform:translateY(-50%);font-size:20px;font-weight:500;color:var(--muted)">דקות תמלול השבוע</span>
+        <div class="abs cc" data-st="1" style="right:40px;left:auto;top:200px;transform:translateY(-50%);display:flex;align-items:baseline;gap:8px;direction:rtl">
+          <span id="bigNum" class="t num" style="font-size:60px;font-weight:600;letter-spacing:-1.5px">214</span>
+          <span class="t he" style="font-size:24px;font-weight:500;color:var(--muted)">דק׳</span>
+        </div>
+        <svg id="plot" class="abs" width="720" height="560" viewBox="0 0 720 560">
+          <defs><clipPath id="areaClip"><rect id="areaClipRect" x="0" y="0" width="720" height="560"/></clipPath></defs>
+          <g stroke="#EEEBE5" stroke-width="1.5">
+            <line x1="40" x2="680" y1="390" y2="390"/>
+            <line x1="40" x2="680" y1="310" y2="310"/>
+          </g>
+          <line x1="40" x2="680" y1="470" y2="470" stroke="#DEDAD2" stroke-width="1.5"/>
+          <line id="guide" x1="0" x2="0" y1="220" y2="470" stroke="#CFCBC2" stroke-width="1.5" stroke-dasharray="3 5"/>
+          <path id="area" fill="rgba(79,70,229,0.09)" clip-path="url(#areaClip)"/>
+          <path id="line" fill="none" stroke="#4F46E5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <g id="dots"></g>
+        </svg>
+        <div id="days"></div>
+        <div id="tip" class="abs"></div>
+      </div>
+
+      <!-- 9 · command palette -->
+      <div id="L_cmdk" class="abs">
+        <div class="abs" style="left:602px;top:30px;width:24px;height:24px;color:#3A3935">
+          <svg class="ico" width="24" height="24" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+        </div>
+        <div id="query" class="abs he" style="right:70px;left:auto;top:42px;height:40px;transform:translateY(-50%);display:flex;align-items:center;direction:rtl;font-size:26px;font-weight:500">
+          <span id="q0" class="t" style="display:inline-block;overflow:visible">ש</span><span id="q1" class="t" style="display:inline-block;overflow:visible">ל</span><span id="caret" style="display:inline-block;width:2px;height:30px;background:var(--accent);margin-right:2px;border-radius:1px"></span>
+        </div>
+        <span id="placeholder" class="abs t he" style="right:74px;left:auto;top:42px;transform:translateY(-50%);font-size:24px;font-weight:400;color:#A29E95">חיפוש פקודה או שיעור…</span>
+        <div id="keycap" class="abs t en" style="left:36px;top:25px;width:60px;height:34px;border-radius:9px;border:1.5px solid #DEDAD2;display:flex;align-items:center;justify-content:center;gap:3px;font-size:17px;font-weight:500;color:#6B6860">
+          <svg class="ico" width="15" height="15" viewBox="0 0 24 24" style="stroke-width:2.4"><path d="M9 9V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/></svg><span>K</span>
+        </div>
+        <div class="abs" style="left:0;top:84px;width:660px;height:1px;background:#EEEBE5"></div>
+        <div id="rows"></div>
+      </div>
+
+      <!-- 10 · toast -->
+      <div id="L_toast" class="abs">
+        <div class="abs" style="right:22px;left:auto;top:22px;width:44px;height:44px;border-radius:22px;background:var(--accent)">
+          <svg width="44" height="44" viewBox="0 0 44 44"><g transform="translate(9 9) scale(1.083)"><path id="toastCheck" class="ico" stroke="#fff" d="M5 12.5l4.5 4.5L19 7.5"/></g></svg>
+        </div>
+        <span class="abs t he" style="right:82px;left:auto;top:44px;transform:translateY(-50%);font-size:23px;font-weight:500">הסיכום נשלח בוואטסאפ</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="cursor">
+    <svg width="40" height="40" viewBox="0 0 40 40">
+      <path d="M3 2.2 L3 30.5 L10.2 23.6 L15.2 34.6 L20.6 32.3 L15.7 21.6 L25.5 21.6 Z" fill="#0D0D0F" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const CFG = /*@CFG@*/{ "bpm": 120 }/*@END@*/;
+const B = 60 / CFG.bpm;          // seconds per beat
+const BEATS = 28;                // 7 bars of 4/4
+const T = BEATS * B;             // loop length
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const smooth = (a, b, x) => { const k = clamp((x - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+
+/* ---------------------------------------------------------------------------
+   Springs — closed-form step responses. No integration, no frame state.
+   --------------------------------------------------------------------------- */
+function S(t, sp) {                       // unit step response, 0 before the change
+  if (sp.inst) return t >= 0 ? 1 : 0;      // a step applies at its own instant
+  if (t <= 0) return 0;
+  const w = sp.w, z = sp.z;
+  if (z >= 1) return 1 - Math.exp(-w * t) * (1 + w * t);
+  const wd = w * Math.sqrt(1 - z * z), e = Math.exp(-z * w * t);
+  return 1 - e * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t));
+}
+function F(t, x0, v0, sp) {               // free response: from x0 (velocity v0) back to 0
+  if (t <= 0) return x0;
+  const w = sp.w, z = sp.z;
+  if (z >= 1) return Math.exp(-w * t) * (x0 + (v0 + w * x0) * t);
+  const wd = w * Math.sqrt(1 - z * z), e = Math.exp(-z * w * t);
+  return e * (x0 * Math.cos(wd * t) + ((v0 + z * w * x0) / wd) * Math.sin(wd * t));
+}
+
+// z ≥ 0.8 everywhere → overshoot ≤ 1.5 %
+const MORPH = { w: 17, z: 0.82 };
+const SOFT  = { w: 12, z: 0.9 };
+const LEAD  = { w: 30, z: 0.84 };
+const TRAIL = { w: 15, z: 0.9 };
+const FAST  = { w: 26, z: 0.86 };
+const CAM   = { w: 10, z: 1 };
+const TINT  = { w: 24, z: 1 };                  // colour flips: quick, no overshoot
+const ENTER = { w: 21, z: 1 };
+const EXIT  = { w: 62, z: 1 };
+const PRESS = { w: 48, z: 0.85 };
+const CURX  = { w: 14, z: 0.9 };
+const CURY  = { w: 13, z: 0.95 };
+const INST  = { inst: true };
+const BACK  = { w: 15, z: 0.8 };
+
+/* A value that changes target many times = one spring per change, summed.
+   Cyclic: every event also contributes from the previous loop (t + T), so the
+   function is periodic and seek(0) === seek(T). */
+class Track {
+  constructor(spec) { this.spec = spec; this.ev = []; }
+  to(beat, v, spec) { this.ev.push({ t: beat * B, v, sp: spec || this.spec }); return this; }
+  build() {
+    this.ev.sort((a, b) => a.t - b.t);
+    this.base = this.ev.length ? this.ev[this.ev.length - 1].v : 0;
+    let prev = this.base;
+    for (const e of this.ev) { e.d = e.v - prev; prev = e.v; }
+    return this;
+  }
+  at(t) {
+    let v = this.base;
+    for (const e of this.ev) if (e.d) v += e.d * (S(t - e.t, e.sp) + S(t - e.t + T, e.sp));
+    return v;
+  }
+}
+const ALL = [];
+const tr = (spec) => { const k = new Track(spec); ALL.push(k); return k; };
+class ColorTrack {
+  constructor(spec) { this.r = tr(spec); this.g = tr(spec); this.b = tr(spec); }
+  to(beat, hex, spec) {
+    const n = parseInt(hex.slice(1), 16);
+    this.r.to(beat, (n >> 16) & 255, spec); this.g.to(beat, (n >> 8) & 255, spec); this.b.to(beat, n & 255, spec);
+    return this;
+  }
+  at(t) {
+    const c = (v) => Math.round(clamp(v, 0, 255));
+    return `rgb(${c(this.r.at(t))},${c(this.g.at(t))},${c(this.b.at(t))})`;
+  }
+}
+// presence: 0 → 1 on enter, 1 → 0 on exit, each with its own timing
+function presence(pairs) {
+  const k = tr(ENTER);
+  for (const [b, v, sp] of pairs) k.to(b, v, sp || (v ? ENTER : EXIT));
+  return k;
+}
+
+/* ---------------------------------------------------------------------------
+   Palette + states (world px, origin = frame centre)
+   --------------------------------------------------------------------------- */
+const INK = '#0D0D0F', PAPER = '#FFFFFF', ACC = '#4F46E5';
+const ST = {
+  button: { w: 320, h: 88,  r: 44, cx: 0, cy: 0,     bg: INK,   zoom: 3.0 },
+  loader: { w: 96,  h: 96,  r: 48, cx: 0, cy: 0,     bg: INK,   zoom: 6.4 },
+  check:  { w: 108, h: 108, r: 54, cx: 0, cy: 0,     bg: ACC,   zoom: 6.0 },
+  island: { w: 380, h: 76,  r: 38, cx: 0, cy: 0,     bg: INK,   zoom: 2.9 },
+  player: { w: 560, h: 320, r: 44, cx: 0, cy: 0,     bg: INK,   zoom: 1.9 },
+  volume: { w: 460, h: 92,  r: 46, cx: 0, cy: 0,     bg: PAPER, zoom: 2.45 },
+  toggle: { w: 176, h: 100, r: 50, cx: 0, cy: 0,     bg: PAPER, zoom: 5.6 },
+  tabs:   { w: 660, h: 96,  r: 48, cx: 0, cy: 0,     bg: PAPER, zoom: 1.8 },
+  chart:  { w: 720, h: 560, r: 44, cx: 0, cy: 0,     bg: PAPER, zoom: 1.62 },
+  cmdk4:  { w: 660, h: 360, r: 30, cx: 0, cy: 0,     bg: PAPER, zoom: 1.8 },
+  cmdk2:  { w: 660, h: 229, r: 30, cx: 0, cy: -65.5, bg: PAPER, zoom: 1.88 },
+  cmdk1:  { w: 660, h: 165, r: 30, cx: 0, cy: -97.5, bg: PAPER, zoom: 1.94 },
+  toast:  { w: 350, h: 88,  r: 44, cx: 0, cy: 0,     bg: INK,   zoom: 3.2 },
+};
+
+/* ---------------------------------------------------------------------------
+   Timeline — in beats. 28 beats, one event on every beat.
+   --------------------------------------------------------------------------- */
+const D = 0.18;                 // content enter delay (beats): the outgoing content has cleared by then
+const SH = { w: tr(MORPH), h: tr(MORPH), r: tr(MORPH), cx: tr(MORPH), cy: tr(MORPH), bg: new ColorTrack(MORPH) };
+const CAMZ = tr(CAM), CAMX = tr(CAM), CAMY = tr(CAM);
+function shapeTo(b, s, bgAt) {
+  const g = ST[s];
+  for (const k of ['w', 'h', 'r', 'cx', 'cy']) SH[k].to(b, g[k]);
+  SH.bg.to(bgAt || b, g.bg, TINT);
+  CAMZ.to(b, Math.log(g.zoom)); CAMX.to(b, g.cx); CAMY.to(b, g.cy);
+}
+shapeTo(0.18, 'loader');   // 1.1 click → 1.2 loader
+shapeTo(3, 'check');       // 1.4
+shapeTo(4, 'island');      // 2.1
+shapeTo(5, 'player');      // 2.2
+shapeTo(10, 'volume', 10.12);   // 3.3 (colour flips after the player content has left)
+shapeTo(14, 'toggle');     // 4.3
+SH.bg.to(15.04, ACC, TINT);               // 4.4 flips on
+shapeTo(16, 'tabs');       // 5.1
+shapeTo(19, 'chart');      // 5.4
+shapeTo(23, 'cmdk4');      // 6.4
+shapeTo(24, 'cmdk2');      // 7.1  "ש"
+shapeTo(24.5, 'cmdk1');    //      "של"
+shapeTo(25.12, 'toast');   // 7.2 enter
+shapeTo(27, 'button');     // 7.4
+
+// shape press (button click on 1.1, toggle click on 4.4)
+const SHP = tr(PRESS).to(0, 1).to(0.16, 0).to(15, 0.6).to(15.14, 0);
+const SPKPR = tr(PRESS).to(10, 1).to(10.16, 0);
+const SPK2PR = tr(PRESS).to(14, 1).to(14.16, 0);
+
+/* cursor: one spring per move, x and y on different springs → curved paths */
+const CX = tr(CURX), CY = tr(CURY), CPR = tr(PRESS);
+function cur(b, x, y, sx, sy) { CX.to(b, x, sx); CY.to(b, y, sy || sx); }
+function click(b, up) { CPR.to(b, 1).to(b + (up || 0.16), 0); }
+cur(0.4, 52, 58);
+cur(3.3, 70, 62);
+cur(4.4, 120, 96);
+cur(5.2, 6, 112);            click(6);          // play
+cur(6.2, 147, 5, { w: 15, z: 0.9 }, { w: 14, z: 0.95 });   // to the playhead
+CPR.to(7, 1);                                    // grab   (3.1 drag on beat 8)
+cur(7.16, 40, 7, { w: 15, z: 0.9 });
+cur(8, -62, 9, { w: 12, z: 0.9 });                       // second push on beat 8
+CPR.to(9, 0);                                    // release
+cur(9.12, -226, 108);        click(10);         // speaker → volume
+cur(10.2, -62, 6);
+CPR.to(11, 1);                                   // grab volume
+cur(11.12, -222, 12, { w: 15, z: 0.9 });          // just past max
+cur(12, -270, 13, { w: 12, z: 0.9 });              // beat 12: pull harder → stretch (hand stays in frame)
+CPR.to(13, 0);                                   // release
+cur(13.1, 198, 6);           click(14);         // speaker icon → mute switch
+cur(14.2, 42, 16);           click(15);         // toggle
+cur(15.45, -10, 72);
+cur(16.05, 6, 12);           click(17);         // العربية
+cur(17.12, 216, 10);         click(18);         // עברית
+cur(18.25, 160, 332);                            // rest below the card
+cur(20.6, 100, 84);                              // hover Tuesday
+cur(21.62, -98, 40);                              // glide to Thursday
+cur(23.1, 170, 215);                             // ⌘K takes over; rest out of the way
+cur(25.4, 168, 120);
+cur(26.9, -38, 18);          click(0);          // back to the button (lands for 1.1)
+
+/* ---------------------------------------------------------------------------
+   Persistent inner parts
+   --------------------------------------------------------------------------- */
+// progress / volume bar (world coords; RTL: the right end is zero)
+const TXR = tr(MORPH).to(5, 248, INST).to(10, 160);
+const TLEN = tr(MORPH).to(5, 496, INST).to(10, 356);
+const TTH = tr(MORPH).to(5, 6, INST).to(10, 8);
+const TBG = new ColorTrack(TINT).to(5, '#3A3A3F', INST).to(10, '#E6E3DC');
+const TFG = new ColorTrack(TINT).to(5, '#FFFFFF', INST).to(10, INK);
+const TRKP = presence([[5 + D, 1], [14, 0]]);
+
+// the value under the cursor
+const P0 = 724 / 3492;              // 12:04 of 58:12
+const G1 = 7 * B, R1 = 9 * B, G2 = 11 * B, R2 = 13 * B;   // grab / release
+let P_REL = 0, ST_REL = 0, SV_REL = 0;
+const rubber = (x) => 0.8 * x / (1 + x / 200);
+function rawVol(t) { return P_REL + (CX.at(G2) - CX.at(t)) / 356; }
+function valueAt(t) {
+  if (t < G1) return P0;
+  if (t <= R1) return clamp(P0 + (CX.at(G1) - CX.at(t)) / 496, 0, 1);   // held: from the cursor
+  if (t < G2) return P_REL;
+  if (t <= R2) return clamp(rawVol(t), 0, 1);
+  return 1;
+}
+function stretchAt(t) {
+  if (t < G2) return 0;
+  if (t <= R2) return rubber(Math.max(0, (rawVol(t) - 1) * 356));
+  return F(t - R2, ST_REL, SV_REL, BACK);                 // released: spring back from wherever it was
+}
+const KNOB = tr(FAST).to(5, 16, INST).to(7, 26).to(9, 16).to(10, 28, MORPH).to(11, 32).to(13, 28);
+const BUB = presence([[7, 1, FAST], [9, 0]]);
+
+// the pill: playhead → volume knob → toggle knob → tab indicator → row highlight
+const PX0 = tr(MORPH), PX1 = tr(MORPH), PY0 = tr(MORPH), PY1 = tr(MORPH);
+const PR = tr(MORPH).to(5, 999, INST).to(14, 38, INST).to(23, 22);
+const PCOL = new ColorTrack(TINT).to(5, '#FFFFFF', INST).to(10, INK).to(14, INK)
+  .to(15.02, '#FFFFFF', { w: 70, z: 1 }).to(16, INK, { w: 70, z: 1 }).to(23, '#EFEDE8', { w: 70, z: 1 }).to(25, '#E2DFD8', FAST).to(25.12, INK, TINT);
+const PILLP = presence([[5 + D, 1], [25.12, 0]]);
+const ATTACH0 = 5 * B, ATTACH1 = 14 * B;      // pill rides the bar while in [ATTACH0, ATTACH1)
+let pillPrev = null;
+function pillTo(b, x0, x1, y0, y1, vertSpec) {
+  // leading edge on a fast spring, trailing edge on a slow one → liquid stretch
+  const movingLeft = pillPrev ? (x0 + x1) < (pillPrev[0] + pillPrev[1]) : false;
+  const sameX = pillPrev && Math.abs((x0 + x1) - (pillPrev[0] + pillPrev[1])) < 1;   // no travel → no lead/trail
+  PX0.to(b, x0, sameX ? MORPH : (movingLeft ? LEAD : TRAIL));
+  PX1.to(b, x1, sameX ? MORPH : (movingLeft ? TRAIL : LEAD));
+  PY0.to(b, y0, vertSpec || MORPH); PY1.to(b, y1, vertSpec || MORPH);
+  pillPrev = [x0, x1, y0, y1];
+}
+const SEG = 640 / 3;
+function knobRect(t) {
+  const v = valueAt(t), len = TLEN.at(t) + stretchAt(t), xr = TXR.at(t);
+  const x = xr - len * v, s = KNOB.at(t);
+  return [x - s / 2, x + s / 2, -s / 2, s / 2];
+}
+
+/* ---------------------------------------------------------------------------
+   Layer presences (content swaps: exit fast, enter late → never overlap)
+   --------------------------------------------------------------------------- */
+const LP = {
+  button: presence([[0.18, 0], [27 + D, 1]]),
+  loader: presence([[0.18 + 0.2, 1], [3, 0]]),
+  check:  presence([[3 + D, 1], [4, 0]]),
+  island: presence([[4.06, 1, { w: 34, z: 1 }], [5.06, 0]]),
+  player: presence([[5 + D, 1], [10, 0]]),
+  volume: presence([[10 + D, 1], [14, 0]]),
+  tabs:   presence([[16 + D, 1], [23, 0]]),
+  chart:  presence([[19 + D, 1], [23, 0]]),
+  cmdk:   presence([[23 + D, 1], [25.12, 0]]),
+  toast:  presence([[25.12 + D, 1], [27, 0]]),
+};
+const RING = tr(SOFT).to(0.3, 0.1).to(1, 0.42).to(2, 1).to(5, 0, INST);
+const CHECK = tr({ w: 13, z: 1 }).to(3 + 0.12, 1).to(6, 0, INST);
+const PLAYM = tr(FAST).to(6, 1).to(12, 0, INST);
+const PLAYPR = tr(PRESS).to(6, 1).to(6.16, 0);
+const DRAW = tr({ w: 13, z: 1 }).to(20, 1).to(26, 0, INST);
+const TOASTCHK = tr({ w: 14, z: 1 }).to(26, 1).to(5, 0, INST);
+const KEYPR = tr(PRESS).to(23, 1).to(23.45, 0);
+const CH0 = presence([[24, 1, FAST], [26, 0, INST]]);
+const CH1 = presence([[24.5, 1, FAST], [26, 0, INST]]);
+const PLACE = presence([[24, 0, INST], [26, 1, INST]]);   // a placeholder disappears the instant you type
+// player children stagger in
+const PSTAG = [0, 0.05, 0.1, 0.14, 0.18].map((d) => presence([[5 + D + d, 1], [10, 0]]));
+
+// command rows: slot springs + individual presences
+const ROWS = [
+  { he: 'העלאת הקלטה', ico: 'upload' },
+  { he: 'חיפוש בתמלולים', ico: 'search' },
+  { he: 'שליחת סיכום בוואטסאפ', ico: 'send' },
+  { he: 'ייצוא ל-Word', ico: 'file' },
+];
+const RSLOT = [
+  tr(MORPH).to(20, 0, INST),
+  tr(MORPH).to(20, 1, INST).to(24, 0),
+  tr(MORPH).to(20, 2, INST).to(24, 1).to(24.5, 0),
+  tr(MORPH).to(20, 3, INST),
+];
+const RP = [
+  presence([[23 + D, 1], [24, 0]]),
+  presence([[23 + D + 0.08, 1], [24.5, 0]]),
+  presence([[23 + D + 0.16, 1], [25.12, 0]]),
+  presence([[23 + D + 0.24, 1], [24, 0]]),
+];
+
+// pill path through the states
+function buildPill() {
+  // attached until beat 14; at 14 it detaches from where the knob actually is
+  const k = knobRect(ATTACH1 - 1e-4);
+  pillPrev = k;
+  PX0.to(14, k[0], INST); PX1.to(14, k[1], INST); PY0.to(14, k[2], INST); PY1.to(14, k[3], INST);
+  pillTo(14.002, 0, 76, -38, 38);                     // toggle, off (RTL: knob on the right)
+  pillTo(15, -76, 0, -38, 38);                        // flips on, on the beat
+  pillTo(16, -320, -320 + SEG, -38, 38);              // knob → indicator under English
+  pillTo(17, -SEG / 2, SEG / 2, -38, 38);             // العربية
+  pillTo(18, 320 - SEG, 320, -38, 38);                // עברית
+  pillTo(19, 320 - SEG, 320, -250, -174);             // tabs ride to the top of the chart card
+  pillTo(23, -322, 322, -84, -26);                    // → command row highlight
+  pillTo(25.12, -175, 175, -44, 44);                  // enter: the highlight becomes the toast
+}
+
+/* chart data (Sun → Sat, drawn right → left) */
+const VALS = [22, 31, 38, 27, 52, 18, 26];
+const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const PTS = VALS.map((v, i) => [660 - i * 100, 470 - 4 * v]);
+const TIPX = tr(FAST), TIPY = tr(FAST), TIPWD = tr(FAST);
+const TABY = tr(MORPH).to(19, 20).to(23, 0);         // tab row offset inside the chart card
+let TIPP = null, TIPI = [];
+
+/* ---------------------------------------------------------------------------
+   DOM setup (static), measured once after fonts load
+   --------------------------------------------------------------------------- */
+const E = {};
+const ICONS = {
+  upload: '<path d="M12 15V4"/><path d="M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>',
+  send: '<path d="M20.5 3.5 10.8 13.2"/><path d="M20.5 3.5 14.4 20.5l-3.6-7.3-7.3-3.6z"/>',
+  file: '<path d="M14 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8z"/><path d="M14 3.5V8h4.5"/>',
+};
+function smoothPath(p) {
+  let d = `M${p[0][0]},${p[0][1]}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[i - 1] || p[i], p1 = p[i], p2 = p[i + 1], p3 = p[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(2)},${c1[1].toFixed(2)} ${c2[0].toFixed(2)},${c2[1].toFixed(2)} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+function setupDom() {
+  for (const id of ['world', 'shape', 'trk', 'trkFill', 'pill', 'bubble', 'cursor', 'ring', 'checkPath', 'wave',
+    'ppA', 'ppB', 'playBtn', 'tElapsed', 'tRemain', 'wv1', 'wv2', 'tabsWhite', 'bigNum', 'line', 'area',
+    'areaClipRect', 'dots', 'days', 'tip', 'guide', 'q0', 'q1', 'caret', 'placeholder', 'keycap', 'rows',
+    'toastCheck']) E[id] = $(id);
+  for (const k of Object.keys(LP)) E['L_' + k] = $('L_' + k);
+  E.pc = [...document.querySelectorAll('#L_player .pc')];
+  E.cc = [...document.querySelectorAll('#L_chart .cc')];
+  E.waveBars = [...E.wave.querySelectorAll('rect')];
+
+  // chart
+  const d = smoothPath(PTS);
+  E.line.setAttribute('d', d);
+  E.area.setAttribute('d', `${d} L60,470 L660,470 Z`);
+  E.lineLen = E.line.getTotalLength();
+  E.line.style.strokeDasharray = `${E.lineLen} ${E.lineLen}`;
+  // arc-length position of each point along the line (for dots appearing as the line passes)
+  E.ptFrac = PTS.map(([x]) => {
+    let lo = 0, hi = E.lineLen;
+    for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (E.line.getPointAtLength(m).x > x) lo = m; else hi = m; }
+    return lo / E.lineLen;
+  });
+  E.tipLUT = Array.from({ length: 201 }, (_, i) => E.line.getPointAtLength(E.lineLen * i / 200).x);
+  E.dotEls = PTS.map(([x, y]) => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 6);
+    c.setAttribute('fill', '#fff'); c.setAttribute('stroke', ACC); c.setAttribute('stroke-width', 3);
+    E.dots.appendChild(c); return c;
+  });
+  E.dayEls = DAYS.map((txt, i) => {
+    const s = document.createElement('span');
+    s.className = 'abs t he'; s.textContent = txt;
+    s.style.cssText = `left:${PTS[i][0]}px;top:514px;font-size:17px;font-weight:500;color:#8A867E`;
+    E.days.appendChild(s); return s;
+  });
+  E.tipTexts = VALS.map((v, i) => {
+    const s = document.createElement('span');
+    s.className = 'tipt t he';
+    s.innerHTML = `יום ${DAYS[i]} · <span class="num">${v}</span> דק׳`;
+    E.tip.appendChild(s); return s;
+  });
+  E.tipW = E.tipTexts.map((s) => s.getBoundingClientRect().width + 32);
+
+  // command rows
+  E.rowEls = ROWS.map((r) => {
+    const el = document.createElement('div');
+    el.className = 'row';
+    el.innerHTML = `<div class="ico-w"><svg class="ico${r.ico === 'send' ? ' mirror' : ''}" width="24" height="24" viewBox="0 0 24 24">${ICONS[r.ico]}</svg></div><span class="lbl t he">${r.he}</span>`;
+    E.rows.appendChild(el); return el;
+  });
+  E.qW = [E.q0.getBoundingClientRect().width, E.q1.getBoundingClientRect().width];
+  E.checkLen = E.checkPath.getTotalLength();
+  E.toastLen = E.toastCheck.getTotalLength();
+}
+
+/* hover: the tooltip snaps to the nearest day under the cursor. Derived from the
+   cursor path once (it is itself a pure function of time), then springs. */
+function buildHover() {
+  const ev = []; let prev = -1;
+  const t0 = 19 * B, t1 = 23 * B;
+  for (let t = t0; t <= t1; t += 0.002) {
+    const x = CX.at(t), y = CY.at(t);
+    const inside = y > -80 && y < 160 && x > -330 && x < 330;
+    const idx = inside ? clamp(Math.round((300 - x) / 100), 0, 6) : -1;
+    if (idx !== prev) { ev.push([t / B, idx]); prev = idx; }
+  }
+  for (let i = ev.length - 2; i > 0; i--) if (ev[i + 1][0] - ev[i][0] < 0.3 && ev[i][1] >= 0 && ev[i - 1][1] >= 0) ev.splice(i, 1);
+  const enterAt = ev.find((e) => e[1] >= 0);
+  TIPP = presence([[enterAt ? enterAt[0] : 21, 1, FAST], [23, 0]]);
+  TIPI = VALS.map(() => tr(ENTER));
+  let first = true;
+  for (const [b, idx] of ev) {
+    if (idx < 0) continue;
+    const [px, py] = PTS[idx];
+    TIPX.to(b, px, first ? INST : FAST); TIPY.to(b, py, first ? INST : FAST); TIPWD.to(b, E.tipW[idx], first ? INST : FAST);
+    TIPI.forEach((k, i) => k.to(i === idx && !first ? b + 0.1 : b, i === idx ? 1 : 0, i === idx ? (first ? INST : ENTER) : EXIT));
+    first = false;
+  }
+  TIPI.forEach((k) => k.to(23.5, 0, INST));
+  E.hoverEvents = ev;
+}
+
+/* ---------------------------------------------------------------------------
+   seek(t): every style from time. Nothing carried between frames.
+   --------------------------------------------------------------------------- */
+function tipX(k) { const f = k * 200, i = Math.min(199, Math.floor(f)); return lerp(E.tipLUT[i], E.tipLUT[i + 1], f - i); }
+function wrapT(t) { return ((t % T) + T) % T; }
+let ZNOW = 1;                             // current camera zoom: blur and shadow are sized on screen, not in the world
+const softmin = (a, b) => { const p = 8; return a * b / Math.pow(Math.pow(a, p) + Math.pow(b, p), 1 / p); };
+function fx(el, p, opts) {                 // presence → opacity / blur / slight rise
+  const o = opts || {};
+  const q = clamp(p, 0, 1);
+  el.style.visibility = q < 0.002 ? 'hidden' : 'visible';
+  el.style.opacity = q >= 0.999 ? '' : q.toFixed(4);
+  const blur = (1 - q) * (o.blur == null ? 10 : o.blur) * 1.6 / ZNOW;
+  el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none';
+  const dy = (1 - q) * (o.dy == null ? 6 : o.dy), sc = 1 - (1 - q) * (o.sc == null ? 0.04 : o.sc);
+  return (o.base || '') + ` translate(0px, ${dy.toFixed(3)}px) scale(${sc.toFixed(4)})`;
+}
+function mmss(sec) { const s = Math.round(sec); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function ppPath(m, side) {                 // play ▶ ↔ pause ❚❚, point-to-point morph
+  const play = side ? [[2.5, -5.8], [11, 0], [11, 0], [2.5, 5.8]] : [[-7, -11], [2.5, -5.8], [2.5, 5.8], [-7, 11]];
+  const paus = side ? [[3, -10], [8.5, -10], [8.5, 10], [3, 10]] : [[-8.5, -10], [-3, -10], [-3, 10], [-8.5, 10]];
+  return 'M' + play.map((p, i) => `${lerp(p[0], paus[i][0], m).toFixed(3)},${lerp(p[1], paus[i][1], m).toFixed(3)}`).join(' L') + ' Z';
+}
+
+function seek(tIn) {
+  const t = wrapT(tIn);
+  const beat = t / B;
+
+  /* camera */
+  const stretch = stretchAt(t);
+  const wLive = SH.w.at(t) + stretch, hLive = SH.h.at(t) - stretch * 0.09;
+  const z = softmin(Math.exp(CAMZ.at(t)), 0.9 * 1440 / Math.max(wLive, hLive));
+  const camX = CAMX.at(t) - stretch / 2, camY = CAMY.at(t);
+  ZNOW = z;
+  E.world.style.transform = `translate(720px, 720px) scale(${z.toFixed(5)}) translate(${(-camX).toFixed(3)}px, ${(-camY).toFixed(3)}px)`;
+
+  /* shape */
+  const w = SH.w.at(t) + stretch, h = SH.h.at(t) - stretch * 0.09;
+  const cx = SH.cx.at(t) - stretch / 2, cy = SH.cy.at(t);
+  const r = Math.min(SH.r.at(t), w / 2, h / 2);
+  const L = cx - w / 2, Tp = cy - h / 2;
+  const press = SHP.at(t);
+  const sh = E.shape.style;
+  sh.left = `${L.toFixed(3)}px`; sh.top = `${Tp.toFixed(3)}px`;
+  sh.width = `${w.toFixed(3)}px`; sh.height = `${h.toFixed(3)}px`;
+  sh.borderRadius = `${r.toFixed(3)}px`;
+  sh.background = SH.bg.at(t);
+  sh.boxShadow = `0 ${(1 / z).toFixed(3)}px ${(1 / z).toFixed(3)}px rgba(28,24,16,0.05), 0 ${(19 / z).toFixed(3)}px ${(50 / z).toFixed(3)}px ${(-19 / z).toFixed(3)}px rgba(28,24,16,0.18)`;
+  sh.transform = press > 0.0005 ? `scale(${(1 - 0.045 * press).toFixed(5)})` : '';
+  const cx0 = SH.cx.at(t);
+  const toLocal = (x, y) => [x - L, y - Tp];
+  // place a layer box of (bw × bh) centred on the live shape (or pinned to its top edge)
+  function place(el, bw, bh, p, pinTop, opts) {
+    const lx = (cx0 - bw / 2) - L, ly = typeof pinTop === 'number' ? pinTop : (pinTop ? 0 : h / 2 - bh / 2);
+    el.style.left = `${lx.toFixed(3)}px`; el.style.top = `${ly.toFixed(3)}px`;
+    el.style.transform = fx(el, p, opts);
+    return [lx, ly];
+  }
+
+  /* bar + knob pill */
+  const v = valueAt(t);
+  const trkP = TRKP.at(t);
+  {
+    const xr = TXR.at(t), len = TLEN.at(t) + stretch, th = TTH.at(t);
+    const [lx, ly] = toLocal(xr - len, -th / 2);
+    const s = E.trk.style;
+    s.left = `${lx.toFixed(3)}px`; s.top = `${ly.toFixed(3)}px`;
+    s.width = `${len.toFixed(3)}px`; s.height = `${th.toFixed(3)}px`; s.borderRadius = `${(th / 2).toFixed(3)}px`;
+    s.background = TBG.at(t);
+    s.opacity = clamp(trkP, 0, 1).toFixed(4); s.visibility = trkP < 0.002 ? 'hidden' : 'visible';
+    const f = E.trkFill.style;
+    f.left = `${(len * (1 - v)).toFixed(3)}px`; f.top = '0px';
+    f.width = `${(len * v).toFixed(3)}px`; f.height = `${th.toFixed(3)}px`; f.borderRadius = `${(th / 2).toFixed(3)}px`;
+    f.background = TFG.at(t);
+  }
+  {
+    let x0, x1, y0, y1;
+    if (t >= ATTACH0 && t < ATTACH1) [x0, x1, y0, y1] = knobRect(t);
+    else {
+      x0 = PX0.at(t); x1 = PX1.at(t); y0 = PY0.at(t); y1 = PY1.at(t);
+      const sm = (x, lo) => lo + 1.5 * Math.log1p(Math.exp((x - lo) / 1.5));   // smooth max
+      x0 = sm(x0, L + 4); x1 = -sm(-x1, -(L + w - 4)); y0 = sm(y0, Tp + 4); y1 = -sm(-y1, -(Tp + h - 4));
+    }
+    const pw = Math.max(0, x1 - x0), ph = Math.max(0, y1 - y0);
+    const [lx, ly] = toLocal(x0, y0);
+    const pp = PILLP.at(t);
+    const s = E.pill.style;
+    s.left = `${lx.toFixed(3)}px`; s.top = `${ly.toFixed(3)}px`;
+    s.width = `${pw.toFixed(3)}px`; s.height = `${ph.toFixed(3)}px`;
+    s.borderRadius = `${Math.min(PR.at(t), pw / 2, ph / 2).toFixed(3)}px`;
+    s.background = PCOL.at(t);
+    s.opacity = clamp(pp, 0, 1).toFixed(4); s.visibility = pp < 0.002 ? 'hidden' : 'visible';
+    E.pillRect = [x0, x1, y0, y1];
+  }
+  {
+    const bp = BUB.at(t);
+    const [x0, x1, y0] = E.pillRect;
+    const [lx, ly] = toLocal((x0 + x1) / 2, y0 - 12);
+    E.bubble.textContent = mmss(v * 3492);
+    E.bubble.style.left = `${lx.toFixed(3)}px`; E.bubble.style.top = `${ly.toFixed(3)}px`;
+    E.bubble.style.transform = fx(E.bubble, bp, { base: 'translate(-50%, -100%)', dy: 8, sc: 0.12, blur: 6 });
+  }
+
+  /* 1 · button */
+  place(E.L_button, 320, 88, LP.button.at(t));
+
+  /* 2 · loader */
+  {
+    place(E.L_loader, 108, 108, LP.loader.at(t), false, { dy: 0, sc: 0.2 });
+    const circ = 2 * Math.PI * 24, a = clamp(RING.at(t), 0, 1);
+    E.ring.style.strokeDasharray = `${(circ * a).toFixed(3)} ${circ.toFixed(3)}`;
+    E.ring.style.strokeOpacity = a > 0.004 ? '1' : '0';          // round caps draw a dot at length 0
+    E.ring.setAttribute('transform', `rotate(${(-90 + t * 400).toFixed(3)} 54 54)`);
+  }
+  /* 3 · check */
+  {
+    place(E.L_check, 108, 108, LP.check.at(t), false, { dy: 0, sc: 0.1 });
+    const k = clamp(CHECK.at(t), 0, 1);
+    E.checkPath.style.strokeDasharray = `${E.checkLen} ${E.checkLen}`;
+    E.checkPath.style.strokeDashoffset = `${(E.checkLen * (1 - k)).toFixed(3)}`;
+    E.checkPath.style.strokeOpacity = k > 0.004 ? '1' : '0';
+  }
+  /* 4 · island */
+  {
+    place(E.L_island, 380, 76, LP.island.at(t), false, { blur: 6 });
+    E.waveBars.forEach((bar, i) => {
+      const hgt = 8 + 20 * Math.abs(Math.sin(t * (5.2 + i * 1.3) + i * 1.7)) * (i === 2 ? 1 : 0.8);
+      bar.setAttribute('y', (16 - hgt / 2).toFixed(3)); bar.setAttribute('height', hgt.toFixed(3));
+    });
+  }
+  /* 5 · player */
+  {
+    const p = LP.player.at(t);
+    place(E.L_player, 560, 320, p, false, { dy: 0, sc: 0.02, blur: 8 });
+    E.L_player.style.filter = 'none'; E.L_player.style.opacity = p < 0.002 ? '0' : '';
+    E.pc.forEach((el) => {
+      const q = Math.min(p, PSTAG[+el.dataset.st].at(t));
+      const base = el.id === 'playBtn' ? `scale(${(1 - 0.08 * PLAYPR.at(t)).toFixed(4)})`
+        : el.id === 'spkBtn' ? `scale(${(1 - 0.16 * SPKPR.at(t)).toFixed(4)})` : (el.dataset.base || '');
+      el.style.transform = fx(el, q, { base, dy: 8, blur: 8 });
+    });
+    const m = clamp(PLAYM.at(t), 0, 1);
+    E.ppA.setAttribute('d', ppPath(m, 0)); E.ppB.setAttribute('d', ppPath(m, 1));
+    E.tElapsed.textContent = mmss(v * 3492);
+    E.tRemain.textContent = '\u2212' + mmss(3492 - v * 3492);
+  }
+  /* 6 · volume */
+  {
+    place(E.L_volume, 460, 92, LP.volume.at(t));
+    const vv = t >= 10 * B ? v : 0.6;
+    E.wv1.style.opacity = smooth(0.05, 0.3, vv).toFixed(3);
+    E.wv2.style.opacity = smooth(0.45, 0.8, vv).toFixed(3);
+    $('spk2').style.transform = `scale(${(1 - 0.16 * SPK2PR.at(t)).toFixed(4)})`;
+  }
+  /* 7 · tabs (pinned to the top edge so they ride up when the chart opens) */
+  {
+    const [lx, ly] = place(E.L_tabs, 660, 96, LP.tabs.at(t), TABY.at(t), { dy: 0, sc: 0.02 });
+    const [x0, x1, y0, y1] = E.pillRect;
+    const bx = L + lx, by = Tp + ly;                        // box origin in world
+    const cl = x0 - bx, cr = 660 - (x1 - bx), ct = y0 - by, cb = 96 - (y1 - by);
+    const rr = Math.min(PR.at(t), (x1 - x0) / 2, (y1 - y0) / 2);
+    E.tabsWhite.style.clipPath = `inset(${ct.toFixed(2)}px ${cr.toFixed(2)}px ${cb.toFixed(2)}px ${cl.toFixed(2)}px round ${rr.toFixed(2)}px)`;
+  }
+  /* 8 · chart */
+  {
+    const p = LP.chart.at(t);
+    place(E.L_chart, 720, 560, p, false, { dy: 0, sc: 0.0, blur: 8 });
+    const dp = clamp(DRAW.at(t), 0, 1.02);
+    E.cc.forEach((el, i) => { el.style.transform = fx(el, Math.min(p, clamp(p * 1.15 - i * 0.1, 0, 1)), { base: 'translateY(-50%)', dy: 8 }); });
+    E.bigNum.textContent = String(Math.round(214 * clamp(dp, 0, 1)));
+    E.line.style.strokeDashoffset = (E.lineLen * (1 - clamp(dp, 0, 1))).toFixed(3);
+    E.line.style.opacity = (dp > 0.002 ? p : 0).toFixed(4);
+    const rx = tipX(clamp(dp, 0, 1));
+    E.areaClipRect.setAttribute('x', rx.toFixed(3)); E.areaClipRect.setAttribute('width', (720 - rx).toFixed(3));
+    E.area.style.opacity = p.toFixed(4);
+    const hp = TIPP.at(t);
+    E.dotEls.forEach((c, i) => {
+      const f = clamp(E.ptFrac[i], 0.04, 0.96);
+      const k = (dp > 0.002 ? smooth(f - 0.04, f + 0.04, dp) : 0) * p;
+      const hov = clamp(TIPI[i].at(t), 0, 1) * clamp(hp, 0, 1);
+      c.setAttribute('r', ((6 + 3 * hov) * k).toFixed(3));
+      c.setAttribute('fill', hov > 0.5 ? ACC : '#fff');
+      c.style.opacity = k.toFixed(3);
+    });
+    E.dayEls.forEach((el, i) => {
+      el.style.transform = fx(el, Math.min(p, smooth(0.0, 0.25, dp - i * 0.07)), { base: 'translate(-50%, -50%)', dy: 6 });
+    });
+    const tx = TIPX.at(t), ty = TIPY.at(t);
+    E.guide.setAttribute('x1', tx.toFixed(3)); E.guide.setAttribute('x2', tx.toFixed(3)); E.guide.setAttribute('y1', (ty + 12).toFixed(3));
+    E.guide.style.opacity = (clamp(hp, 0, 1) * p).toFixed(3);
+    const tw = TIPWD.at(t);
+    E.tip.style.width = `${Math.max(40, tw).toFixed(3)}px`;
+    E.tip.style.left = `${tx.toFixed(3)}px`; E.tip.style.top = `${(ty - 22).toFixed(3)}px`;
+    E.tip.style.transform = fx(E.tip, Math.min(hp, p), { base: 'translate(-50%, -100%)', dy: 6, sc: 0.1, blur: 6 });
+    E.tipTexts.forEach((s, i) => {
+      s.style.left = `${(Math.max(40, tw) / 2).toFixed(3)}px`;
+      s.style.transform = fx(s, TIPI[i].at(t), { base: 'translate(-50%, -50%)', dy: 5, blur: 6 });
+    });
+  }
+  /* 9 · command palette (pinned top so the list collapses upward) */
+  {
+    const p = LP.cmdk.at(t);
+    place(E.L_cmdk, 660, 360, p, true, { dy: 0, sc: 0.02 });
+    E.rowEls.forEach((el, i) => {
+      el.style.top = `${(93 + 64 * RSLOT[i].at(t)).toFixed(3)}px`;
+      el.style.transform = fx(el, RP[i].at(t), { dy: 10, blur: 10 });
+    });
+    const c0 = clamp(CH0.at(t), 0, 1), c1 = clamp(CH1.at(t), 0, 1);
+    E.q0.style.width = `${(E.qW[0] * c0).toFixed(3)}px`; E.q1.style.width = `${(E.qW[1] * c1).toFixed(3)}px`;
+    E.q0.style.transform = fx(E.q0, c0, { dy: 8, blur: 8, sc: 0.2 });
+    E.q1.style.transform = fx(E.q1, c1, { dy: 8, blur: 8, sc: 0.2 });
+    const typing = beat >= 23.9 && beat < 25.2;
+    const blinkOn = Math.floor(beat * 2) % 2 === 0;
+    E.caret.style.opacity = (typing || blinkOn) ? '1' : '0';
+    E.placeholder.style.transform = fx(E.placeholder, PLACE.at(t), { base: 'translateY(-50%)', dy: 0, sc: 0.02 });
+    const kp = KEYPR.at(t);
+    E.keycap.style.transform = `scale(${(1 - 0.1 * kp).toFixed(4)})`;
+    E.keycap.style.background = kp > 0.02 ? `rgba(13,13,15,${(0.08 * kp).toFixed(4)})` : 'transparent';
+  }
+  /* 10 · toast */
+  {
+    place(E.L_toast, 350, 88, LP.toast.at(t));
+    const k = clamp(TOASTCHK.at(t), 0, 1);
+    E.toastCheck.style.strokeDasharray = `${E.toastLen} ${E.toastLen}`;
+    E.toastCheck.style.strokeDashoffset = `${(E.toastLen * (1 - k)).toFixed(3)}`;
+    E.toastCheck.style.strokeOpacity = k > 0.004 ? '1' : '0';
+  }
+
+  /* cursor — lives in screen space, positioned from its world point */
+  {
+    const x = CX.at(t), y = CY.at(t), pr = CPR.at(t);
+    const sx = 720 + (x - camX) * z, sy = 720 + (y - camY) * z;
+    E.cursor.style.transform = `translate(${(sx - 3).toFixed(3)}px, ${(sy - 2.2).toFixed(3)}px) scale(${(1 - 0.12 * pr).toFixed(4)})`;
+  }
+  return t;
+}
+
+/* ---------------------------------------------------------------------------
+   init: build tracks → derive release values → pill path → hover
+   --------------------------------------------------------------------------- */
+function init() {
+  setupDom();
+  ALL.forEach((k) => k.build());                         // cursor + everything but the pill
+  P_REL = clamp(P0 + (CX.at(G1) - CX.at(R1)) / 496, 0, 1);
+  const raw = (tt) => rubber(Math.max(0, (rawVol(tt) - 1) * 356));
+  ST_REL = raw(R2); SV_REL = (raw(R2) - raw(R2 - 1e-3)) / 1e-3;
+  buildPill();
+  buildHover();
+  ALL.forEach((k) => k.build());
+  seek(0);
+}
+
+/* cue export for the sound design — sampled from the same pure functions that draw the frames */
+function exportCues() {
+  const samp = (a, b, fn, dt) => { const o = []; for (let t = a; t <= b + 1e-9; t += dt) o.push([+t.toFixed(4), +fn(t).toFixed(5)]); return o; };
+  return {
+    B, T, BEATS,
+    value: samp(G1 - 0.05, R2 + 0.05, valueAt, 0.001),
+    stretch: samp(G2, R2 + 0.6, stretchAt, 0.001),
+    hover: E.hoverEvents.filter((e) => e[1] >= 0).map((e) => [e[0] * B, e[1]]),
+    grab: [G1, G2], release: [R1, R2],
+  };
+}
+window.CUES = exportCues;
+window.CFG = CFG;
+window.TIMING = { B, T, BEATS };
+window.seek = seek;
+window.__ready = document.fonts.ready.then(() => Promise.all([
+  document.fonts.load('500 27px Heebo', 'העלאת'), document.fonts.load('600 25px Heebo', 'מבוא'),
+  document.fonts.load('400 24px Heebo', 'חיפוש'), document.fonts.load('500 25px PlexArabic', 'العربية'),
+  document.fonts.load('500 25px Geist', 'English'), document.fonts.load('600 60px Geist', '214'),
+])).then(() => { init(); window.DEBUG = { hover: E.hoverEvents, P_REL, ST_REL, SV_REL }; return true; });
+const q = new URLSearchParams(location.search);
+if (q.has('t')) window.__ready.then(() => seek(parseFloat(q.get('t'))));
+})();
+</script>
+</body>
+</html>
