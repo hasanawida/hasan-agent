@@ -5,7 +5,7 @@
 | المشروع | الملف | اللغة | اللون المميّز | الموسيقى |
 |---|---|---|---|---|
 | **البيان** — تفريغ وتلخيص الدروس | `albayan-loop/out/albayan-loop.mp4` | عبري (RTL) + عربي + English في التبويبات | `#4F46E5` (بنفسجي البيان) | Deep House — Arulo (Mixkit) |
-| **متجر آيه** — ألعاب وكراسات لتطوير مهارات الأطفال | `aya-loop/out/aya-loop.mp4` (48 ثانية) | عربي (RTL) | `#F2D263` (أصفر شعار آيه) | Getting Older — Diego Nava (Mixkit) |
+| **متجر آيه** — ألعاب وكراسات لتطوير مهارات الأطفال | `aya-loop/out/aya-loop.mp4` (48 ثانية)، ونسخة 2160×2160: `aya-loop_2160.mp4` | عربي (RTL) | `#F2D263` (أصفر شعار آيه) | Getting Older — Diego Nava (Mixkit) |
 
 عنصر واحد فقط (`#shape`) يتحوّل بين كل الحالات: الحجم، الزوايا، واللون، والمحتوى يتبدّل ببلور قصير. المؤشر يقود كل تغيير بنقرات وسحب حقيقي، والكاميرا تقرّب حتى تملأ كل حالة الإطار.
 
@@ -100,6 +100,12 @@ node tools/render.mjs $P cues                  # إشارات الصوت من ن
 python3 $P/audio/make_audio.py                 # mix.wav
 node tools/render.mjs $P video                 # 4 subframes/frame → tmix → 60fps
 node tools/render.mjs $P mux                   # out/<name>.mp4
+
+# نسخة 2160×2160 (ثلاثة أجزاء بالتوازي ثم دمج بدون إعادة ترميز)
+for k in 1 2 3; do node tools/render.mjs $P video --scale=1.5 --part=$k/3 & done; wait
+node tools/render.mjs $P mux --scale=1.5       # out/<name>_2160.mp4
 ```
+
+للإرسال على واتساب بجودة كاملة: أرسل الملف **كمستند (Document)** وليس كفيديو، لأن واتساب يضغط أي فيديو عادي.
 
 افتح `albayan-loop.html?t=6.2` في المتصفح لرؤية أي لحظة.
