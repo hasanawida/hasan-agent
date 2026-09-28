@@ -49,7 +49,7 @@ if (mode === 'beats') {
   console.log('debug', JSON.stringify(await page.evaluate(() => window.DEBUG)));
   await browser.close();
   execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-pattern_type', 'glob', '-i', join(dir, 'b*.png'),
-    '-vf', 'scale=360:360,tile=7x4:padding=6:color=0xC9C5BC',
+    '-vf', `scale=360:360,tile=${timing.BEATS % 7 ? 8 : 7}x${Math.ceil(timing.BEATS / (timing.BEATS % 7 ? 8 : 7))}:padding=6:color=0xC9C5BC`,
     '-frames:v', '1', join(out, 'beats_sheet.png')]);
   console.log('beats →', dir);
 } else if (mode === 'stills') {

@@ -156,16 +156,19 @@ class Mixer:
         self.report = []
         self.loop = np.zeros((self.N, 2))
 
-    def music(self, wav_path, rms_db=-17.0, xfade_s=0.12):
+    def music(self, wav_path, rms_db=-17.0, xfade_s=0.12, loop_s=None):
+        """Seamless music loop of loop_s seconds (default: the whole mix), tiled to fill the mix."""
         raw = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-i", str(wav_path), "-f", "f32le",
                               "-ac", "2", "-ar", str(SR), "-"], check=True, capture_output=True).stdout
         m = np.frombuffer(raw, np.float32).reshape(-1, 2).astype(np.float64)
-        N, X = self.N, int(xfade_s * SR)
+        N = int(round((loop_s or self.N / SR) * SR))
+        X = int(xfade_s * SR)
         loop = m[:N].copy()
         g = np.linspace(0, 1, X)[:, None]
         loop[:X] = m[:X] * np.sin(g * np.pi / 2) + m[N:N + X] * np.cos(g * np.pi / 2)   # equal power
         loop *= db(rms_db) / np.sqrt(np.mean(loop ** 2))
-        self.loop = loop
+        reps = -(-self.N // N)
+        self.loop = np.tile(loop, (reps, 1))[:self.N]                                  # a seamless loop tiles seamlessly
 
     def place(self, sound, at, name, first_ms=None):
         """Put the sound's measured peak on `at` (for multi-note sounds: the first note's peak)."""

@@ -38,6 +38,15 @@ svg { display: block; overflow: visible; }
 #L_chart { width: 720px; height: 560px; color: var(--ink); }
 #L_cmdk { width: 660px; height: 360px; color: var(--ink); }
 #L_toast { width: 310px; height: 88px; color: #fff; }
+#L_brand { width: 560px; height: 220px; color: var(--ink); }
+#L_grid { width: 760px; height: 640px; color: var(--ink); }
+#L_map { width: 560px; height: 900px; color: var(--ink); }
+.tile { position: absolute; top: 0; left: 0; width: 216px; height: 250px; }
+.tile .ph { position: absolute; left: 0; top: 0; width: 216px; height: 168px; border-radius: 18px; background: #F6F5F1; overflow: hidden; }
+.tile .ph img { position: absolute; left: 50%; top: 50%; max-width: 88%; max-height: 88%; transform: translate(-50%, -50%); mix-blend-mode: multiply; }
+.tile .nm { position: absolute; right: 4px; top: 192px; font-size: 17px; font-weight: 600; transform: translateY(-50%); }
+.tile .pr { position: absolute; right: 4px; top: 224px; transform: translateY(-50%); display: flex; align-items: baseline; gap: 8px; direction: rtl; }
+.plabel { position: absolute; font-size: 16px; font-weight: 600; color: var(--ink); }
 
 .slide { position: absolute; top: 0; width: 508px; height: 280px; border-radius: 22px; background: #F6F5F1; overflow: hidden; }
 .slide img { position: absolute; left: 50%; top: 50%; max-width: 94%; max-height: 97%; transform: translate(-50%, -50%); mix-blend-mode: multiply; }  /* white photo grounds melt into the slide */
@@ -174,6 +183,43 @@ svg { display: block; overflow: visible; }
         <div id="rows"></div>
       </div>
 
+      <!-- 0 · brand: shop with Aya, the website -->
+      <div id="L_brand" class="abs">
+        <img class="abs" src="@IMG:bulb.png@" style="right:34px;left:auto;top:64px;width:96px;height:88px" alt="">
+        <span class="abs t ar" style="right:150px;left:auto;top:64px;transform:translateY(-50%);font-size:32px;font-weight:600">تسوّق مع متجر آيه</span>
+        <span id="tagline" class="abs t ar" style="right:150px;left:auto;top:106px;font-size:18px;font-weight:400;color:var(--muted)">ألعاب وكراسات لتطوير مهارات الأطفال</span>
+        <div id="urlPill" class="abs" style="right:150px;left:auto;top:136px;height:48px;padding:0 18px;border-radius:24px;background:#F3F1EC;display:flex;align-items:center;gap:10px;direction:ltr">
+          <svg class="ico" width="20" height="20" viewBox="0 0 24 24" style="color:#3A3935"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5a13 13 0 0 1 0 17a13 13 0 0 1 0-17z"/></svg>
+          <span id="urlText" class="t" style="font-family:Geist;font-size:22px;font-weight:500;color:var(--ink)">aya-shop.com</span>
+        </div>
+      </div>
+
+      <!-- 0b · featured products -->
+      <div id="L_grid" class="abs">
+        <span class="abs t ar" style="right:40px;left:auto;top:52px;transform:translateY(-50%);font-size:26px;font-weight:600">منتجات مختارة</span>
+        <span class="abs t ar" style="left:40px;top:52px;transform:translateY(-50%);font-size:17px;font-weight:500;color:var(--muted)">ألعاب · كراسات · صناديق</span>
+        <div id="tiles"></div>
+      </div>
+
+      <!-- 11 · delivery map -->
+      <div id="L_map" class="abs">
+        <span class="abs t ar" style="left:280px;top:62px;transform:translate(-50%, -50%);font-size:30px;font-weight:600">توصيل لكل أنحاء البلاد</span>
+        <svg class="abs" width="560" height="900" viewBox="0 0 560 900">
+          <path id="land" d="@TEXT:map_path.txt@" fill="#F3F1EC" stroke="#C9C4B9" stroke-width="1.6" stroke-linejoin="round"/>
+          <path id="routeGhost" fill="none" stroke="#C9C4B9" stroke-width="2.2" stroke-dasharray="1 8" stroke-linecap="round"/>
+          <path id="route" fill="none" stroke="#0D0D0F" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <g id="pinsG"></g>
+        </svg>
+        <div id="pinLabels"></div>
+        <div id="van" class="abs" style="width:44px;height:44px;border-radius:22px;background:var(--accent)">
+          <svg class="ico" style="position:absolute;left:10px;top:10px;color:var(--ink);transform:scaleX(-1)" width="24" height="24" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
+        </div>
+        <div id="mapSub" class="abs" style="left:280px;top:848px;display:flex;align-items:center;gap:10px;direction:rtl">
+          <svg class="ico" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+          <span class="t ar" style="font-size:22px;font-weight:500">خلال وقت قصير</span>
+        </div>
+      </div>
+
       <!-- 10 · toast -->
       <div id="L_toast" class="abs">
         <div class="abs" style="right:22px;left:auto;top:22px;width:44px;height:44px;border-radius:22px;background:var(--accent)">
@@ -195,7 +241,12 @@ svg { display: block; overflow: visible; }
 (() => {
 'use strict';
 const CFG = /*@CFG@*/{ "bpm": 120 }/*@END@*/;
-const B = 60 / CFG.bpm, BEATS = 28, T = BEATS * B;
+const B = 60 / CFG.bpm, BEATS = 96, T = BEATS * B;   // 24 bars
+// The shopping flow is written in flow beats (one event per flow beat) and plays at one event per
+// 2 beats from beat 20; offsets inside a flow beat (clicks, enter delays) keep their real length.
+const C0 = 20;
+const cb = (b) => { const f = Math.floor(b); return C0 + 2 * f + (b - f); };   // flow beat → beat
+const at = (b) => cb(b) * B;                                                   // flow beat → seconds
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, k) => a + (b - a) * k;
@@ -224,7 +275,8 @@ const SNAP = { w: 16, z: 0.84 };
 
 class Track {
   constructor(spec) { this.spec = spec; this.ev = []; }
-  to(beat, v, spec) { this.ev.push({ t: beat * B, v, sp: spec || this.spec }); return this; }
+  to(beat, v, spec) { return this.toAbs(cb(beat), v, spec); }                   // flow beats
+  toAbs(beat, v, spec) { this.ev.push({ t: beat * B, v, sp: spec || this.spec }); return this; }   // beats
   build() {
     this.ev.sort((a, b) => a.t - b.t);
     this.base = this.ev.length ? this.ev[this.ev.length - 1].v : 0;
@@ -242,18 +294,20 @@ const ALL = [];
 const tr = (spec) => { const k = new Track(spec); ALL.push(k); return k; };
 class ColorTrack {
   constructor(spec) { this.r = tr(spec); this.g = tr(spec); this.b = tr(spec); }
-  to(beat, hex, spec) {
+  to(beat, hex, spec) { return this.toAbs(cb(beat), hex, spec); }
+  toAbs(beat, hex, spec) {
     const n = parseInt(hex.slice(1), 16);
-    this.r.to(beat, (n >> 16) & 255, spec); this.g.to(beat, (n >> 8) & 255, spec); this.b.to(beat, n & 255, spec);
+    this.r.toAbs(beat, (n >> 16) & 255, spec); this.g.toAbs(beat, (n >> 8) & 255, spec); this.b.toAbs(beat, n & 255, spec);
     return this;
   }
   at(t) { const c = (v) => Math.round(clamp(v, 0, 255)); return `rgb(${c(this.r.at(t))},${c(this.g.at(t))},${c(this.b.at(t))})`; }
 }
-function presence(pairs) {
+function presence(pairs, abs) {
   const k = tr(ENTER);
-  for (const [b, v, sp] of pairs) k.to(b, v, sp || (v ? ENTER : EXIT));
+  for (const [b, v, sp] of pairs) k[abs ? 'toAbs' : 'to'](b, v, sp || (v ? ENTER : EXIT));
   return k;
 }
+const presenceAbs = (pairs) => presence(pairs, true);
 
 /* states (world px, origin = frame centre) */
 const INK = '#0D0D0F', PAPER = '#FFFFFF', ACC = '#F2D263';
@@ -271,17 +325,21 @@ const ST = {
   cmdk2:  { w: 660, h: 229, r: 30, cx: 0, cy: -65.5, bg: PAPER, zoom: 1.88 },
   cmdk1:  { w: 660, h: 165, r: 30, cx: 0, cy: -97.5, bg: PAPER, zoom: 1.94 },
   toast:  { w: 310, h: 88,  r: 44, cx: 0, cy: 0,     bg: INK,   zoom: 3.4 },
+  brand:  { w: 560, h: 220, r: 40, cx: 0, cy: 0,     bg: PAPER, zoom: 2.2 },
+  grid:   { w: 760, h: 640, r: 36, cx: 0, cy: 0,     bg: PAPER, zoom: 1.62 },
+  map:    { w: 560, h: 900, r: 40, cx: 0, cy: 0,     bg: PAPER, zoom: 1.44 },
 };
 
 const D = 0.18;                                    // enter after the outgoing content has cleared
 const SH = { w: tr(MORPH), h: tr(MORPH), r: tr(MORPH), cx: tr(MORPH), cy: tr(MORPH), bg: new ColorTrack(MORPH) };
 const CAMZ = tr(CAM), CAMX = tr(CAM), CAMY = tr(CAM);
-function shapeTo(b, s, bgAt) {
-  const g = ST[s];
-  for (const k of ['w', 'h', 'r', 'cx', 'cy']) SH[k].to(b, g[k]);
-  SH.bg.to(bgAt || b, g.bg, TINT);
-  CAMZ.to(b, Math.log(g.zoom)); CAMX.to(b, g.cx); CAMY.to(b, g.cy);
+function shapeTo(b, s, bgAt, abs) {
+  const g = ST[s], m = abs ? 'toAbs' : 'to';
+  for (const k of ['w', 'h', 'r', 'cx', 'cy']) SH[k][m](b, g[k]);
+  SH.bg[m](bgAt || b, g.bg, TINT);
+  CAMZ[m](b, Math.log(g.zoom)); CAMX[m](b, g.cx); CAMY[m](b, g.cy);
 }
+const shapeToAbs = (b, s, bgAt) => shapeTo(b, s, bgAt, true);
 shapeTo(0.18, 'loader');
 shapeTo(3, 'check');
 shapeTo(4, 'island');
@@ -295,7 +353,11 @@ shapeTo(23, 'cmdk4');
 shapeTo(24, 'cmdk2');
 shapeTo(24.5, 'cmdk1');
 shapeTo(25.12, 'toast');
-shapeTo(27, 'button');
+// intro, products, and the delivery outro (in beats)
+shapeToAbs(8, 'grid');                              // the site link opens the featured products
+shapeToAbs(19, 'button');                           // the chosen box → «أضف إلى السلة»
+shapeToAbs(74, 'map');                              // toast → delivery map
+shapeToAbs(94, 'brand');                            // → shop with Aya (the loop's first frame)
 const SHP = tr(PRESS).to(0, 1).to(0.16, 0).to(15, 0.6).to(15.14, 0);
 const CHIPPR = tr(PRESS).to(10, 1).to(10.16, 0);
 const OKPR = tr(PRESS).to(14, 1).to(14.16, 0);
@@ -304,6 +366,8 @@ const OKPR = tr(PRESS).to(14, 1).to(14.16, 0);
 const CX = tr(CURX), CY = tr(CURY), CPR = tr(PRESS);
 function cur(b, x, y, sx, sy) { CX.to(b, x, sx); CY.to(b, y, sy || sx); }
 function click(b, up) { CPR.to(b, 1).to(b + (up || 0.16), 0); }
+function curAbs(b, x, y, sx, sy) { CX.toAbs(b, x, sx); CY.toAbs(b, y, sy || sx); }
+function clickAbs(b, up) { CPR.toAbs(b, 1).toAbs(b + (up || 0.16), 0); }
 cur(0.4, 52, 58);
 cur(3.3, 70, 62);
 cur(4.4, 120, 96);
@@ -329,11 +393,24 @@ cur(20.6, 258, 96);                              // hover التركيز
 cur(21.62, 4, 60);                                // glide to الذاكرة
 cur(23.1, 170, 215);
 cur(25.4, 150, 110);
-cur(26.9, -40, 18);          click(0);
+click(0);                                        // flow beat 0 = beat 20: «أضف إلى السلة»
+// map, intro and products (beats)
+curAbs(74.4, 330, 300);                           // step aside for the map
+curAbs(94.3, 196, 170);                           // under the brand card
+curAbs(3.1, 30, 52);                              // hover the website link
+clickAbs(6);                                      // open it
+curAbs(6.4, -232, 300);                           // below the grid's corner while the products arrive
+// browse neighbour → neighbour (never across another tile), each landing on its beat
+curAbs(9.8, -232, 150);                           // لوحة الأشكال المطاطية
+curAbs(11.6, -232, -128);                         // تحدّي بوشي السريع
+curAbs(13.75, 0, -128);                           // مغامرات عائلة ضو
+curAbs(15.75, 232, -128);                         // عالم التركيز والتفكير
+clickAbs(18);                                     // choose it
+curAbs(19.25, -40, 18, { w: 16, z: 0.9 }, { w: 15, z: 0.95 });   // onto «أضف إلى السلة»
 
 /* carousel (card state): the strip follows the cursor while held, then snaps */
 const PITCH = 520;
-const G1 = 7 * B, R1 = 9 * B, G2 = 11 * B, R2 = 13 * B;
+const G1 = at(7), R1 = at(9), G2 = at(11), R2 = at(13);
 let O_REL = 0, OV_REL = 0, O_SNAP = PITCH;
 function offsetAt(t) {
   if (t < G1) return 0;
@@ -374,7 +451,7 @@ const PR = tr(MORPH).to(5, 999, INST).to(14, 38, INST).to(23, 22);
 const PCOL = new ColorTrack(TINT).to(5, INK, INST).to(10.12, '#FFFFFF').to(14, INK)
   .to(23, '#F2F0EA', { w: 70, z: 1 }).to(25, '#E4E1DA', FAST).to(25.12, INK);
 const PILLP = presence([[5 + D, 1], [25.12, 0]]);
-const ATTACH0 = 5 * B, SWITCH = 10 * B, ATTACH1 = 14 * B;
+const ATTACH0 = at(5), SWITCH = at(10), ATTACH1 = at(14);
 const TOKNOB = { w: 17, z: 0.82 };
 let pillPrev = null;
 function pillTo(b, x0, x1, y0, y1, vertSpec) {
@@ -407,7 +484,7 @@ function attachedRect(t) {                         // dot until beat 10, then bl
 
 /* layers */
 const LP = {
-  button: presence([[0.18, 0], [27 + D, 1]]),
+  button: tr(ENTER).toAbs(19 + D, 1, ENTER).to(0.18, 0, EXIT),
   loader: presence([[0.38, 1], [3, 0]]),
   check:  presence([[3 + D, 1], [4, 0]]),
   island: presence([[4.06, 1, { w: 34, z: 1 }], [5.06, 0]]),
@@ -416,7 +493,10 @@ const LP = {
   tabs:   presence([[16 + D, 1], [23, 0]]),
   chart:  presence([[19 + D, 1], [23, 0]]),
   cmdk:   presence([[23 + D, 1], [25.12, 0]]),
-  toast:  presence([[25.12 + D, 1], [27, 0]]),
+  toast:  tr(ENTER).to(25.12 + D, 1, ENTER).toAbs(74, 0, EXIT),
+  brand:  presenceAbs([[94 + D, 1], [8, 0]]),
+  grid:   presenceAbs([[8 + D, 1], [19, 0]]),
+  map:    presenceAbs([[74 + D, 1], [94, 0]]),
 };
 const RING = tr(SOFT).to(0.3, 0.1).to(1, 0.42).to(2, 1).to(5, 0, INST);
 const CHECK = tr({ w: 13, z: 1 }).to(3 + 0.12, 1).to(6, 0, INST);
@@ -431,6 +511,36 @@ const QB = presence([[24.5, 1, INST], [26, 0, INST]]);
 const REVEAL = tr(FAST).to(24, 1).to(24.5, 0, INST).to(24.5 + 0.001, 1).to(26, 0, INST);
 const PLACE = presence([[24, 0, INST], [26, 1, INST]]);   // a placeholder disappears the instant you type
 const CSTAG = [0, 0.06, 0.12].map((d) => presence([[5 + D + d, 1], [10, 0]]));
+
+/* intro: tagline on beat 0, the address types itself on beat 2, hover on 4, click on 6 */
+const TAGP = presenceAbs([[0, 1], [8, 0]]);
+const URLP = presenceAbs([[2, 1, FAST], [8, 0]]);
+const URL_CHARS = 12;                               // aya-shop.com
+const URLK = tr(INST);
+for (let i = 1; i <= URL_CHARS; i++) URLK.toAbs(2 + i * 0.1, i, INST);
+URLK.toAbs(8.5, 0, INST);
+const URLHOV = presenceAbs([[3.9, 1, FAST], [8, 0]]);
+const URLPR = tr(PRESS).toAbs(6, 1).toAbs(6.16, 0);
+/* products */
+const TILES = [
+  { img: 0, name: 'عالم التركيز والتفكير', price: 260, old: 350 },
+  { img: 1, name: 'مغامرات عائلة ضو', price: 130, old: 180 },
+  { img: 2, name: 'تحدّي بوشي السريع', price: 60, old: 80 },
+  { img: '@IMG:rabbit.jpg@', name: 'الأرنب القافز', price: 60, old: 80 },
+  { img: '@IMG:colour.jpg@', name: 'شفرة الألوان', price: 70, old: 90 },
+  { img: '@IMG:board.jpg@', name: 'لوحة الأشكال المطاطية', price: 80, old: 120 },
+];
+const TILEXY = TILES.map((_, i) => [504 - (i % 3) * 232, 96 + Math.floor(i / 3) * 266]);   // local, right → left
+const TILEP = TILES.map((_, i) => presenceAbs([[8 + D + 0.1 + i * 0.07, 1], [19, 0]]));
+const TILEPR = tr(PRESS).toAbs(18, 1).toAbs(18.16, 0);
+let TILEH = [];
+/* delivery: the outline draws, the van drives north → south, every stop lights up on its beat */
+const PINS = @TEXT:pins.json@;
+const MAPDRAW = tr({ w: 5, z: 1 }).toAbs(74.2, 1).toAbs(95, 0, INST);
+const VANP = presenceAbs([[76, 1, FAST], [94, 0]]);
+const PINP = PINS.map((_, j) => presenceAbs([[j ? 78 + 2 * (j - 1) : 76, 1, FAST], [94, 0], [95, 0, INST]]));
+const SUBP = presenceAbs([[90, 1], [94, 0]]);
+const CARS = tr({ w: 11, z: 1 });                   // distance along the route (events added once it is measured)
 
 const ITEMS = [
   { name: 'عالم التركيز والتفكير', sub: 'صندوق ألعاب تعليمية', price: 260, old: 350, off: 25 },
@@ -494,7 +604,8 @@ const ICONS = {
 function setupDom() {
   for (const id of ['world', 'shape', 'trk', 'trkFill', 'pill', 'knobNum', 'cursor', 'ring', 'checkPath',
     'strip', 'items', 'plusBtn', 'ageChip', 'okBtn', 'qty1', 'qty2', 'dots', 'tabsWhite', 'bars', 'barLabels', 'tip', 'qA', 'qB', 'caret',
-    'placeholder', 'keycap', 'rows', 'toastCheck']) E[id] = $(id);
+    'placeholder', 'keycap', 'rows', 'toastCheck', 'tagline', 'urlPill', 'urlText', 'tiles', 'land', 'route', 'routeGhost',
+    'pinsG', 'pinLabels', 'van', 'mapSub']) E[id] = $(id);
   for (const k of Object.keys(LP)) E['L_' + k] = $('L_' + k);
   E.cc = [...document.querySelectorAll('#L_card .cc')];
   E.ch = [...document.querySelectorAll('#L_chart .ch')];
@@ -538,13 +649,43 @@ function setupDom() {
     E.rows.appendChild(el); return el;
   });
   E.qW = [E.qA.offsetWidth, E.qB.offsetWidth];
+
+  // the address types itself: width of every prefix
+  const probe = E.urlText.cloneNode(); probe.style.position = 'absolute'; probe.style.visibility = 'hidden';
+  E.urlPill.appendChild(probe);
+  E.urlW = [...Array(URL_CHARS + 1)].map((_, i) => { probe.textContent = 'aya-shop.com'.slice(0, i); return probe.offsetWidth; });
+  probe.remove();
+  // product tiles (the first three reuse the carousel photos)
+  const photos = [...document.querySelectorAll('#strip img')].map((im) => im.src);
+  E.tileEls = TILES.map((tile, i) => {
+    const el = document.createElement('div'); el.className = 'tile';
+    el.style.left = `${TILEXY[i][0]}px`; el.style.top = `${TILEXY[i][1]}px`;
+    el.innerHTML = `<div class="ph"><img src="${typeof tile.img === 'number' ? photos[tile.img] : tile.img}" alt=""></div>
+      <span class="nm t ar">${tile.name}</span>
+      <div class="pr"><span class="t num" style="font-size:18px;font-weight:600">${tile.price} ₪</span><span class="t num" style="font-size:14px;font-weight:500;color:#9A978F;text-decoration:line-through">${tile.old} ₪</span></div>`;
+    E.tiles.appendChild(el); return el;
+  });
+  // stops
+  E.pinEls = PINS.map((pin) => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', pin.xy[0]); c.setAttribute('cy', pin.xy[1]);
+    E.pinsG.appendChild(c); return c;
+  });
+  E.pinLabelEls = PINS.map((pin) => {
+    if (!pin.label) return null;
+    const l = document.createElement('span'); l.className = 'plabel t ar'; l.textContent = pin.label;
+    const right = pin.xy[0] > 300;                       // east-side stops get their label on the right
+    l.style.cssText = `left:${pin.xy[0] + (right ? 18 : -18)}px;top:${pin.xy[1]}px`;
+    l.dataset.side = right ? 'r' : 'l';
+    E.pinLabels.appendChild(l); return l;
+  });
   E.checkLen = E.checkPath.getTotalLength();
   E.toastLen = E.toastCheck.getTotalLength();
 }
 
 function buildHover() {
   const ev = []; let prev = -1;
-  for (let t = 19 * B; t <= 23 * B; t += 0.002) {
+  for (let t = at(19); t <= at(23); t += 0.002) {
     const x = CX.at(t), y = CY.at(t);
     const inside = y > -90 && y < 185 && x > -330 && x < 330;
     const idx = inside ? clamp(Math.round((256 - x) / 128), 0, 4) : -1;
@@ -552,14 +693,14 @@ function buildHover() {
   }
   for (let i = ev.length - 2; i > 0; i--) if (ev[i + 1][0] - ev[i][0] < 0.3 && ev[i][1] >= 0 && ev[i - 1][1] >= 0) ev.splice(i, 1);
   const enterAt = ev.find((e) => e[1] >= 0);
-  TIPP = presence([[enterAt ? enterAt[0] : 21, 1, FAST], [23, 0]]);
+  TIPP = presenceAbs([[enterAt ? enterAt[0] : cb(21), 1, FAST], [cb(23), 0]]);
   TIPI = SKILLS.map(() => tr(ENTER));
   let first = true;
   for (const [b, idx] of ev) {
     if (idx < 0) continue;
     const top = BASE - HMAX * SKILLS[idx].v / 100;
-    TIPX.to(b, BX[idx], first ? INST : FAST); TIPY.to(b, top, first ? INST : FAST); TIPWD.to(b, E.tipW[idx], first ? INST : FAST);
-    TIPI.forEach((k, i) => k.to(i === idx && !first ? b + 0.1 : b, i === idx ? 1 : 0, i === idx ? (first ? INST : ENTER) : EXIT));
+    TIPX.toAbs(b, BX[idx], first ? INST : FAST); TIPY.toAbs(b, top, first ? INST : FAST); TIPWD.toAbs(b, E.tipW[idx], first ? INST : FAST);
+    TIPI.forEach((k, i) => k.toAbs(i === idx && !first ? b + 0.1 : b, i === idx ? 1 : 0, i === idx ? (first ? INST : ENTER) : EXIT));
     first = false;
   }
   TIPI.forEach((k) => k.to(23.5, 0, INST));
@@ -570,13 +711,54 @@ function buildItems() {
   ITEMP = ITEMS.map(() => tr(ENTER));
   let prev = 0;
   ITEMP[0].to(5 + D + 0.1, 1); ITEMP.forEach((k, i) => i && k.to(5, 0, INST));
-  for (let t = G1; t <= 10 * B; t += 0.002) {
+  for (let t = G1; t <= at(10); t += 0.002) {
     const idx = clamp(Math.round(offsetAt(t) / PITCH), 0, 2);
     if (idx !== prev) {
-      ITEMP[prev].to(t / B, 0, EXIT); ITEMP[idx].to(t / B + 0.1, 1, ENTER); prev = idx;
+      ITEMP[prev].toAbs(t / B, 0, EXIT); ITEMP[idx].toAbs(t / B + 0.1, 1, ENTER); prev = idx;
     }
   }
   ITEMP[prev].to(10, 0, EXIT);
+}
+
+/* the product under the cursor lifts (derived from the cursor path once, debounced, then springs) */
+function buildGridHover() {
+  const ev = []; let prev = -1;
+  for (let t = 8 * B; t <= 19 * B; t += 0.002) {
+    const x = CX.at(t) + 380, y = CY.at(t) + 320;      // grid-local
+    let idx = -1;
+    TILEXY.forEach(([tx, ty], i) => { if (x >= tx && x <= tx + 216 && y >= ty && y <= ty + 250) idx = i; });
+    if (idx !== prev) { ev.push([t / B, idx]); prev = idx; }
+  }
+  for (let i = ev.length - 2; i > 0; i--) if (ev[i + 1][0] - ev[i][0] < 0.3) ev.splice(i, 1);
+  TILEH = TILES.map(() => tr(FAST));
+  for (const [b, idx] of ev) TILEH.forEach((k, i) => k.toAbs(b, i === idx ? 1 : 0, i === idx ? FAST : EXIT));
+  TILEH.forEach((k) => k.toAbs(19, 0, EXIT));
+  E.gridHover = ev.filter((e) => e[1] >= 0);
+}
+/* route through the stops: smooth path, and the distance along it where each stop sits */
+function buildMap() {
+  const pts = PINS.map((p) => p.xy);
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    d += ` C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(2)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(2)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(2)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(2)} ${p2[0]},${p2[1]}`;
+  }
+  E.route.setAttribute('d', d); E.routeGhost.setAttribute('d', d);
+  E.routeLen = E.route.getTotalLength();
+  E.pinS = pts.map(([x, y]) => {
+    let best = 0, bd = Infinity;
+    for (let s2 = 0; s2 <= E.routeLen; s2 += 0.5) {
+      const q2 = E.route.getPointAtLength(s2), dd = (q2.x - x) ** 2 + (q2.y - y) ** 2;
+      if (dd < bd) { bd = dd; best = s2; }
+    }
+    return best;
+  });
+  E.pinS[0] = 0; E.pinS[E.pinS.length - 1] = E.routeLen;
+  CARS.toAbs(75, 0, INST);
+  for (let i = 1; i < pts.length; i++) CARS.toAbs(78 + 2 * (i - 1) - 0.75, E.pinS[i]);   // lands on beat 78, 80, …
+  E.route.style.strokeDasharray = `${E.routeLen} ${E.routeLen}`;
+  E.landLen = E.land.getTotalLength();
+  E.land.style.strokeDasharray = `${E.landLen} ${E.landLen}`;
 }
 
 /* seek(t): every style from time */
@@ -763,7 +945,7 @@ function seek(tIn) {
     el.style.opacity = '';
     el.style.clipPath = `inset(-10px 0px -10px ${(wCur - visW).toFixed(2)}px)`;
     el.style.transform = 'translateY(-50%)';
-    const typing = beat >= 23.9 && beat < 25.2;
+    const typing = beat >= cb(23.9) && beat < cb(25.2);
     const blinkOn = Math.floor(beat * 2) % 2 === 0;
     E.caret.style.left = `${(660 - 70 - visW - 4).toFixed(3)}px`;
     E.caret.style.opacity = (typing || blinkOn) ? '1' : '0';
@@ -771,6 +953,51 @@ function seek(tIn) {
     const kp = KEYPR.at(t);
     E.keycap.style.transform = `scale(${(1 - 0.1 * kp).toFixed(4)})`;
     E.keycap.style.background = kp > 0.02 ? `rgba(13,13,15,${(0.08 * kp).toFixed(4)})` : 'transparent';
+  }
+  /* brand */
+  {
+    place(E.L_brand, 560, 220, LP.brand.at(t));
+    E.tagline.style.transform = fx(E.tagline, TAGP.at(t), { base: 'translateY(-50%)', dy: 8 });
+    E.urlPill.style.transform = fx(E.urlPill, URLP.at(t), { dy: 8, sc: 0.06 }) + ` scale(${(1 - 0.05 * URLPR.at(t)).toFixed(4)})`;
+    const hv = clamp(URLHOV.at(t), 0, 1);
+    E.urlPill.style.background = `rgb(${Math.round(243 - 16 * hv)},${Math.round(241 - 16 * hv)},${Math.round(236 - 16 * hv)})`;
+    const n = clamp(Math.round(URLK.at(t)), 0, URL_CHARS), full = E.urlW[URL_CHARS];
+    E.urlText.style.clipPath = `inset(-6px ${(full - E.urlW[n]).toFixed(2)}px -6px 0px)`;
+  }
+  /* products */
+  {
+    const p = LP.grid.at(t);
+    place(E.L_grid, 760, 640, p, false, { dy: 0, sc: 0.02, blur: 8 });
+    E.tileEls.forEach((el, i) => {
+      const hv = clamp(TILEH[i].at(t), 0, 1.05), pr = i === 0 ? TILEPR.at(t) : 0;
+      el.style.transform = fx(el, Math.min(p, TILEP[i].at(t)), { dy: 14, blur: 8 }) +
+        ` translate(0px, ${(-8 * hv).toFixed(3)}px) scale(${(1 + 0.03 * hv - 0.03 * pr).toFixed(4)})`;
+    });
+  }
+  /* delivery map */
+  {
+    const p = LP.map.at(t);
+    place(E.L_map, 560, 900, p, false, { dy: 0, sc: 0.02, blur: 8 });
+    const md = clamp(MAPDRAW.at(t), 0, 1);
+    E.land.style.strokeDashoffset = (E.landLen * (1 - md)).toFixed(3);
+    E.land.style.fillOpacity = smooth(0.35, 1, md).toFixed(3);
+    const s2 = clamp(CARS.at(t), 0, E.routeLen), vp = clamp(VANP.at(t), 0, 1);
+    E.route.style.strokeDashoffset = (E.routeLen - s2).toFixed(3);
+    E.route.style.opacity = vp > 0.002 ? '1' : '0';
+    E.routeGhost.style.opacity = (0.9 * vp).toFixed(3);
+    const q2 = E.route.getPointAtLength(s2);
+    E.van.style.left = `${q2.x.toFixed(3)}px`; E.van.style.top = `${q2.y.toFixed(3)}px`;
+    E.van.style.transform = fx(E.van, vp, { base: 'translate(-50%, -50%)', dy: 0, sc: 0.5, blur: 4 });
+    E.pinEls.forEach((c, j) => {
+      const k = clamp(PINP[j].at(t), 0, 1.1);
+      c.setAttribute('r', (4 + 5 * k).toFixed(3));
+      c.setAttribute('fill', k > 0.5 ? ACC : '#BDB8AE');
+      c.setAttribute('stroke', INK); c.setAttribute('stroke-width', (2.4 * clamp(k, 0, 1)).toFixed(3));
+      c.style.opacity = md.toFixed(3);
+      const l = E.pinLabelEls[j];
+      if (l) l.style.transform = fx(l, clamp(k, 0, 1), { base: l.dataset.side === 'r' ? 'translateY(-50%)' : 'translate(-100%, -50%)', dy: 6 });
+    });
+    E.mapSub.style.transform = fx(E.mapSub, SUBP.at(t), { base: 'translate(-50%, -50%)', dy: 8 });
   }
   {
     place(E.L_toast, 310, 88, LP.toast.at(t));
@@ -799,6 +1026,8 @@ function init() {
   buildItems();
   buildPill();
   buildHover();
+  buildGridHover();
+  buildMap();
   ALL.forEach((k) => k.build());
   seek(0);
 }
@@ -807,11 +1036,12 @@ function exportCues() {
   const samp = (a, b, fn, dt) => { const o = []; for (let t = a; t <= b + 1e-9; t += dt) o.push([+t.toFixed(4), +fn(t).toFixed(5)]); return o; };
   return {
     B, T, BEATS,
-    carousel: samp(G1 - 0.05, 10 * B, offsetAt, 0.001), pitch: PITCH,
+    carousel: samp(G1 - 0.05, at(10), offsetAt, 0.001), pitch: PITCH, C0,
     value: samp(G2 - 0.05, R2 + 0.05, valueAt, 0.001),
     stretch: samp(G2, R2 + 0.6, stretchAt, 0.001),
     hover: E.hoverEvents.filter((e) => e[1] >= 0).map((e) => [e[0] * B, e[1]]),
     grab: [G1, G2], release: [R1, R2],
+    gridHover: E.gridHover.map((e) => [e[0] * B, e[1]]),
   };
 }
 window.CUES = exportCues;
@@ -821,7 +1051,7 @@ window.seek = seek;
 window.__ready = document.fonts.ready.then(() => Promise.all([
   document.fonts.load('500 27px PlexArabic', 'أضف'), document.fonts.load('600 25px PlexArabic', 'عالم'),
   document.fonts.load('400 24px PlexArabic', 'ابحث'), document.fonts.load('500 25px Geist', 'K'),
-  document.fonts.load('600 28px Geist', '260'),
+  document.fonts.load('600 28px Geist', '260'), document.fonts.load('500 22px Geist', 'aya-shop.com'),
   ...[...document.images].map((im) => im.decode().catch(() => null)),
 ])).then(() => { init(); window.DEBUG = { hover: E.hoverEvents, O_REL, OV_REL, O_SNAP, ST_REL }; return true; });
 const q = new URLSearchParams(location.search);

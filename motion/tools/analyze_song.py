@@ -22,7 +22,7 @@ HERE = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
 SRC = HERE / "src"
 FF = imageio_ffmpeg.get_ffmpeg_exe()
 TARGET_BPM = 120.0
-BARS, BEATS_PER_BAR = 7, 4
+BEATS_PER_BAR = 4
 
 
 def decode(path, sr, channels=1):
@@ -96,6 +96,8 @@ def per_beat_features(mag, sr, nfft, hop, beats):
 
 def main():
     track = json.loads((HERE / "track.json").read_text())
+    global BARS
+    BARS = int(track.get("bars", 7))                     # length of the musical loop in bars
     SRC.mkdir(exist_ok=True)
     mp3 = SRC / f"{track['id']}.mp3"
     if not mp3.exists():
@@ -222,7 +224,7 @@ def main():
         "downbeat_phase": dphase, "downbeat_source": dsource, "novelty_by_phase": [round(v, 3) for v in phase_score],
         "kick_attack_vs_grid_ms": round(att_ms, 2),
         "window_start_s": round(start, 4), "window_len_src_s": round(loop_src, 4),
-        "atempo": round(tempo, 6), "bpm": TARGET_BPM, "beats": BARS * BEATS_PER_BAR, "loop_s": 14.0,
+        "atempo": round(tempo, 6), "bpm": TARGET_BPM, "beats": BARS * BEATS_PER_BAR, "loop_s": BARS * BEATS_PER_BAR * 60 / TARGET_BPM,
         "top_windows": [{"start_s": round(c[1], 3), "seam": round(c[2], 3), "steady": round(c[3], 3)} for c in cands[:5]],
         "conformed_bpm": round(y_bpm, 3),
         "kick_xcorr_vs_grid_ms": {"median": round(offset_ms, 2), "max_abs_dev": round(float(np.max(np.abs(errs - offset_ms))), 2),

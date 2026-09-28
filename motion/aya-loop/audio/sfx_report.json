@@ -1,254 +1,494 @@
 [
  {
+  "t": 47.045,
+  "beat": 94.09,
+  "sound": "whoosh → brand",
+  "peak_ms_into_sound": 111.75
+ },
+ {
   "t": 0.0,
   "beat": 0.0,
-  "sound": "press",
-  "peak_ms_into_sound": 1.35
- },
- {
-  "t": 0.08,
-  "beat": 0.16,
-  "sound": "release",
-  "peak_ms_into_sound": 0.9
- },
- {
-  "t": 0.135,
-  "beat": 0.27,
-  "sound": "whoosh → loader",
-  "peak_ms_into_sound": 106.31
- },
- {
-  "t": 0.5,
-  "beat": 1.0,
-  "sound": "progress tick",
+  "sound": "tagline",
   "peak_ms_into_sound": 0.71
  },
  {
-  "t": 1.0,
-  "beat": 2.0,
-  "sound": "progress tick (closed)",
-  "peak_ms_into_sound": 0.65
+  "t": 1.05,
+  "beat": 2.1,
+  "sound": "url char 1",
+  "peak_ms_into_sound": 2.5
+ },
+ {
+  "t": 1.1,
+  "beat": 2.2,
+  "sound": "url char 2",
+  "peak_ms_into_sound": 0.71
+ },
+ {
+  "t": 1.15,
+  "beat": 2.3,
+  "sound": "url char 3",
+  "peak_ms_into_sound": 2.46
+ },
+ {
+  "t": 1.2,
+  "beat": 2.4,
+  "sound": "url char 4",
+  "peak_ms_into_sound": 0.77
+ },
+ {
+  "t": 1.25,
+  "beat": 2.5,
+  "sound": "url char 5",
+  "peak_ms_into_sound": 0.83
+ },
+ {
+  "t": 1.3,
+  "beat": 2.6,
+  "sound": "url char 6",
+  "peak_ms_into_sound": 0.73
+ },
+ {
+  "t": 1.35,
+  "beat": 2.7,
+  "sound": "url char 7",
+  "peak_ms_into_sound": 0.75
+ },
+ {
+  "t": 1.4,
+  "beat": 2.8,
+  "sound": "url char 8",
+  "peak_ms_into_sound": 2.69
+ },
+ {
+  "t": 1.45,
+  "beat": 2.9,
+  "sound": "url char 9",
+  "peak_ms_into_sound": 0.83
  },
  {
   "t": 1.5,
   "beat": 3.0,
-  "sound": "check chime D6→A6",
-  "peak_ms_into_sound": 9.62
+  "sound": "url char 10",
+  "peak_ms_into_sound": 0.85
  },
  {
-  "t": 2.045,
-  "beat": 4.09,
-  "sound": "whoosh → island",
-  "peak_ms_into_sound": 95.65
+  "t": 1.55,
+  "beat": 3.1,
+  "sound": "url char 11",
+  "peak_ms_into_sound": 2.48
  },
  {
-  "t": 2.545,
-  "beat": 5.09,
-  "sound": "whoosh → card",
-  "peak_ms_into_sound": 120.38
+  "t": 1.6,
+  "beat": 3.2,
+  "sound": "url char 12",
+  "peak_ms_into_sound": 0.77
+ },
+ {
+  "t": 1.95,
+  "beat": 3.9,
+  "sound": "hover link",
+  "peak_ms_into_sound": 0.73
  },
  {
   "t": 3.0,
   "beat": 6.0,
-  "sound": "+ quantity",
-  "peak_ms_into_sound": 1.1
+  "sound": "open aya-shop.com",
+  "peak_ms_into_sound": 1.33
  },
  {
-  "t": 3.05,
-  "beat": 6.1,
-  "sound": "digit roll",
-  "peak_ms_into_sound": 0.65
+  "t": 4.045,
+  "beat": 8.09,
+  "sound": "whoosh → products",
+  "peak_ms_into_sound": 136.44
  },
  {
-  "t": 3.5,
-  "beat": 7.0,
-  "sound": "grab carousel",
-  "peak_ms_into_sound": 1.23
+  "t": 4.14,
+  "beat": 8.28,
+  "sound": "tile 0",
+  "peak_ms_into_sound": 0.73
  },
  {
-  "t": 4.176,
-  "beat": 8.352,
-  "sound": "carousel detent (next product)",
+  "t": 4.175,
+  "beat": 8.35,
+  "sound": "tile 1",
   "peak_ms_into_sound": 0.77
  },
  {
-  "t": 4.5,
-  "beat": 9.0,
-  "sound": "release carousel",
-  "peak_ms_into_sound": 0.96
+  "t": 4.21,
+  "beat": 8.42,
+  "sound": "tile 2",
+  "peak_ms_into_sound": 0.73
  },
  {
-  "t": 4.783,
-  "beat": 9.566,
-  "sound": "photo snaps into place",
-  "peak_ms_into_sound": 1.17
+  "t": 4.245,
+  "beat": 8.49,
+  "sound": "tile 3",
+  "peak_ms_into_sound": 0.69
  },
  {
-  "t": 5.045,
-  "beat": 10.09,
-  "sound": "whoosh → age slider",
-  "peak_ms_into_sound": 78.17
+  "t": 4.28,
+  "beat": 8.56,
+  "sound": "tile 4",
+  "peak_ms_into_sound": 0.73
  },
  {
-  "t": 5.5,
-  "beat": 11.0,
-  "sound": "grab age",
-  "peak_ms_into_sound": 1.21
+  "t": 4.315,
+  "beat": 8.63,
+  "sound": "tile 5",
+  "peak_ms_into_sound": 0.71
  },
  {
-  "t": 5.606,
-  "beat": 11.212,
-  "sound": "age 6",
-  "peak_ms_into_sound": 0.65
+  "t": 4.93,
+  "beat": 9.86,
+  "sound": "hover product 5",
+  "peak_ms_into_sound": 0.69
  },
  {
-  "t": 5.658,
-  "beat": 11.316,
-  "sound": "age 7",
-  "peak_ms_into_sound": 0.67
+  "t": 5.914,
+  "beat": 11.828,
+  "sound": "hover product 2",
+  "peak_ms_into_sound": 0.69
  },
  {
-  "t": 5.726,
-  "beat": 11.452,
-  "sound": "age 8",
-  "peak_ms_into_sound": 0.75
+  "t": 6.996,
+  "beat": 13.992,
+  "sound": "hover product 1",
+  "peak_ms_into_sound": 0.71
  },
  {
-  "t": 5.5,
-  "beat": 11.0,
-  "sound": "stretch tension (follows the stretch curve)",
-  "peak_ms_into_sound": null
- },
- {
-  "t": 6.5,
-  "beat": 13.0,
-  "sound": "release → spring back",
-  "peak_ms_into_sound": 1.94
- },
- {
-  "t": 7.045,
-  "beat": 14.09,
-  "sound": "whoosh → toggle",
-  "peak_ms_into_sound": 95.92
- },
- {
-  "t": 7.5,
-  "beat": 15.0,
-  "sound": "gift wrap on",
-  "peak_ms_into_sound": 1.0
- },
- {
-  "t": 8.045,
-  "beat": 16.09,
-  "sound": "whoosh → tabs",
-  "peak_ms_into_sound": 102.4
- },
- {
-  "t": 8.5,
-  "beat": 17.0,
-  "sound": "tab كراسات",
-  "peak_ms_into_sound": 1.12
+  "t": 7.996,
+  "beat": 15.992,
+  "sound": "hover product 0",
+  "peak_ms_into_sound": 0.81
  },
  {
   "t": 9.0,
   "beat": 18.0,
-  "sound": "tab ألعاب",
-  "peak_ms_into_sound": 1.42
+  "sound": "choose عالم التركيز والتفكير",
+  "peak_ms_into_sound": 1.15
  },
  {
   "t": 9.545,
   "beat": 19.09,
-  "sound": "whoosh → chart",
-  "peak_ms_into_sound": 123.67
+  "sound": "whoosh → button",
+  "peak_ms_into_sound": 107.88
  },
  {
   "t": 10.0,
   "beat": 20.0,
-  "sound": "bar 0",
-  "peak_ms_into_sound": 0.75
- },
- {
-  "t": 10.04,
-  "beat": 20.08,
-  "sound": "bar 1",
-  "peak_ms_into_sound": 0.6
+  "sound": "press أضف إلى السلة",
+  "peak_ms_into_sound": 1.35
  },
  {
   "t": 10.08,
   "beat": 20.16,
-  "sound": "bar 2",
+  "sound": "release",
+  "peak_ms_into_sound": 0.92
+ },
+ {
+  "t": 10.135,
+  "beat": 20.27,
+  "sound": "whoosh → loader",
+  "peak_ms_into_sound": 117.52
+ },
+ {
+  "t": 11.0,
+  "beat": 22.0,
+  "sound": "progress tick",
   "peak_ms_into_sound": 0.69
- },
- {
-  "t": 10.12,
-  "beat": 20.24,
-  "sound": "bar 3",
-  "peak_ms_into_sound": 0.73
- },
- {
-  "t": 10.16,
-  "beat": 20.32,
-  "sound": "bar 4",
-  "peak_ms_into_sound": 0.79
- },
- {
-  "t": 10.458,
-  "beat": 20.916,
-  "sound": "tooltip bar 0",
-  "peak_ms_into_sound": 0.69
- },
- {
-  "t": 10.992,
-  "beat": 21.984,
-  "sound": "tooltip bar 2",
-  "peak_ms_into_sound": 0.62
- },
- {
-  "t": 11.545,
-  "beat": 23.09,
-  "sound": "whoosh → search",
-  "peak_ms_into_sound": 99.75
- },
- {
-  "t": 11.5,
-  "beat": 23.0,
-  "sound": "⌘K key",
-  "peak_ms_into_sound": 0.77
  },
  {
   "t": 12.0,
   "beat": 24.0,
-  "sound": "key ب",
-  "peak_ms_into_sound": 0.77
- },
- {
-  "t": 12.25,
-  "beat": 24.5,
-  "sound": "key و",
+  "sound": "progress tick (closed)",
   "peak_ms_into_sound": 0.75
- },
- {
-  "t": 12.5,
-  "beat": 25.0,
-  "sound": "enter",
-  "peak_ms_into_sound": 0.71
- },
- {
-  "t": 12.605,
-  "beat": 25.21,
-  "sound": "whoosh → toast",
-  "peak_ms_into_sound": 101.5
  },
  {
   "t": 13.0,
   "beat": 26.0,
+  "sound": "check chime D6→A6",
+  "peak_ms_into_sound": 9.62
+ },
+ {
+  "t": 14.045,
+  "beat": 28.09,
+  "sound": "whoosh → island",
+  "peak_ms_into_sound": 98.42
+ },
+ {
+  "t": 15.045,
+  "beat": 30.09,
+  "sound": "whoosh → card",
+  "peak_ms_into_sound": 115.54
+ },
+ {
+  "t": 16.0,
+  "beat": 32.0,
+  "sound": "+ quantity",
+  "peak_ms_into_sound": 1.1
+ },
+ {
+  "t": 16.05,
+  "beat": 32.1,
+  "sound": "digit roll",
+  "peak_ms_into_sound": 0.73
+ },
+ {
+  "t": 17.0,
+  "beat": 34.0,
+  "sound": "grab carousel",
+  "peak_ms_into_sound": 1.21
+ },
+ {
+  "t": 18.176,
+  "beat": 36.352,
+  "sound": "carousel detent (next product)",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 19.0,
+  "beat": 38.0,
+  "sound": "release carousel",
+  "peak_ms_into_sound": 0.96
+ },
+ {
+  "t": 19.283,
+  "beat": 38.566,
+  "sound": "photo snaps into place",
+  "peak_ms_into_sound": 1.19
+ },
+ {
+  "t": 20.0,
+  "beat": 40.0,
+  "sound": "age chip",
+  "peak_ms_into_sound": 1.15
+ },
+ {
+  "t": 20.045,
+  "beat": 40.09,
+  "sound": "whoosh → age slider",
+  "peak_ms_into_sound": 102.02
+ },
+ {
+  "t": 21.0,
+  "beat": 42.0,
+  "sound": "grab age",
+  "peak_ms_into_sound": 1.21
+ },
+ {
+  "t": 21.105,
+  "beat": 42.21,
+  "sound": "age 6",
+  "peak_ms_into_sound": 0.9
+ },
+ {
+  "t": 21.157,
+  "beat": 42.314,
+  "sound": "age 7",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 21.225,
+  "beat": 42.45,
+  "sound": "age 8",
+  "peak_ms_into_sound": 0.75
+ },
+ {
+  "t": 21.0,
+  "beat": 42.0,
+  "sound": "stretch tension (follows the stretch curve)",
+  "peak_ms_into_sound": null
+ },
+ {
+  "t": 23.0,
+  "beat": 46.0,
+  "sound": "release → spring back",
+  "peak_ms_into_sound": 1.94
+ },
+ {
+  "t": 24.0,
+  "beat": 48.0,
+  "sound": "✓ confirm",
+  "peak_ms_into_sound": 1.06
+ },
+ {
+  "t": 24.045,
+  "beat": 48.09,
+  "sound": "whoosh → toggle",
+  "peak_ms_into_sound": 93.15
+ },
+ {
+  "t": 25.0,
+  "beat": 50.0,
+  "sound": "gift wrap on",
+  "peak_ms_into_sound": 1.02
+ },
+ {
+  "t": 26.045,
+  "beat": 52.09,
+  "sound": "whoosh → tabs",
+  "peak_ms_into_sound": 100.69
+ },
+ {
+  "t": 27.0,
+  "beat": 54.0,
+  "sound": "tab كراسات",
+  "peak_ms_into_sound": 1.04
+ },
+ {
+  "t": 28.0,
+  "beat": 56.0,
+  "sound": "tab ألعاب",
+  "peak_ms_into_sound": 1.42
+ },
+ {
+  "t": 29.045,
+  "beat": 58.09,
+  "sound": "whoosh → chart",
+  "peak_ms_into_sound": 138.42
+ },
+ {
+  "t": 30.0,
+  "beat": 60.0,
+  "sound": "bar 0",
+  "peak_ms_into_sound": 0.75
+ },
+ {
+  "t": 30.04,
+  "beat": 60.08,
+  "sound": "bar 1",
+  "peak_ms_into_sound": 0.77
+ },
+ {
+  "t": 30.08,
+  "beat": 60.16,
+  "sound": "bar 2",
+  "peak_ms_into_sound": 0.69
+ },
+ {
+  "t": 30.12,
+  "beat": 60.24,
+  "sound": "bar 3",
+  "peak_ms_into_sound": 0.71
+ },
+ {
+  "t": 30.16,
+  "beat": 60.32,
+  "sound": "bar 4",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 30.458,
+  "beat": 60.916,
+  "sound": "tooltip bar 0",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 31.492,
+  "beat": 62.984,
+  "sound": "tooltip bar 2",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 33.045,
+  "beat": 66.09,
+  "sound": "whoosh → search",
+  "peak_ms_into_sound": 100.71
+ },
+ {
+  "t": 33.0,
+  "beat": 66.0,
+  "sound": "⌘K key",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 34.0,
+  "beat": 68.0,
+  "sound": "key ب",
+  "peak_ms_into_sound": 0.88
+ },
+ {
+  "t": 34.25,
+  "beat": 68.5,
+  "sound": "key و",
+  "peak_ms_into_sound": 0.65
+ },
+ {
+  "t": 35.0,
+  "beat": 70.0,
+  "sound": "enter",
+  "peak_ms_into_sound": 0.92
+ },
+ {
+  "t": 35.105,
+  "beat": 70.21,
+  "sound": "whoosh → toast",
+  "peak_ms_into_sound": 112.08
+ },
+ {
+  "t": 36.0,
+  "beat": 72.0,
   "sound": "toast chime F6→A6→D7",
   "peak_ms_into_sound": 9.12
  },
  {
-  "t": 13.545,
-  "beat": 27.09,
-  "sound": "whoosh → button",
-  "peak_ms_into_sound": 123.06
+  "t": 37.045,
+  "beat": 74.09,
+  "sound": "whoosh → map",
+  "peak_ms_into_sound": 126.85
+ },
+ {
+  "t": 37.55,
+  "beat": 75.1,
+  "sound": "outline draws",
+  "peak_ms_into_sound": 495.56
+ },
+ {
+  "t": 38.0,
+  "beat": 76.0,
+  "sound": "stop 0 reached",
+  "peak_ms_into_sound": 8.77
+ },
+ {
+  "t": 39.0,
+  "beat": 78.0,
+  "sound": "stop 1 reached",
+  "peak_ms_into_sound": 8.79
+ },
+ {
+  "t": 40.0,
+  "beat": 80.0,
+  "sound": "stop 2 reached",
+  "peak_ms_into_sound": 8.62
+ },
+ {
+  "t": 41.0,
+  "beat": 82.0,
+  "sound": "stop 3 reached",
+  "peak_ms_into_sound": 8.81
+ },
+ {
+  "t": 42.0,
+  "beat": 84.0,
+  "sound": "stop 4 reached",
+  "peak_ms_into_sound": 9.19
+ },
+ {
+  "t": 43.0,
+  "beat": 86.0,
+  "sound": "stop 5 reached",
+  "peak_ms_into_sound": 8.85
+ },
+ {
+  "t": 44.0,
+  "beat": 88.0,
+  "sound": "stop 6 reached",
+  "peak_ms_into_sound": 8.96
+ },
+ {
+  "t": 45.0,
+  "beat": 90.0,
+  "sound": "خلال وقت قصير",
+  "peak_ms_into_sound": 9.62
  }
 ]

@@ -5,5 +5,6 @@
   "mp3_url": "https://assets.mixkit.co/music/469/469.mp3",
   "page_url": "https://mixkit.co/free-stock-music/edm/",
   "license": "Mixkit Stock Music Free License (https://mixkit.co/license/#musicFree): free for commercial use, no attribution required",
-  "window_start_s": 68.292
+  "window_start_s": 68.292,
+  "bars": 8
 }

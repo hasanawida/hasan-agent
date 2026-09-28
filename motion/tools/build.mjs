@@ -1,4 +1,5 @@
-// Build one self-contained HTML file for a project: inline fonts, images and the timing config.
+// Build one self-contained HTML file for a project: inline fonts, images (@IMG:file@), text/data (@TEXT:file@)
+// and the timing config.
 //   node tools/build.mjs <project-dir>
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve, extname } from 'node:path';
@@ -26,6 +27,7 @@ html = html.replace(/@IMG:([\w.\-/]+)@/g, (_, rel) => {
   const p = join(dir, 'assets', rel);
   return `data:${mime[extname(p).toLowerCase()]};base64,${readFileSync(p).toString('base64')}`;
 });
+html = html.replace(/@TEXT:([\w.\-/]+)@/g, (_, rel) => readFileSync(join(dir, 'assets', rel), 'utf8').trim());
 const out = join(dir, proj.output);
 writeFileSync(out, html);
 console.log(`${proj.output}  ${(html.length / 1024).toFixed(0)} KB  bpm=${cfg.bpm}`);
