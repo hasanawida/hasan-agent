@@ -26,7 +26,6 @@ body {
 #world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
 #shape {
   position: absolute; left: 0; top: 0; overflow: hidden;
-  box-shadow: 0 1px 1px rgba(28, 24, 16, 0.05), 0 12px 32px -12px rgba(28, 24, 16, 0.18);
 }
 .abs { position: absolute; left: 0; top: 0; }
 .t { white-space: nowrap; line-height: 1; }
@@ -120,8 +119,8 @@ svg { display: block; overflow: visible; }
         <div class="abs pc" data-st="0" style="left:456px;top:30px;width:72px;height:72px;border-radius:17px;background:#232327">
           <svg width="72" height="72" viewBox="0 0 128 128">
             <g transform="translate(64 64) scale(0.62) translate(-64 -64)">
-              <path d="M30 50 Q30 76 52 78 L76 78 Q98 76 98 50" fill="none" stroke="#fff" stroke-width="17.2" stroke-linecap="round"/>
-              <circle cx="64" cy="102" r="8.6" fill="#fff"/>
+              <path d="M30 50 Q30 76 52 78 L76 78 Q98 76 98 50" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+              <circle cx="64" cy="102" r="5.5" fill="#fff"/>
             </g>
           </svg>
         </div>
@@ -170,8 +169,8 @@ svg { display: block; overflow: visible; }
 
       <!-- 8 · chart -->
       <div id="L_chart" class="abs">
-        <span class="abs t he cc" data-st="0" style="right:40px;left:auto;top:138px;transform:translateY(-50%);font-size:20px;font-weight:500;color:var(--muted)">דקות תמלול השבוע</span>
-        <div class="abs cc" data-st="1" style="right:40px;left:auto;top:190px;transform:translateY(-50%);display:flex;align-items:baseline;gap:8px;direction:rtl">
+        <span class="abs t he cc" data-st="0" style="right:40px;left:auto;top:150px;transform:translateY(-50%);font-size:20px;font-weight:500;color:var(--muted)">דקות תמלול השבוע</span>
+        <div class="abs cc" data-st="1" style="right:40px;left:auto;top:200px;transform:translateY(-50%);display:flex;align-items:baseline;gap:8px;direction:rtl">
           <span id="bigNum" class="t num" style="font-size:60px;font-weight:600;letter-spacing:-1.5px">214</span>
           <span class="t he" style="font-size:24px;font-weight:500;color:var(--muted)">דק׳</span>
         </div>
@@ -180,7 +179,6 @@ svg { display: block; overflow: visible; }
           <g stroke="#EEEBE5" stroke-width="1.5">
             <line x1="40" x2="680" y1="390" y2="390"/>
             <line x1="40" x2="680" y1="310" y2="310"/>
-            <line x1="40" x2="680" y1="230" y2="230"/>
           </g>
           <line x1="40" x2="680" y1="470" y2="470" stroke="#DEDAD2" stroke-width="1.5"/>
           <line id="guide" x1="0" x2="0" y1="220" y2="470" stroke="#CFCBC2" stroke-width="1.5" stroke-dasharray="3 5"/>
@@ -194,8 +192,8 @@ svg { display: block; overflow: visible; }
 
       <!-- 9 · command palette -->
       <div id="L_cmdk" class="abs">
-        <div class="abs" style="left:608px;top:29px;width:26px;height:26px;color:#3A3935">
-          <svg class="ico" width="26" height="26" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+        <div class="abs" style="left:602px;top:30px;width:24px;height:24px;color:#3A3935">
+          <svg class="ico" width="24" height="24" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
         </div>
         <div id="query" class="abs he" style="right:70px;left:auto;top:42px;height:40px;transform:translateY(-50%);display:flex;align-items:center;direction:rtl;font-size:26px;font-weight:500">
           <span id="q0" class="t" style="display:inline-block;overflow:visible">ש</span><span id="q1" class="t" style="display:inline-block;overflow:visible">ל</span><span id="caret" style="display:inline-block;width:2px;height:30px;background:var(--accent);margin-right:2px;border-radius:1px"></span>
@@ -338,17 +336,17 @@ const ST = {
 const D = 0.18;                 // content enter delay (beats): the outgoing content has cleared by then
 const SH = { w: tr(MORPH), h: tr(MORPH), r: tr(MORPH), cx: tr(MORPH), cy: tr(MORPH), bg: new ColorTrack(MORPH) };
 const CAMZ = tr(CAM), CAMX = tr(CAM), CAMY = tr(CAM);
-function shapeTo(b, s, spec) {
+function shapeTo(b, s, bgAt) {
   const g = ST[s];
-  for (const k of ['w', 'h', 'r', 'cx', 'cy']) SH[k].to(b, g[k], spec);
-  SH.bg.to(b, g.bg, TINT);
+  for (const k of ['w', 'h', 'r', 'cx', 'cy']) SH[k].to(b, g[k]);
+  SH.bg.to(bgAt || b, g.bg, TINT);
   CAMZ.to(b, Math.log(g.zoom)); CAMX.to(b, g.cx); CAMY.to(b, g.cy);
 }
 shapeTo(0.18, 'loader');   // 1.1 click → 1.2 loader
 shapeTo(3, 'check');       // 1.4
 shapeTo(4, 'island');      // 2.1
 shapeTo(5, 'player');      // 2.2
-shapeTo(10, 'volume');     // 3.3
+shapeTo(10, 'volume', 10.12);   // 3.3 (colour flips after the player content has left)
 shapeTo(14, 'toggle');     // 4.3
 SH.bg.to(15.04, ACC, TINT);               // 4.4 flips on
 shapeTo(16, 'tabs');       // 5.1
@@ -429,10 +427,10 @@ const BUB = presence([[7, 1, FAST], [9, 0]]);
 
 // the pill: playhead → volume knob → toggle knob → tab indicator → row highlight
 const PX0 = tr(MORPH), PX1 = tr(MORPH), PY0 = tr(MORPH), PY1 = tr(MORPH);
-const PR = tr(MORPH).to(5, 999, INST).to(14, 38, INST).to(23, 14).to(25.12, 44);
+const PR = tr(MORPH).to(5, 999, INST).to(14, 38, INST).to(23, 22);
 const PCOL = new ColorTrack(TINT).to(5, '#FFFFFF', INST).to(10, INK).to(14, INK)
-  .to(15.02, '#FFFFFF', TINT).to(16, INK, TINT).to(23, '#EFEDE8', TINT).to(25, '#E2DFD8', FAST).to(25.12, INK, TINT);
-const PILLP = presence([[5 + D, 1], [26, 0, INST]]);
+  .to(15.02, '#FFFFFF', { w: 70, z: 1 }).to(16, INK, { w: 70, z: 1 }).to(23, '#EFEDE8', { w: 70, z: 1 }).to(25, '#E2DFD8', FAST).to(25.12, INK, TINT);
+const PILLP = presence([[5 + D, 1], [25.12, 0]]);
 const ATTACH0 = 5 * B, ATTACH1 = 14 * B;      // pill rides the bar while in [ATTACH0, ATTACH1)
 let pillPrev = null;
 function pillTo(b, x0, x1, y0, y1, vertSpec) {
@@ -510,7 +508,7 @@ function buildPill() {
   pillTo(16, -320, -320 + SEG, -38, 38);              // knob → indicator under English
   pillTo(17, -SEG / 2, SEG / 2, -38, 38);             // العربية
   pillTo(18, 320 - SEG, 320, -38, 38);                // עברית
-  pillTo(19, 320 - SEG, 320, -270, -194);             // tabs ride to the top of the chart card
+  pillTo(19, 320 - SEG, 320, -250, -174);             // tabs ride to the top of the chart card
   pillTo(23, -322, 322, -84, -26);                    // → command row highlight
   pillTo(25.12, -175, 175, -44, 44);                  // enter: the highlight becomes the toast
 }
@@ -520,6 +518,7 @@ const VALS = [22, 31, 38, 27, 52, 18, 26];
 const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const PTS = VALS.map((v, i) => [660 - i * 100, 470 - 4 * v]);
 const TIPX = tr(FAST), TIPY = tr(FAST), TIPWD = tr(FAST);
+const TABY = tr(MORPH).to(19, 20).to(23, 0);         // tab row offset inside the chart card
 let TIPP = null, TIPI = [];
 
 /* ---------------------------------------------------------------------------
@@ -564,6 +563,7 @@ function setupDom() {
     for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (E.line.getPointAtLength(m).x > x) lo = m; else hi = m; }
     return lo / E.lineLen;
   });
+  E.tipLUT = Array.from({ length: 201 }, (_, i) => E.line.getPointAtLength(E.lineLen * i / 200).x);
   E.dotEls = PTS.map(([x, y]) => {
     const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 6);
@@ -626,14 +626,16 @@ function buildHover() {
 /* ---------------------------------------------------------------------------
    seek(t): every style from time. Nothing carried between frames.
    --------------------------------------------------------------------------- */
+function tipX(k) { const f = k * 200, i = Math.min(199, Math.floor(f)); return lerp(E.tipLUT[i], E.tipLUT[i + 1], f - i); }
 function wrapT(t) { return ((t % T) + T) % T; }
+let ZNOW = 1;                             // current camera zoom: blur and shadow are sized on screen, not in the world
 const softmin = (a, b) => { const p = 8; return a * b / Math.pow(Math.pow(a, p) + Math.pow(b, p), 1 / p); };
 function fx(el, p, opts) {                 // presence → opacity / blur / slight rise
   const o = opts || {};
   const q = clamp(p, 0, 1);
   el.style.visibility = q < 0.002 ? 'hidden' : 'visible';
   el.style.opacity = q >= 0.999 ? '' : q.toFixed(4);
-  const blur = (1 - q) * (o.blur == null ? 10 : o.blur);
+  const blur = (1 - q) * (o.blur == null ? 10 : o.blur) * 1.6 / ZNOW;
   el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none';
   const dy = (1 - q) * (o.dy == null ? 6 : o.dy), sc = 1 - (1 - q) * (o.sc == null ? 0.04 : o.sc);
   return (o.base || '') + ` translate(0px, ${dy.toFixed(3)}px) scale(${sc.toFixed(4)})`;
@@ -654,6 +656,7 @@ function seek(tIn) {
   const wLive = SH.w.at(t) + stretch, hLive = SH.h.at(t) - stretch * 0.09;
   const z = softmin(Math.exp(CAMZ.at(t)), 0.9 * 1440 / Math.max(wLive, hLive));
   const camX = CAMX.at(t) - stretch / 2, camY = CAMY.at(t);
+  ZNOW = z;
   E.world.style.transform = `translate(720px, 720px) scale(${z.toFixed(5)}) translate(${(-camX).toFixed(3)}px, ${(-camY).toFixed(3)}px)`;
 
   /* shape */
@@ -667,12 +670,13 @@ function seek(tIn) {
   sh.width = `${w.toFixed(3)}px`; sh.height = `${h.toFixed(3)}px`;
   sh.borderRadius = `${r.toFixed(3)}px`;
   sh.background = SH.bg.at(t);
+  sh.boxShadow = `0 ${(1 / z).toFixed(3)}px ${(1 / z).toFixed(3)}px rgba(28,24,16,0.05), 0 ${(19 / z).toFixed(3)}px ${(50 / z).toFixed(3)}px ${(-19 / z).toFixed(3)}px rgba(28,24,16,0.18)`;
   sh.transform = press > 0.0005 ? `scale(${(1 - 0.045 * press).toFixed(5)})` : '';
   const cx0 = SH.cx.at(t);
   const toLocal = (x, y) => [x - L, y - Tp];
   // place a layer box of (bw × bh) centred on the live shape (or pinned to its top edge)
   function place(el, bw, bh, p, pinTop, opts) {
-    const lx = (cx0 - bw / 2) - L, ly = pinTop ? 0 : h / 2 - bh / 2;
+    const lx = (cx0 - bw / 2) - L, ly = typeof pinTop === 'number' ? pinTop : (pinTop ? 0 : h / 2 - bh / 2);
     el.style.left = `${lx.toFixed(3)}px`; el.style.top = `${ly.toFixed(3)}px`;
     el.style.transform = fx(el, p, opts);
     return [lx, ly];
@@ -697,7 +701,11 @@ function seek(tIn) {
   {
     let x0, x1, y0, y1;
     if (t >= ATTACH0 && t < ATTACH1) [x0, x1, y0, y1] = knobRect(t);
-    else { x0 = PX0.at(t); x1 = PX1.at(t); y0 = PY0.at(t); y1 = PY1.at(t); }
+    else {
+      x0 = PX0.at(t); x1 = PX1.at(t); y0 = PY0.at(t); y1 = PY1.at(t);
+      const sm = (x, lo) => lo + 1.5 * Math.log1p(Math.exp((x - lo) / 1.5));   // smooth max
+      x0 = sm(x0, L + 4); x1 = -sm(-x1, -(L + w - 4)); y0 = sm(y0, Tp + 4); y1 = -sm(-y1, -(Tp + h - 4));
+    }
     const pw = Math.max(0, x1 - x0), ph = Math.max(0, y1 - y0);
     const [lx, ly] = toLocal(x0, y0);
     const pp = PILLP.at(t);
@@ -771,7 +779,7 @@ function seek(tIn) {
   }
   /* 7 · tabs (pinned to the top edge so they ride up when the chart opens) */
   {
-    const [lx, ly] = place(E.L_tabs, 660, 96, LP.tabs.at(t), true, { dy: 0, sc: 0.02 });
+    const [lx, ly] = place(E.L_tabs, 660, 96, LP.tabs.at(t), TABY.at(t), { dy: 0, sc: 0.02 });
     const [x0, x1, y0, y1] = E.pillRect;
     const bx = L + lx, by = Tp + ly;                        // box origin in world
     const cl = x0 - bx, cr = 660 - (x1 - bx), ct = y0 - by, cb = 96 - (y1 - by);
@@ -787,12 +795,13 @@ function seek(tIn) {
     E.bigNum.textContent = String(Math.round(214 * clamp(dp, 0, 1)));
     E.line.style.strokeDashoffset = (E.lineLen * (1 - clamp(dp, 0, 1))).toFixed(3);
     E.line.style.opacity = (dp > 0.002 ? p : 0).toFixed(4);
-    const rx = 660 - 600 * clamp(dp, 0, 1);
+    const rx = tipX(clamp(dp, 0, 1));
     E.areaClipRect.setAttribute('x', rx.toFixed(3)); E.areaClipRect.setAttribute('width', (720 - rx).toFixed(3));
     E.area.style.opacity = p.toFixed(4);
     const hp = TIPP.at(t);
     E.dotEls.forEach((c, i) => {
-      const k = smooth(E.ptFrac[i] - 0.02, E.ptFrac[i] + 0.06, dp) * p;
+      const f = clamp(E.ptFrac[i], 0.04, 0.96);
+      const k = (dp > 0.002 ? smooth(f - 0.04, f + 0.04, dp) : 0) * p;
       const hov = clamp(TIPI[i].at(t), 0, 1) * clamp(hp, 0, 1);
       c.setAttribute('r', ((6 + 3 * hov) * k).toFixed(3));
       c.setAttribute('fill', hov > 0.5 ? ACC : '#fff');

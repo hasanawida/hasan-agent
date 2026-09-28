@@ -19,7 +19,7 @@ html, body { width: 1440px; height: 1440px; overflow: hidden; background: var(--
 body { font-family: 'Geist', 'PlexArabic', sans-serif; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
 #stage { position: absolute; left: 0; top: 0; width: 1440px; height: 1440px; overflow: hidden; background: var(--canvas); }
 #world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
-#shape { position: absolute; left: 0; top: 0; overflow: hidden; box-shadow: 0 1px 1px rgba(28, 24, 16, 0.05), 0 12px 32px -12px rgba(28, 24, 16, 0.18); }
+#shape { position: absolute; left: 0; top: 0; overflow: hidden; }
 .abs { position: absolute; left: 0; top: 0; }
 .t { white-space: nowrap; line-height: 1; }
 .ar { direction: rtl; font-family: 'PlexArabic', 'Geist', sans-serif; }
@@ -148,8 +148,8 @@ svg { display: block; overflow: visible; }
 
       <!-- 8 · chart: skills our games build -->
       <div id="L_chart" class="abs">
-        <span class="abs t ar ch" data-st="0" style="right:40px;left:auto;top:140px;transform:translateY(-50%);font-size:22px;font-weight:600">مهارات تنمّيها ألعابنا</span>
-        <span class="abs t ar ch" data-st="1" style="right:40px;left:auto;top:176px;transform:translateY(-50%);font-size:17px;font-weight:400;color:var(--muted)">بإشراف أخصائية علاج وظيفي</span>
+        <span class="abs t ar ch" data-st="0" style="right:40px;left:auto;top:160px;transform:translateY(-50%);font-size:22px;font-weight:600">مهارات تنمّيها ألعابنا</span>
+        <span class="abs t ar ch" data-st="1" style="right:40px;left:auto;top:194px;transform:translateY(-50%);font-size:17px;font-weight:400;color:var(--muted)">بإشراف أخصائية علاج وظيفي</span>
         <svg id="plot" class="abs" width="720" height="560" viewBox="0 0 720 560">
           <line x1="40" x2="680" y1="470" y2="470" stroke="#DEDAD2" stroke-width="1.5"/>
           <g id="bars"></g>
@@ -160,8 +160,8 @@ svg { display: block; overflow: visible; }
 
       <!-- 9 · search palette -->
       <div id="L_cmdk" class="abs">
-        <div class="abs" style="left:608px;top:29px;width:26px;height:26px;color:#3A3935">
-          <svg class="ico" width="26" height="26" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+        <div class="abs" style="left:602px;top:30px;width:24px;height:24px;color:#3A3935">
+          <svg class="ico" width="24" height="24" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
         </div>
         <span id="qA" class="abs t ar" style="right:70px;left:auto;top:42px;transform:translateY(-50%);font-size:26px;font-weight:500">ب</span>
         <span id="qB" class="abs t ar" style="right:70px;left:auto;top:42px;transform:translateY(-50%);font-size:26px;font-weight:500">بو</span>
@@ -276,17 +276,17 @@ const ST = {
 const D = 0.18;                                    // enter after the outgoing content has cleared
 const SH = { w: tr(MORPH), h: tr(MORPH), r: tr(MORPH), cx: tr(MORPH), cy: tr(MORPH), bg: new ColorTrack(MORPH) };
 const CAMZ = tr(CAM), CAMX = tr(CAM), CAMY = tr(CAM);
-function shapeTo(b, s) {
+function shapeTo(b, s, bgAt) {
   const g = ST[s];
   for (const k of ['w', 'h', 'r', 'cx', 'cy']) SH[k].to(b, g[k]);
-  SH.bg.to(b, g.bg, TINT);
+  SH.bg.to(bgAt || b, g.bg, TINT);
   CAMZ.to(b, Math.log(g.zoom)); CAMX.to(b, g.cx); CAMY.to(b, g.cy);
 }
 shapeTo(0.18, 'loader');
 shapeTo(3, 'check');
 shapeTo(4, 'island');
 shapeTo(5, 'card');
-shapeTo(10, 'age');
+shapeTo(10, 'age', 10.12);                       // colour flips after the card content has left
 shapeTo(14, 'toggle');
 SH.bg.to(15.04, ACC, TINT);
 shapeTo(16, 'tabs');
@@ -370,10 +370,10 @@ const KNUM = presence([[10 + D + 0.1, 1], [14, 0]]);
 
 /* pill: active carousel dot → age knob → toggle knob → tab indicator → row highlight → toast */
 const PX0 = tr(MORPH), PX1 = tr(MORPH), PY0 = tr(MORPH), PY1 = tr(MORPH);
-const PR = tr(MORPH).to(5, 999, INST).to(14, 38, INST).to(23, 14).to(25.12, 44);
-const PCOL = new ColorTrack(TINT).to(5, INK, INST).to(10, '#FFFFFF').to(14, INK)
-  .to(23, '#F2F0EA').to(25, '#E4E1DA', FAST).to(25.12, INK);
-const PILLP = presence([[5 + D, 1], [26, 0, INST]]);
+const PR = tr(MORPH).to(5, 999, INST).to(14, 38, INST).to(23, 22);
+const PCOL = new ColorTrack(TINT).to(5, INK, INST).to(10.12, '#FFFFFF').to(14, INK)
+  .to(23, '#F2F0EA', { w: 70, z: 1 }).to(25, '#E4E1DA', FAST).to(25.12, INK);
+const PILLP = presence([[5 + D, 1], [25.12, 0]]);
 const ATTACH0 = 5 * B, SWITCH = 10 * B, ATTACH1 = 14 * B;
 const TOKNOB = { w: 17, z: 0.82 };
 let pillPrev = null;
@@ -468,7 +468,7 @@ function buildPill() {
   pillTo(16, -320, -320 + SEG, -38, 38);           // → indicator under صناديق
   pillTo(17, -SEG / 2, SEG / 2, -38, 38);          // كراسات
   pillTo(18, 320 - SEG, 320, -38, 38);             // ألعاب
-  pillTo(19, 320 - SEG, 320, -270, -194);          // rides to the top of the chart card
+  pillTo(19, 320 - SEG, 320, -250, -174);          // rides to the top of the chart card
   pillTo(23, -322, 322, -84, -26);                 // → search row highlight
   pillTo(25.12, -155, 155, -44, 44);               // enter: the highlight becomes the toast
 }
@@ -479,8 +479,9 @@ const SKILLS = [
   { ar: 'الإدراك البصري', v: 80 }, { ar: 'الحركة الدقيقة', v: 66 },
 ];
 const BX = SKILLS.map((_, i) => 616 - i * 128);   // bar centres, local (right → left)
-const BASE = 470, HMAX = 230, BW = 64;
+const BASE = 470, HMAX = 212, BW = 64;
 const TIPX = tr(FAST), TIPY = tr(FAST), TIPWD = tr(FAST);
+const TABY = tr(MORPH).to(19, 20).to(23, 0);
 let TIPP = null, TIPI = [];
 
 const E = {};
@@ -580,12 +581,13 @@ function buildItems() {
 
 /* seek(t): every style from time */
 const wrapT = (t) => ((t % T) + T) % T;
+let ZNOW = 1;                                      // current camera zoom: blur and shadow are sized on screen
 function fx(el, p, o) {
   o = o || {};
   const q = clamp(p, 0, 1);
   el.style.visibility = q < 0.002 ? 'hidden' : 'visible';
   el.style.opacity = q >= 0.999 ? '' : q.toFixed(4);
-  const blur = (1 - q) * (o.blur == null ? 10 : o.blur);
+  const blur = (1 - q) * (o.blur == null ? 10 : o.blur) * 1.6 / ZNOW;
   el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none';
   const dy = (1 - q) * (o.dy == null ? 6 : o.dy), sc = 1 - (1 - q) * (o.sc == null ? 0.04 : o.sc);
   return (o.base || '') + ` translate(0px, ${dy.toFixed(3)}px) scale(${sc.toFixed(4)})`;
@@ -602,6 +604,7 @@ function seek(tIn) {
   const zFit = 0.9 * 1440 / Math.max(w, h);
   const z = softmin(Math.exp(CAMZ.at(t)), zFit);
   const camX = CAMX.at(t) - stretch / 2, camY = CAMY.at(t);
+  ZNOW = z;
   E.world.style.transform = `translate(720px, 720px) scale(${z.toFixed(5)}) translate(${(-camX).toFixed(3)}px, ${(-camY).toFixed(3)}px)`;
 
   const r = Math.min(SH.r.at(t), w / 2, h / 2);
@@ -612,10 +615,11 @@ function seek(tIn) {
   sh.width = `${w.toFixed(3)}px`; sh.height = `${h.toFixed(3)}px`;
   sh.borderRadius = `${r.toFixed(3)}px`;
   sh.background = SH.bg.at(t);
+  sh.boxShadow = `0 ${(1 / z).toFixed(3)}px ${(1 / z).toFixed(3)}px rgba(28,24,16,0.05), 0 ${(19 / z).toFixed(3)}px ${(50 / z).toFixed(3)}px ${(-19 / z).toFixed(3)}px rgba(28,24,16,0.18)`;
   sh.transform = press > 0.0005 ? `scale(${(1 - 0.045 * press).toFixed(5)})` : '';
   const toLocal = (x, y) => [x - L, y - Tp];
   function place(el, bw, bh, p, pinTop, opts) {
-    const lx = (cx0 - bw / 2) - L, ly = pinTop ? 0 : h / 2 - bh / 2;
+    const lx = (cx0 - bw / 2) - L, ly = typeof pinTop === 'number' ? pinTop : (pinTop ? 0 : h / 2 - bh / 2);
     el.style.left = `${lx.toFixed(3)}px`; el.style.top = `${ly.toFixed(3)}px`;
     el.style.transform = fx(el, p, opts);
     return [lx, ly];
@@ -649,7 +653,11 @@ function seek(tIn) {
   {
     let x0, x1, y0, y1;
     if (t >= ATTACH0 && t < ATTACH1) [x0, x1, y0, y1] = attachedRect(t);
-    else { x0 = PX0.at(t); x1 = PX1.at(t); y0 = PY0.at(t); y1 = PY1.at(t); }
+    else {
+      x0 = PX0.at(t); x1 = PX1.at(t); y0 = PY0.at(t); y1 = PY1.at(t);
+      const sm = (x, lo) => lo + 1.5 * Math.log1p(Math.exp((x - lo) / 1.5));   // smooth max
+      x0 = sm(x0, L + 4); x1 = -sm(-x1, -(L + w - 4)); y0 = sm(y0, Tp + 4); y1 = -sm(-y1, -(Tp + h - 4));
+    }
     const pw = Math.max(0, x1 - x0), ph = Math.max(0, y1 - y0);
     const [lx, ly] = toLocal(x0, y0);
     const pp = PILLP.at(t), s = E.pill.style;
@@ -704,7 +712,7 @@ function seek(tIn) {
   E.okBtn.style.transform = `scale(${(1 - 0.12 * OKPR.at(t)).toFixed(4)})`;
   /* tabs */
   {
-    const [lx, ly] = place(E.L_tabs, 660, 96, LP.tabs.at(t), true, { dy: 0, sc: 0.02 });
+    const [lx, ly] = place(E.L_tabs, 660, 96, LP.tabs.at(t), TABY.at(t), { dy: 0, sc: 0.02 });
     const [x0, x1, y0, y1] = E.pillRect;
     const bx = L + lx, by = Tp + ly;
     const cl = x0 - bx, cr = 660 - (x1 - bx), ct = y0 - by, cb = 96 - (y1 - by);
