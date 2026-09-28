@@ -1,0 +1,89 @@
+{
+  "track": {
+    "id": "196",
+    "title": "Deep House",
+    "artist": "Arulo",
+    "mp3_url": "https://assets.mixkit.co/music/196/196.mp3",
+    "page_url": "https://mixkit.co/free-stock-music/house/",
+    "license": "Mixkit Stock Music Free License (https://mixkit.co/license/#musicFree): free for commercial use, no attribution required",
+    "window_start_s": 23.221
+  },
+  "measured_bpm": 123.992,
+  "beat_phase_s": 0.4685,
+  "downbeat_phase": 0,
+  "downbeat_source": "first sound at 0.001s sits on beat 0",
+  "novelty_by_phase": [
+    1.121,
+    1.023,
+    0.93,
+    0.924
+  ],
+  "kick_attack_vs_grid_ms": -0.21,
+  "window_start_s": 23.2138,
+  "window_len_src_s": 13.5493,
+  "atempo": 0.967804,
+  "bpm": 120.0,
+  "beats": 28,
+  "loop_s": 14.0,
+  "top_windows": [
+    {
+      "start_s": 23.212,
+      "seam": 0.459,
+      "steady": 0.023
+    },
+    {
+      "start_s": 21.276,
+      "seam": 0.493,
+      "steady": 0.022
+    },
+    {
+      "start_s": 15.469,
+      "seam": 0.508,
+      "steady": 0.023
+    },
+    {
+      "start_s": 29.019,
+      "seam": 0.708,
+      "steady": 0.022
+    },
+    {
+      "start_s": 106.443,
+      "seam": 0.949,
+      "steady": 0.074
+    }
+  ],
+  "conformed_bpm": 119.984,
+  "kick_xcorr_vs_grid_ms": {
+    "median": 0.08,
+    "max_abs_dev": 2.0,
+    "per_beat": [
+      0.1,
+      0.3,
+      1.9,
+      1.3,
+      -1.7,
+      -1.0,
+      0.1,
+      0.2,
+      -0.8,
+      0.6,
+      1.3,
+      1.8,
+      -1.4,
+      -0.9,
+      -0.2,
+      0.8,
+      -0.2,
+      -0.1,
+      1.8,
+      0.8,
+      -1.2,
+      -1.9,
+      -0.3,
+      -0.3,
+      -1.2,
+      0.2,
+      1.2
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+__pycache__/
+# raw Mixkit tracks are downloaded by analyze_song.py (not redistributed)
+*/audio/src/
+*/audio/*.wav
+# render intermediates
+*/out/*
+!*/out/*.mp4
+!*/out/beats_sheet.png
+*/out/video_silent.mp4
+# original downloads for the Aya photos
+aya-loop/assets/src/

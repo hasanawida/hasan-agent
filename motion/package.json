@@ -1,0 +1,12 @@
+{
+  "name": "one-shape-motion",
+  "private": true,
+  "type": "module",
+  "description": "One-shape UI motion loops (1440x1440, 120 BPM, 7 bars)",
+  "dependencies": {
+    "@fontsource/heebo": "^5.3.0",
+    "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
+    "geist": "^1.7.2",
+    "playwright-core": "^1.56.1"
+  }
+}

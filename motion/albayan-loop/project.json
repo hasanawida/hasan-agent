@@ -1,0 +1,12 @@
+{
+  "output": "albayan-loop.html",
+  "fonts": [
+    ["Geist", 400, "geist/dist/fonts/geist-sans/Geist-Regular.woff2"],
+    ["Geist", 500, "geist/dist/fonts/geist-sans/Geist-Medium.woff2"],
+    ["Geist", 600, "geist/dist/fonts/geist-sans/Geist-SemiBold.woff2"],
+    ["Heebo", 400, "@fontsource/heebo/files/heebo-hebrew-400-normal.woff2"],
+    ["Heebo", 500, "@fontsource/heebo/files/heebo-hebrew-500-normal.woff2"],
+    ["Heebo", 600, "@fontsource/heebo/files/heebo-hebrew-600-normal.woff2"],
+    ["PlexArabic", 500, "@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-500-normal.woff2"]
+  ]
+}

@@ -1,0 +1,254 @@
+[
+ {
+  "t": 0.0,
+  "beat": 0.0,
+  "sound": "press",
+  "peak_ms_into_sound": 1.35
+ },
+ {
+  "t": 0.08,
+  "beat": 0.16,
+  "sound": "release",
+  "peak_ms_into_sound": 0.9
+ },
+ {
+  "t": 0.135,
+  "beat": 0.27,
+  "sound": "whoosh → loader",
+  "peak_ms_into_sound": 106.31
+ },
+ {
+  "t": 0.5,
+  "beat": 1.0,
+  "sound": "progress tick",
+  "peak_ms_into_sound": 0.71
+ },
+ {
+  "t": 1.0,
+  "beat": 2.0,
+  "sound": "progress tick (closed)",
+  "peak_ms_into_sound": 0.65
+ },
+ {
+  "t": 1.5,
+  "beat": 3.0,
+  "sound": "check chime D6→A6",
+  "peak_ms_into_sound": 9.62
+ },
+ {
+  "t": 2.045,
+  "beat": 4.09,
+  "sound": "whoosh → island",
+  "peak_ms_into_sound": 95.65
+ },
+ {
+  "t": 2.545,
+  "beat": 5.09,
+  "sound": "whoosh → card",
+  "peak_ms_into_sound": 120.38
+ },
+ {
+  "t": 3.0,
+  "beat": 6.0,
+  "sound": "+ quantity",
+  "peak_ms_into_sound": 1.1
+ },
+ {
+  "t": 3.05,
+  "beat": 6.1,
+  "sound": "digit roll",
+  "peak_ms_into_sound": 0.65
+ },
+ {
+  "t": 3.5,
+  "beat": 7.0,
+  "sound": "grab carousel",
+  "peak_ms_into_sound": 1.23
+ },
+ {
+  "t": 4.176,
+  "beat": 8.352,
+  "sound": "carousel detent (next product)",
+  "peak_ms_into_sound": 0.77
+ },
+ {
+  "t": 4.5,
+  "beat": 9.0,
+  "sound": "release carousel",
+  "peak_ms_into_sound": 0.96
+ },
+ {
+  "t": 4.783,
+  "beat": 9.566,
+  "sound": "photo snaps into place",
+  "peak_ms_into_sound": 1.17
+ },
+ {
+  "t": 5.045,
+  "beat": 10.09,
+  "sound": "whoosh → age slider",
+  "peak_ms_into_sound": 78.17
+ },
+ {
+  "t": 5.5,
+  "beat": 11.0,
+  "sound": "grab age",
+  "peak_ms_into_sound": 1.21
+ },
+ {
+  "t": 5.606,
+  "beat": 11.212,
+  "sound": "age 6",
+  "peak_ms_into_sound": 0.65
+ },
+ {
+  "t": 5.658,
+  "beat": 11.316,
+  "sound": "age 7",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 5.726,
+  "beat": 11.452,
+  "sound": "age 8",
+  "peak_ms_into_sound": 0.75
+ },
+ {
+  "t": 5.5,
+  "beat": 11.0,
+  "sound": "stretch tension (follows the stretch curve)",
+  "peak_ms_into_sound": null
+ },
+ {
+  "t": 6.5,
+  "beat": 13.0,
+  "sound": "release → spring back",
+  "peak_ms_into_sound": 1.94
+ },
+ {
+  "t": 7.045,
+  "beat": 14.09,
+  "sound": "whoosh → toggle",
+  "peak_ms_into_sound": 95.92
+ },
+ {
+  "t": 7.5,
+  "beat": 15.0,
+  "sound": "gift wrap on",
+  "peak_ms_into_sound": 1.0
+ },
+ {
+  "t": 8.045,
+  "beat": 16.09,
+  "sound": "whoosh → tabs",
+  "peak_ms_into_sound": 102.4
+ },
+ {
+  "t": 8.5,
+  "beat": 17.0,
+  "sound": "tab كراسات",
+  "peak_ms_into_sound": 1.12
+ },
+ {
+  "t": 9.0,
+  "beat": 18.0,
+  "sound": "tab ألعاب",
+  "peak_ms_into_sound": 1.42
+ },
+ {
+  "t": 9.545,
+  "beat": 19.09,
+  "sound": "whoosh → chart",
+  "peak_ms_into_sound": 123.67
+ },
+ {
+  "t": 10.0,
+  "beat": 20.0,
+  "sound": "bar 0",
+  "peak_ms_into_sound": 0.75
+ },
+ {
+  "t": 10.04,
+  "beat": 20.08,
+  "sound": "bar 1",
+  "peak_ms_into_sound": 0.6
+ },
+ {
+  "t": 10.08,
+  "beat": 20.16,
+  "sound": "bar 2",
+  "peak_ms_into_sound": 0.69
+ },
+ {
+  "t": 10.12,
+  "beat": 20.24,
+  "sound": "bar 3",
+  "peak_ms_into_sound": 0.73
+ },
+ {
+  "t": 10.16,
+  "beat": 20.32,
+  "sound": "bar 4",
+  "peak_ms_into_sound": 0.79
+ },
+ {
+  "t": 10.458,
+  "beat": 20.916,
+  "sound": "tooltip bar 0",
+  "peak_ms_into_sound": 0.69
+ },
+ {
+  "t": 10.992,
+  "beat": 21.984,
+  "sound": "tooltip bar 2",
+  "peak_ms_into_sound": 0.62
+ },
+ {
+  "t": 11.545,
+  "beat": 23.09,
+  "sound": "whoosh → search",
+  "peak_ms_into_sound": 99.75
+ },
+ {
+  "t": 11.5,
+  "beat": 23.0,
+  "sound": "⌘K key",
+  "peak_ms_into_sound": 0.77
+ },
+ {
+  "t": 12.0,
+  "beat": 24.0,
+  "sound": "key ب",
+  "peak_ms_into_sound": 0.77
+ },
+ {
+  "t": 12.25,
+  "beat": 24.5,
+  "sound": "key و",
+  "peak_ms_into_sound": 0.75
+ },
+ {
+  "t": 12.5,
+  "beat": 25.0,
+  "sound": "enter",
+  "peak_ms_into_sound": 0.71
+ },
+ {
+  "t": 12.605,
+  "beat": 25.21,
+  "sound": "whoosh → toast",
+  "peak_ms_into_sound": 101.5
+ },
+ {
+  "t": 13.0,
+  "beat": 26.0,
+  "sound": "toast chime F6→A6→D7",
+  "peak_ms_into_sound": 9.12
+ },
+ {
+  "t": 13.545,
+  "beat": 27.09,
+  "sound": "whoosh → button",
+  "peak_ms_into_sound": 123.06
+ }
+]

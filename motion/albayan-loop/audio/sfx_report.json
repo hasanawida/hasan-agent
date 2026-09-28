@@ -1,0 +1,290 @@
+[
+ {
+  "t": 0.0,
+  "beat": 0.0,
+  "sound": "press",
+  "peak_ms_into_sound": 1.35
+ },
+ {
+  "t": 0.08,
+  "beat": 0.16,
+  "sound": "release",
+  "peak_ms_into_sound": 0.9
+ },
+ {
+  "t": 0.135,
+  "beat": 0.27,
+  "sound": "whoosh → loader",
+  "peak_ms_into_sound": 106.31
+ },
+ {
+  "t": 0.5,
+  "beat": 1.0,
+  "sound": "progress tick",
+  "peak_ms_into_sound": 0.71
+ },
+ {
+  "t": 1.0,
+  "beat": 2.0,
+  "sound": "progress tick (closed)",
+  "peak_ms_into_sound": 0.65
+ },
+ {
+  "t": 1.5,
+  "beat": 3.0,
+  "sound": "check chime D6→A6",
+  "peak_ms_into_sound": 9.62
+ },
+ {
+  "t": 2.045,
+  "beat": 4.09,
+  "sound": "whoosh → island",
+  "peak_ms_into_sound": 95.65
+ },
+ {
+  "t": 2.545,
+  "beat": 5.09,
+  "sound": "whoosh → player",
+  "peak_ms_into_sound": 120.38
+ },
+ {
+  "t": 3.0,
+  "beat": 6.0,
+  "sound": "play",
+  "peak_ms_into_sound": 1.1
+ },
+ {
+  "t": 3.5,
+  "beat": 7.0,
+  "sound": "grab playhead",
+  "peak_ms_into_sound": 1.21
+ },
+ {
+  "t": 3.626,
+  "beat": 7.252,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.71
+ },
+ {
+  "t": 3.654,
+  "beat": 7.308,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.73
+ },
+ {
+  "t": 3.682,
+  "beat": 7.364,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.71
+ },
+ {
+  "t": 3.714,
+  "beat": 7.428,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.83
+ },
+ {
+  "t": 3.758,
+  "beat": 7.516,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.73
+ },
+ {
+  "t": 3.85,
+  "beat": 7.7,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.81
+ },
+ {
+  "t": 4.048,
+  "beat": 8.096,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.62
+ },
+ {
+  "t": 4.085,
+  "beat": 8.17,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.62
+ },
+ {
+  "t": 4.121,
+  "beat": 8.242,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.73
+ },
+ {
+  "t": 4.163,
+  "beat": 8.326,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.62
+ },
+ {
+  "t": 4.219,
+  "beat": 8.438,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.65
+ },
+ {
+  "t": 4.337,
+  "beat": 8.674,
+  "sound": "scrub tick",
+  "peak_ms_into_sound": 0.71
+ },
+ {
+  "t": 4.5,
+  "beat": 9.0,
+  "sound": "release playhead",
+  "peak_ms_into_sound": 0.96
+ },
+ {
+  "t": 5.045,
+  "beat": 10.09,
+  "sound": "whoosh → volume",
+  "peak_ms_into_sound": 88.33
+ },
+ {
+  "t": 5.5,
+  "beat": 11.0,
+  "sound": "grab volume",
+  "peak_ms_into_sound": 1.21
+ },
+ {
+  "t": 5.608,
+  "beat": 11.216,
+  "sound": "volume 70%",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 5.646,
+  "beat": 11.292,
+  "sound": "volume 80%",
+  "peak_ms_into_sound": 0.65
+ },
+ {
+  "t": 5.689,
+  "beat": 11.378,
+  "sound": "volume 90%",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 5.753,
+  "beat": 11.506,
+  "sound": "volume 100%",
+  "peak_ms_into_sound": 0.65
+ },
+ {
+  "t": 5.5,
+  "beat": 11.0,
+  "sound": "stretch tension (follows the stretch curve)",
+  "peak_ms_into_sound": null
+ },
+ {
+  "t": 6.5,
+  "beat": 13.0,
+  "sound": "release → spring back",
+  "peak_ms_into_sound": 1.94
+ },
+ {
+  "t": 7.045,
+  "beat": 14.09,
+  "sound": "whoosh → toggle",
+  "peak_ms_into_sound": 108.96
+ },
+ {
+  "t": 7.5,
+  "beat": 15.0,
+  "sound": "toggle on",
+  "peak_ms_into_sound": 1.0
+ },
+ {
+  "t": 8.045,
+  "beat": 16.09,
+  "sound": "whoosh → tabs",
+  "peak_ms_into_sound": 90.25
+ },
+ {
+  "t": 8.5,
+  "beat": 17.0,
+  "sound": "tab العربية",
+  "peak_ms_into_sound": 1.15
+ },
+ {
+  "t": 9.0,
+  "beat": 18.0,
+  "sound": "tab עברית",
+  "peak_ms_into_sound": 1.44
+ },
+ {
+  "t": 9.545,
+  "beat": 19.09,
+  "sound": "whoosh → chart",
+  "peak_ms_into_sound": 122.5
+ },
+ {
+  "t": 10.3,
+  "beat": 20.6,
+  "sound": "chart draws",
+  "peak_ms_into_sound": 334.19
+ },
+ {
+  "t": 10.48,
+  "beat": 20.96,
+  "sound": "tooltip day 2",
+  "peak_ms_into_sound": 0.85
+ },
+ {
+  "t": 10.99,
+  "beat": 21.98,
+  "sound": "tooltip day 4",
+  "peak_ms_into_sound": 0.75
+ },
+ {
+  "t": 11.545,
+  "beat": 23.09,
+  "sound": "whoosh → ⌘K",
+  "peak_ms_into_sound": 115.17
+ },
+ {
+  "t": 11.5,
+  "beat": 23.0,
+  "sound": "⌘K key",
+  "peak_ms_into_sound": 0.77
+ },
+ {
+  "t": 12.0,
+  "beat": 24.0,
+  "sound": "key ש",
+  "peak_ms_into_sound": 0.67
+ },
+ {
+  "t": 12.25,
+  "beat": 24.5,
+  "sound": "key ל",
+  "peak_ms_into_sound": 0.79
+ },
+ {
+  "t": 12.5,
+  "beat": 25.0,
+  "sound": "enter",
+  "peak_ms_into_sound": 0.81
+ },
+ {
+  "t": 12.605,
+  "beat": 25.21,
+  "sound": "whoosh → toast",
+  "peak_ms_into_sound": 112.79
+ },
+ {
+  "t": 13.0,
+  "beat": 26.0,
+  "sound": "toast chime F#6→B6",
+  "peak_ms_into_sound": 8.46
+ },
+ {
+  "t": 13.545,
+  "beat": 27.09,
+  "sound": "whoosh → button",
+  "peak_ms_into_sound": 102.88
+ }
+]
