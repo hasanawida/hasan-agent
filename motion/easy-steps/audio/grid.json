@@ -1,0 +1,99 @@
+{
+  "track": {
+    "id": "959",
+    "title": "It's Just you",
+    "artist": "Michael Ramir C.",
+    "mp3_url": "https://assets.mixkit.co/music/959/959.mp3",
+    "page_url": "https://mixkit.co/free-stock-music/pop/?page=3",
+    "license": "Mixkit Stock Music Free License (commercial use, no attribution required) https://mixkit.co/license/#musicFree",
+    "bars": 8,
+    "target_bpm": 90,
+    "tempo_range": [
+      70,
+      115
+    ],
+    "window_start_s": 58.6567
+  },
+  "measured_bpm": 89.997,
+  "beat_phase_s": 0.6615,
+  "downbeat_phase": 0,
+  "downbeat_source": "first sound at 0.000s sits on beat 0",
+  "novelty_by_phase": [
+    1.13,
+    0.871,
+    0.956,
+    1.042
+  ],
+  "kick_attack_vs_grid_ms": -0.06,
+  "window_start_s": 58.6567,
+  "window_len_src_s": 21.334,
+  "atempo": 1.000033,
+  "bpm": 90.0,
+  "beats": 32,
+  "loop_s": 21.333333333333332,
+  "top_windows": [
+    {
+      "start_s": 58.663,
+      "seam": 0.741,
+      "steady": 0.079
+    },
+    {
+      "start_s": 61.33,
+      "seam": 0.748,
+      "steady": 0.077
+    },
+    {
+      "start_s": 29.329,
+      "seam": 0.921,
+      "steady": 0.098
+    },
+    {
+      "start_s": 138.666,
+      "seam": 0.958,
+      "steady": 0.099
+    },
+    {
+      "start_s": 42.663,
+      "seam": 1.044,
+      "steady": 0.097
+    }
+  ],
+  "conformed_bpm": 90.019,
+  "kick_xcorr_vs_grid_ms": {
+    "median": 9.0,
+    "max_abs_dev": 12.0,
+    "per_beat": [
+      0.7,
+      8.9,
+      15.0,
+      20.4,
+      0.6,
+      8.3,
+      14.9,
+      20.8,
+      0.7,
+      9.0,
+      15.0,
+      21.0,
+      0.2,
+      8.2,
+      15.0,
+      20.5,
+      0.7,
+      8.8,
+      14.8,
+      20.3,
+      0.2,
+      8.5,
+      14.4,
+      20.7,
+      0.2,
+      8.8,
+      14.6,
+      20.6,
+      0.1,
+      8.0,
+      15.0
+    ]
+  }
+}

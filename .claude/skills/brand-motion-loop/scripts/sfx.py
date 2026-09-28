@@ -186,9 +186,10 @@ class Mixer:
 
     def save(self, out_wav):
         mix = self.loop + self.sfx[:, None]
-        ceiling = db(-1.0)
-        if np.abs(mix).max() > ceiling:                                   # gentle soft-knee limiter
-            mix = np.tanh(mix / ceiling * 0.9) / np.tanh(0.9) * ceiling
+        ceiling, knee = db(-1.0), db(-4.0)                                # soft-knee limiter: unity below the knee,
+        a = np.abs(mix)                                                   # smoothly approaches the ceiling above it
+        over = a > knee
+        mix[over] = np.sign(mix[over]) * (knee + (ceiling - knee) * np.tanh((a[over] - knee) / (ceiling - knee)))
         pcm = (np.clip(mix, -1, 1) * 32767).astype("<i2")
         with wave.open(str(out_wav), "wb") as w:
             w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
