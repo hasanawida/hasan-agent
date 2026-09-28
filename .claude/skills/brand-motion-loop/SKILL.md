@@ -1,6 +1,6 @@
 ---
 name: brand-motion-loop
-description: Make a brand identity motion video («فيديو هوية») for a website, app or shop — one UI shape that morphs through the product's real screens (button → loader → check → island → cards, sliders, toggle, tabs, chart, search, toast, product grid, delivery map…), driven by a cursor with real clicks and drags, cut to a 120 BPM beat grid with a royalty-free song and synthesized UI sounds, rendered as a seamless square MP4 loop (1440 or 2160, 60 fps, motion blur). Use this whenever someone gives a URL and wants a video about it, or asks for a promo / identity / motion / reel video of their site or store, a Dribbble-style UI animation, or says things like «اعمل فيديو هوية», «فيديو موشن لموقعي», «سوّي فيديو للمتجر», «فيديو إعلان للتطبيق» — even if they never say "motion" or "loop".
+description: Make a brand identity motion video («فيديو هوية») for a website, app or shop — one UI shape that morphs through the product's real screens (button → loader → check → island → cards, sliders, toggle, tabs, chart, search, toast, product grid, delivery map…), driven by a cursor with real clicks and drags, cut to a 120 BPM beat grid with a royalty-free song and synthesized UI sounds, rendered as a seamless MP4 loop (square 1440/2160, or a vertical 9:16 story ad for Reels/TikTok/WhatsApp status; 60 fps, motion blur). Use this whenever someone gives a URL and wants a video about it, or asks for a promo / identity / motion / reel video of their site or store, a Dribbble-style UI animation, or says things like «اعمل فيديو هوية», «فيديو موشن لموقعي», «سوّي فيديو للمتجر», «فيديو إعلان للتطبيق», «ستوري/ريلز لمصلحتي», «إعلان للعيادة» — even if they never say "motion" or "loop".
 ---
 
 # Brand motion loop («فيديو هوية»)
@@ -19,6 +19,7 @@ Two finished examples live in this repo's `motion/` folder (Al-Bayan: 7 bars/14 
 | `scripts/sfx.py` | Synthesized UI sound palette + `Mixer` (peak placement, seamless music loop, tiling) |
 | `scripts/site_scan.mjs` | Scan a site: copy, lang/dir, fonts, colours, CSS variables, images, logo, screenshots |
 | `scripts/make_map.mjs` | Country outline (Natural Earth 1:10m) + route stops for a delivery-map scene |
+| `scripts/beat_engine.py` | Beat grid + whole-frame tempo presets per industry; compiles spring tracks to CSS `@keyframes` (vertical story mode) |
 | `assets/templates/compact-28-beats.html` | Scene template: 28 beats, one event per beat (button → … → toast → button) |
 | `assets/templates/extended-96-beats.html` | Scene template: 96 beats — brand intro with website, product grid, the flow at half pace, delivery map |
 | `assets/templates/cues-*.py`, `project.json` | Matching cue sheets and project config |
@@ -26,6 +27,7 @@ Two finished examples live in this repo's `motion/` folder (Al-Bayan: 7 bars/14 
 | `references/states.md` | Catalogue of states with geometry, zoom, cursor and sound patterns |
 | `references/audio.md` | Song choice, beat analysis pitfalls, sound design |
 | `references/qa.md` | The checklist of problems every scene has had so far — run it before the full render |
+| `references/vertical-css.md` | 9:16 story ads for businesses (clinic / food / shop presets, safe zones, CTA), CSS-only playback |
 
 ## Workflow
 
@@ -106,6 +108,10 @@ node motion/tools/render.mjs motion/<name> mux --scale=1.5
 Verify with ffmpeg (duration = bars × 2 s, 60 fps, audio present, decodes without errors), sample frames into a contact sheet and look, then send the file. Tell the user: **WhatsApp recompresses anything sent as a video — send it as a Document to keep full quality.** 2160² is the useful ceiling for a square video on phones; 8K doesn't survive any platform and phones can't play it.
 
 Commit the project (sources, built HTML, final MP4, beat sheet) — not the raw song MP3 (the licence doesn't allow redistributing the track itself) or intermediate WAVs/PNGs.
+
+## Vertical story ads (9:16)
+
+For Reels / TikTok / WhatsApp status ads for a business, use the vertical mode: 1080 × 1920, safe zones (top 120 px, bottom 240 px), logo → one morphing shape → pulsing CTA with URL and phone, taps instead of a cursor, and a tempo from the industry preset (clinic 75/80/90, food 96/100, shop 120/128 — the loop must be whole frames). The timeline is written in Python with the same springs and compiled to CSS keyframes, so the HTML plays with CSS only. Read `references/vertical-css.md`; worked example `motion/easy-steps/`.
 
 ## Rules that keep it Dribbble-level
 

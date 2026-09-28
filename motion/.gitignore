@@ -11,3 +11,5 @@ __pycache__/
 */out/parts.txt
 # original downloads for the Aya photos
 aya-loop/assets/src/
+# site scans (page copies, screenshots, original downloads)
+easy-steps/assets/src/

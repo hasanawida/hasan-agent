@@ -3,11 +3,12 @@
 
 1. Measure tempo (comb over the onset envelope), beat phase and downbeat phase with numpy.
 2. Pick a 7-bar window that starts on a downbeat, sits in the full groove and loops cleanly.
-3. Conform it to exactly 120 BPM (ffmpeg atempo, pitch preserved) so 28 beats = 14.000 s.
+3. Conform it to exactly the target BPM (track.json "target_bpm", default 120; ffmpeg atempo, pitch preserved).
 4. Re-measure the conformed audio and report how far its beats sit from the k * 0.5 s grid.
 
 Usage: python3 tools/analyze_song.py <project>/audio   (reads track.json there)
-Writes grid.json and music_120.wav (loop + tail for the seam crossfade) next to it.
+Writes grid.json and music_<bpm>.wav (loop + tail for the seam crossfade) next to it.
+"tempo_range": [lo, hi] in track.json bounds the tempo search (default 100–140).
 """
 import json
 import subprocess
@@ -98,6 +99,9 @@ def main():
     track = json.loads((HERE / "track.json").read_text())
     global BARS
     BARS = int(track.get("bars", 7))                     # length of the musical loop in bars
+    global TARGET_BPM
+    TARGET_BPM = float(track.get("target_bpm", 120.0))
+    lo, hi = track.get("tempo_range", [100, 140])
     SRC.mkdir(exist_ok=True)
     mp3 = SRC / f"{track['id']}.mp3"
     if not mp3.exists():
@@ -110,7 +114,7 @@ def main():
     mag = stft_mag(x, nfft, hop)
     env = onset_env(mag, sr, nfft)
 
-    bpm = measure_tempo(env, fps)
+    bpm = measure_tempo(env, fps, lo, hi)
     period = 60 / bpm
     # phase from the kick. A kick is the one hit with a low thump AND a broadband click at the same instant;
     # offbeat bass has the thump without the click, offbeat hats/claps the click without the thump.
@@ -167,8 +171,8 @@ def main():
     loop_src = BARS * BEATS_PER_BAR * period
     tail = 1.0
     tempo = TARGET_BPM / bpm
-    out = HERE / "music_120.wav"
-    grid = np.arange(BARS * BEATS_PER_BAR) * 0.5
+    out = HERE / f"music_{TARGET_BPM:g}.wav"
+    grid = np.arange(BARS * BEATS_PER_BAR) * 60 / TARGET_BPM
 
     def cut(src_start):
         pre = 0.25                                       # keep a little before the downbeat, trimmed after stretch
@@ -217,7 +221,7 @@ def main():
     offset_ms = float(np.median(errs))
     y = decode(out, sr)
     ym = stft_mag(y, nfft, hop)
-    y_bpm = measure_tempo(onset_env(ym, sr, nfft), fps, 110, 130)
+    y_bpm = measure_tempo(onset_env(ym, sr, nfft), fps, TARGET_BPM - 10, TARGET_BPM + 10)
 
     res = {
         "track": track, "measured_bpm": round(bpm, 3), "beat_phase_s": round(phi, 4),

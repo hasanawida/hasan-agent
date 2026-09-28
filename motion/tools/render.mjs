@@ -6,6 +6,7 @@
 //   node tools/render.mjs <project> video            → 60 fps, 4 subframes per frame blended with tmix
 //   node tools/render.mjs <project> mux              → out/<name>.mp4 = silent video + audio/mix.wav
 // Add --scale=1.5 to video/mux for a 2160 × 2160 master (the scene is vector, so it renders sharper, not upscaled).
+// project.json "size" sets the canvas (default 1440 × 1440); --scale multiplies it (1080 × 1920 --scale=2 → 2160 × 3840).
 // Add --part=k/n to video to render only segment k of n (segments are independent; mux joins them).
 import { chromium } from 'playwright-core';
 import { spawn, execFileSync } from 'node:child_process';
@@ -19,8 +20,9 @@ const out = join(here, 'out');
 mkdirSync(out, { recursive: true });
 const FFMPEG = execFileSync('python3', ['-c', 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())']).toString().trim();
 const FPS = 60, SUB = 4, SHUTTER = 0.5;          // 180° shutter
+const [W, H] = proj.size || [1440, 1440];          // project.json "size": [1080, 1920] for a 9:16 story
 const SCALE = parseFloat((process.argv.find((a) => a.startsWith('--scale=')) || '--scale=1').split('=')[1]);
-const SUFFIX = SCALE === 1 ? '' : `_${Math.round(1440 * SCALE)}`;
+const SUFFIX = SCALE === 1 ? '' : `_${Math.round(Math.min(W, H) * SCALE)}`;
 const PART = (process.argv.find((a) => a.startsWith('--part=')) || '').split('=')[1];
 
 async function open() {
@@ -28,7 +30,7 @@ async function open() {
     executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
     args: ['--font-render-hinting=none', '--disable-lcd-text', '--force-color-profile=srgb'],
   });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1440 }, deviceScaleFactor: SCALE });
+  const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE });
   await page.goto(pathToFileURL(join(here, proj.output)).href);
   await page.evaluate(() => window.__ready);
   const timing = await page.evaluate(() => window.TIMING);
@@ -37,7 +39,7 @@ async function open() {
     await page.evaluate((tt) => window.seek(tt), t);
     // clip.scale renders at device resolution (a raw CDP capture otherwise ignores the page's pixel ratio)
     const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, captureBeyondViewport: false,
-      clip: { x: 0, y: 0, width: 1440, height: 1440, scale: SCALE } });
+      clip: { x: 0, y: 0, width: W, height: H, scale: SCALE } });
     return Buffer.from(data, 'base64');
   };
   return { browser, page, timing, shot };
@@ -56,7 +58,7 @@ if (mode === 'beats') {
   console.log('debug', JSON.stringify(await page.evaluate(() => window.DEBUG)));
   await browser.close();
   execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-pattern_type', 'glob', '-i', join(dir, 'b*.png'),
-    '-vf', `scale=360:360,tile=${timing.BEATS % 7 ? 8 : 7}x${Math.ceil(timing.BEATS / (timing.BEATS % 7 ? 8 : 7))}:padding=6:color=0xC9C5BC`,
+    '-vf', `scale=${2 * Math.round(180 * W / Math.max(W, H))}:${2 * Math.round(180 * H / Math.max(W, H))},tile=${timing.BEATS % 7 ? 8 : 7}x${Math.ceil(timing.BEATS / (timing.BEATS % 7 ? 8 : 7))}:padding=6:color=0xC9C5BC`,
     '-frames:v', '1', join(out, 'beats_sheet.png')]);
   console.log('beats →', dir);
 } else if (mode === 'stills') {
@@ -70,7 +72,9 @@ if (mode === 'beats') {
   const c = await shot(1 / FPS), d = await shot(timing.T + 1 / FPS);
   // cursor position + speed at the seam
   const seam = await page.evaluate((T) => {
-    const pos = (t) => { window.seek(t); const m = new DOMMatrix(getComputedStyle(document.getElementById('cursor')).transform); return [m.m41, m.m42]; };
+    const cur = document.getElementById('cursor');
+    if (!cur) return null;                           // CSS-keyframe scenes have no cursor path (taps only)
+    const pos = (t) => { window.seek(t); const m = new DOMMatrix(getComputedStyle(cur).transform); return [m.m41, m.m42]; };
     const e = 1 / 240;
     return { p0: pos(0), pT: pos(T), v0: [(pos(e)[0] - pos(-e)[0]) / (2 * e), (pos(e)[1] - pos(-e)[1]) / (2 * e)],
       vT: [(pos(T + e)[0] - pos(T - e)[0]) / (2 * e), (pos(T + e)[1] - pos(T - e)[1]) / (2 * e)] };

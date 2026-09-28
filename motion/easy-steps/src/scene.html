@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Easy Steps · احجز موعدًا للفحص</title>
+<style>
+/*@FONTS@*/
+/* every motion below is a CSS keyframe track compiled from springs by scene.py (tools/beat_engine.py) */
+@TEXT:scene.css@
+
+:root {
+  --canvas: #E8F1EE; --ink: #123F45; --teal: #008F95; --mint: #E3F2EC; --mint2: #69DBC0;
+  --purple: #652D90; --muted: #697B7C; --line: #DCE4DE; --closed: #B4532B;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0B1D20; }
+#stage {
+  position: absolute; left: 50%; top: 50%; width: 1080px; height: 1920px; overflow: hidden;
+  translate: -50% -50%; scale: min(tan(atan2(100vh, 1920px)), tan(atan2(100vw, 1080px)));   /* fit any window, CSS only */
+  background: var(--canvas); color: var(--ink);
+  font-family: 'AlmaraiAr', 'AlmaraiLat', sans-serif; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision;
+}
+@media (width: 1080px) and (height: 1920px) { #stage { scale: 1; } }
+
+.abs { position: absolute; }
+.c { position: absolute; transform: translate(-50%, -50%); }
+.r { position: absolute; transform: translateY(-50%); }
+.t { white-space: nowrap; line-height: 1.15; }
+.lat { font-family: 'AlmaraiLat', 'AlmaraiAr', sans-serif; direction: ltr; unicode-bidi: isolate; }
+.row { display: flex; align-items: center; direction: rtl; }
+.fx { opacity: var(--p); filter: blur(calc(max(0, 1 - var(--p)) * 9px)); translate: 0 calc((1 - var(--p)) * 18px); }
+.fxs { opacity: var(--p); filter: blur(calc(max(0, 1 - var(--p)) * 7px)); scale: calc(0.9 + 0.1 * var(--p)); }
+.ico { fill: none; stroke: currentColor; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+svg { display: block; overflow: visible; }
+
+/* the one shape */
+#shape {
+  position: absolute; left: 540px; top: 870px; overflow: hidden; transform: translate(-50%, -50%);
+  width: calc(var(--sw) * 1px); height: calc(var(--sh) * 1px); border-radius: calc(var(--sr) * 1px);
+  background: color-mix(in srgb, var(--ink) calc(clamp(0, var(--dk), 1) * 100%), color-mix(in srgb, var(--teal) calc(clamp(0, var(--tl), 1) * 100%), #fff));
+  box-shadow: 0 34px 70px -40px rgba(18, 63, 69, .5), 0 2px 8px rgba(18, 63, 69, .05);
+}
+.L { position: absolute; left: 50%; top: 50%; }
+
+/* header / footer */
+#logo { position: absolute; left: 540px; top: 232px; width: 350px; transform: translate(-50%, -50%); }
+#cta {
+  position: absolute; left: 540px; top: 1500px; width: 700px; height: 124px; border-radius: 62px; background: var(--teal); color: #fff;
+  transform: translate(-50%, -50%); scale: calc((1 + 0.03 * var(--cpu)) * (1 - 0.05 * var(--cpr)));
+  display: flex; align-items: center; justify-content: center; gap: 18px; direction: rtl;
+}
+#info { position: absolute; left: 540px; top: 1624px; transform: translate(-50%, -50%); gap: 22px; font-size: 34px; color: var(--ink); }
+
+/* hook */
+.chip { height: 88px; padding: 0 38px; border-radius: 44px; background: var(--mint); display: flex; align-items: center; gap: 14px; direction: rtl; }
+
+/* scan */
+.sole { fill: none; stroke: var(--ink); stroke-width: 3; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - var(--fo)); }
+.dot { opacity: clamp(0, calc((var(--scan) - var(--y)) / 34), 1); }
+.leg { width: 22px; height: 22px; border-radius: 11px; }
+
+/* booking */
+.step { position: absolute; top: 100px; width: 60px; height: 60px; border-radius: 30px; margin-left: -30px; margin-top: -30px;
+  display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800;
+  --on: clamp(0, calc((var(--stp) - var(--k) + 1.5) * 2), 1);
+  background: color-mix(in srgb, var(--teal) calc(var(--on) * 100%), #fff);
+  color: color-mix(in srgb, #fff calc(var(--on) * 100%), var(--muted));
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--teal) calc(var(--on) * 100%), var(--line)); }
+.slbl { position: absolute; top: 158px; transform: translate(-50%, -50%); font-size: 25px; font-weight: 700;
+  color: color-mix(in srgb, var(--ink) calc(clamp(0, calc((var(--stp) - var(--k) + 1.5) * 2), 1) * 100%), var(--muted)); }
+.svc { position: absolute; left: 40px; width: 820px; height: 122px; border-radius: 28px; box-shadow: inset 0 0 0 2px var(--line); }
+.svc .nm { position: absolute; right: 92px; top: 38px; font-size: 36px; font-weight: 800; }
+.svc .ds { position: absolute; right: 92px; top: 84px; font-size: 25px; font-weight: 400; color: var(--muted); }
+.svc .rad { position: absolute; right: 30px; top: 41px; width: 40px; height: 40px; border-radius: 20px; box-shadow: inset 0 0 0 3px var(--line); }
+.svc .dur { position: absolute; left: 28px; top: 61px; height: 52px; padding: 0 22px; border-radius: 26px; background: var(--mint);
+  transform: translateY(-50%); display: flex; align-items: center; font-size: 26px; font-weight: 700; direction: rtl; }
+.sel { position: absolute; border-radius: 28px; background: var(--mint); box-shadow: inset 0 0 0 4px var(--teal); opacity: min(1, var(--q)); scale: calc(0.97 + 0.03 * var(--q)); }
+.day { position: absolute; width: 190px; height: 170px; margin-left: -95px; margin-top: -85px; border-radius: 28px; box-shadow: inset 0 0 0 2px var(--line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.day .dn { font-size: 30px; font-weight: 700; }
+.day .dd { font-size: 46px; font-weight: 800; }
+.day.off { background: #F4F6F5; box-shadow: none; }
+.day.off .dn { color: var(--muted); }
+.day.off .dd { font-size: 28px; color: var(--closed); font-weight: 700; }
+.tm { position: absolute; width: 250px; height: 88px; margin-left: -125px; margin-top: -44px; border-radius: 22px; box-shadow: inset 0 0 0 2px var(--line);
+  display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 700; }
+.tm.x { color: #B5C0BF; text-decoration: line-through; box-shadow: none; background: #F4F6F5; }
+.grp { position: absolute; right: 40px; font-size: 28px; font-weight: 800; color: var(--muted); transform: translateY(-50%); }
+.field { position: absolute; left: 40px; width: 820px; height: 104px; border-radius: 24px; background: #fff;
+  box-shadow: inset 0 0 0 calc(2px + 2px * var(--f)) color-mix(in srgb, var(--teal) calc(clamp(0, var(--f), 1) * 100%), var(--line)); }
+.field .ph { position: absolute; right: 88px; top: 52px; transform: translateY(-50%); font-size: 34px; color: #A6B2B1; }
+.field .val { position: absolute; right: 88px; top: 52px; transform: translateY(-50%); font-size: 38px; font-weight: 700; }
+.field .fi { position: absolute; right: 30px; top: 32px; width: 40px; height: 40px; color: var(--muted); }
+.btn { position: absolute; left: 40px; width: 820px; height: 110px; border-radius: 55px; background: var(--ink); color: #fff;
+  display: flex; align-items: center; justify-content: center; gap: 16px; direction: rtl; font-size: 36px; font-weight: 800; }
+
+/* confirmation */
+.sum { position: absolute; left: 50px; width: 800px; height: 90px; }
+.sum .k { position: absolute; right: 60px; top: 45px; transform: translateY(-50%); font-size: 30px; color: var(--muted); }
+.sum .v { position: absolute; left: 0; top: 45px; transform: translateY(-50%); font-size: 34px; font-weight: 800; }
+.sum .i { position: absolute; right: 0; top: 25px; width: 40px; height: 40px; color: var(--teal); }
+.sum .rule { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line); }
+
+/* funds */
+.fund { position: absolute; width: 400px; height: 134px; margin-left: -200px; margin-top: -67px; border-radius: 32px; background: var(--mint);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.fund .a { font-size: 40px; font-weight: 800; }
+.fund .h { font-size: 26px; color: var(--muted); direction: rtl; }
+
+/* touches */
+.touch { position: absolute; width: 96px; height: 96px; margin-left: -48px; margin-top: -48px; border-radius: 48px;
+  background: rgba(18, 63, 69, .2); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .95), 0 6px 16px rgba(18, 63, 69, .18);
+  opacity: min(1, var(--a)); scale: calc((1.3 - 0.3 * min(1, var(--a))) * (1 - 0.16 * var(--pr))); z-index: 5; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <img id="logo" src="@IMG:logo.png@" alt="Easy Steps">
+
+  <div id="shape">
+    <!-- 1 · hook -->
+    <div class="L" style="width:900px;height:620px;margin:-310px 0 0 -450px">
+      <div class="c t fx" style="--p:var(--h1);left:450px;top:180px;font-size:92px;font-weight:800">فحص مهني للقدم</div>
+      <div class="c t fx" style="--p:var(--h2);left:450px;top:282px;font-size:46px;font-weight:700;color:var(--teal)">الخطوة الأولى نحو راحة أفضل</div>
+      <div class="c" style="left:450px;top:440px">
+        <div class="chip fxs" style="--p:var(--h3);scale:calc((0.9 + 0.1 * var(--h3)) * (1 - 0.05 * var(--h3p)))">
+          <span class="t" style="font-size:34px;font-weight:800">خبرة في صحة القدم منذ</span><span class="t lat" style="font-size:34px;font-weight:800">2009</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 · computerised pressure scan -->
+    <div class="L" style="width:900px;height:1060px;margin:-530px 0 0 -450px">
+      <div class="c t fx" style="--p:var(--sc);left:450px;top:80px;font-size:50px;font-weight:800">فحص محوسب لتوزيع الضغط</div>
+      <div class="abs" style="left:180px;top:220px;width:540px;height:600px;opacity:var(--sc)">
+        <svg width="540" height="600" viewBox="0 0 540 600">@TEXT:feet.html@</svg>
+        <div class="abs" style="left:-30px;top:calc(var(--scan) * 1px);width:600px;height:4px;margin-top:-2px;border-radius:2px;background:var(--teal);opacity:var(--sl)"></div>
+        <!-- marker on the right heel -->
+        <div class="abs" style="--p:var(--mk);left:408px;top:522px;width:124px;height:124px;margin:-62px 0 0 -62px;border-radius:62px;box-shadow:inset 0 0 0 4px var(--ink);opacity:var(--p);scale:calc(1.25 - 0.25 * var(--p))"></div>
+        <div class="r t fx" style="--p:var(--mk);left:484px;top:522px;height:56px;padding:0 22px;border-radius:28px;background:var(--ink);color:#fff;font-size:26px;font-weight:800;display:flex;align-items:center">ضغط زائد</div>
+      </div>
+      <div class="c row fx" style="--p:var(--lg);left:450px;top:890px;gap:14px;font-size:27px;color:var(--muted)">
+        <span class="t">منخفض</span>
+        <span class="leg" style="background:#CFEDE6"></span><span class="leg" style="background:#69DBC0"></span><span class="leg" style="background:#008F95"></span><span class="leg" style="background:#652D90"></span>
+        <span class="t">مرتفع</span>
+      </div>
+      <div class="c t fx" style="--p:var(--tg);left:450px;top:972px;font-size:40px;font-weight:800;color:var(--teal)">قراءة أدق. قرار أنسب.</div>
+    </div>
+
+    <!-- 3 · services -->
+    <div class="L" style="width:900px;height:1060px;margin:-530px 0 0 -450px">
+      <div class="c t fx" style="--p:var(--gt);left:450px;top:80px;font-size:50px;font-weight:800">حلول متكاملة لصحة قدمك</div>
+      <div class="abs fxs" style="--p:var(--g0);left:465px;top:160px;width:400px">
+        <img src="@IMG:insole.jpg@" alt="" style="display:block;width:400px;height:300px;object-fit:cover;border-radius:32px">
+        <div class="t" style="margin-top:22px;text-align:center;font-size:31px;font-weight:800">مداسات طبية حسب الطلب</div>
+      </div>
+      <div class="abs fxs" style="--p:var(--g1);left:35px;top:160px;width:400px">
+        <img src="@IMG:shoes.jpg@" alt="" style="display:block;width:400px;height:300px;object-fit:cover;border-radius:32px">
+        <div class="t" style="margin-top:22px;text-align:center;font-size:31px;font-weight:800">أحذية طبية وراحة</div>
+      </div>
+      <div class="abs fxs" style="--p:var(--g2);left:465px;top:580px;width:400px">
+        <img src="@IMG:knee.jpg@" alt="" style="display:block;width:400px;height:300px;object-fit:cover;border-radius:32px">
+        <div class="t" style="margin-top:22px;text-align:center;font-size:31px;font-weight:800">أجهزة ومشدات أورثوبيدية</div>
+      </div>
+      <div class="abs fxs" style="--p:var(--g3);left:35px;top:580px;width:400px">
+        <img src="@IMG:diabetic.jpg@" alt="" style="display:block;width:400px;height:300px;object-fit:cover;border-radius:32px">
+        <div class="t" style="margin-top:22px;text-align:center;font-size:31px;font-weight:800">لوازم قدم السكري</div>
+      </div>
+    </div>
+
+    <!-- 4 · island: new -->
+    <div class="L" style="width:760px;height:150px;margin:-75px 0 0 -380px">
+      <div class="c row fx" style="--p:var(--il);left:380px;top:75px;gap:22px;color:#fff">
+        <span class="t fxs" style="--p:var(--ilb);height:66px;padding:0 26px;border-radius:33px;background:var(--purple);font-size:32px;font-weight:800;display:flex;align-items:center">جديد</span>
+        <span class="t" style="font-size:42px;font-weight:800">احجز موعدك أونلاين</span>
+        <svg class="ico" width="44" height="44" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 9.5h18"/></svg>
+      </div>
+    </div>
+
+    <!-- 5 · booking (4 steps) -->
+    <div class="L" style="width:900px;height:1060px;margin:-530px 0 0 -450px">
+      <div class="abs fx" style="--p:var(--bk);left:0;top:0;width:900px;height:220px">
+        <div class="abs" style="left:120px;top:98px;width:660px;height:4px;background:var(--line);border-radius:2px"></div>
+        <div class="abs" style="right:120px;top:98px;width:calc(var(--stp) * 220px);height:4px;background:var(--teal);border-radius:2px"></div>
+        <div class="step" style="--k:1;left:780px">1</div><div class="slbl" style="--k:1;left:780px">الخدمة</div>
+        <div class="step" style="--k:2;left:560px">2</div><div class="slbl" style="--k:2;left:560px">اليوم</div>
+        <div class="step" style="--k:3;left:340px">3</div><div class="slbl" style="--k:3;left:340px">الساعة</div>
+        <div class="step" style="--k:4;left:120px">4</div><div class="slbl" style="--k:4;left:120px">بيانات التواصل</div>
+      </div>
+      <div class="r t fx" style="--p:var(--s1);right:40px;top:262px;font-size:40px;font-weight:800">اختر الخدمة المطلوبة</div>
+      <div class="r t fx" style="--p:var(--s2);right:40px;top:262px;font-size:40px;font-weight:800">اختر اليوم</div>
+      <div class="r t fx" style="--p:var(--s3);right:40px;top:262px;font-size:40px;font-weight:800">اختر الساعة</div>
+      <div class="r t fx" style="--p:var(--s4);right:40px;top:262px;font-size:40px;font-weight:800">بيانات التواصل</div>
+
+      <!-- step 1 · services -->
+      <div class="sel" style="--q:var(--se1);left:40px;top:279px;width:820px;height:122px"></div>
+      <div class="svc fx" style="--p:var(--r0);top:279px">
+        <div class="rad" style="box-shadow:inset 0 0 0 calc(3px + 9px * var(--se1)) color-mix(in srgb, var(--teal) calc(clamp(0, var(--se1), 1) * 100%), var(--line))"></div>
+        <div class="nm t">مداسات جديدة</div><div class="ds t">لقاء أول للتعرّف إلى احتياجاتك</div><div class="dur"><span class="lat">30</span>&nbsp;دقيقة</div>
+      </div>
+      <div class="svc fx" style="--p:var(--r1);top:417px">
+        <div class="rad"></div><div class="nm t">فحص المداسات</div><div class="ds t">فحص الملاءمة والراحة للمداسات الحالية</div><div class="dur"><span class="lat">20</span>&nbsp;دقيقة</div>
+      </div>
+      <div class="svc fx" style="--p:var(--r2);top:555px">
+        <div class="rad"></div><div class="nm t">استلام المداسات</div><div class="ds t">لاستلام المداسات الجاهزة</div><div class="dur"><span class="lat">20</span>&nbsp;دقيقة</div>
+      </div>
+      <div class="svc fx" style="--p:var(--r3);top:693px">
+        <div class="rad"></div><div class="nm t">شراء منتجات</div><div class="ds t">وقت شخصي لاختيار الأحذية والمنتجات</div><div class="dur"><span class="lat">20</span>&nbsp;دقيقة</div>
+      </div>
+      <div class="btn fx" style="--p:var(--cb);top:875px;scale:calc(1 - 0.04 * var(--cbp))">
+        <span class="t">متابعة إلى اختيار اليوم</span>
+        <svg class="ico" width="36" height="36" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </div>
+
+      <!-- step 2 · day (Friday closed) -->
+      <div class="sel" style="--q:var(--se2);left:460px;top:305px;width:190px;height:170px"></div>
+      <div class="day fx" style="--p:var(--d0);left:765px;top:390px"><span class="dn t">السبت</span><span class="dd lat">3</span></div>
+      <div class="day fx" style="--p:var(--d1);left:555px;top:390px"><span class="dn t">الأحد</span><span class="dd lat">4</span></div>
+      <div class="day fx" style="--p:var(--d2);left:345px;top:390px"><span class="dn t">الاثنين</span><span class="dd lat">5</span></div>
+      <div class="day fx" style="--p:var(--d3);left:135px;top:390px"><span class="dn t">الثلاثاء</span><span class="dd lat">6</span></div>
+      <div class="day fx" style="--p:var(--d4);left:765px;top:580px"><span class="dn t">الأربعاء</span><span class="dd lat">7</span></div>
+      <div class="day fx" style="--p:var(--d5);left:555px;top:580px"><span class="dn t">الخميس</span><span class="dd lat">8</span></div>
+      <div class="day off fx" style="--p:var(--d6);left:345px;top:580px"><span class="dn t">الجمعة</span><span class="dd t">مغلق</span></div>
+      <div class="c row fx" style="--p:var(--dh);left:450px;top:760px;gap:14px;font-size:28px;color:var(--muted)">
+        <svg class="ico" width="34" height="34" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+        <span class="t">السبت – الخميس</span><span class="t lat">09:00–14:00 · 16:00–19:00</span>
+      </div>
+
+      <!-- step 3 · time -->
+      <div class="grp t fx" style="--p:var(--t0);top:330px">صباحًا</div>
+      <div class="grp t fx" style="--p:var(--t2);top:590px">مساءً</div>
+      <div class="sel" style="--q:var(--se3);left:325px;top:631px;width:250px;height:88px;border-radius:22px"></div>
+      <div class="tm fx lat" style="--p:var(--t0);left:735px;top:410px">09:00</div>
+      <div class="tm x fx lat" style="--p:var(--t0);left:450px;top:410px">09:30</div>
+      <div class="tm fx lat" style="--p:var(--t0);left:165px;top:410px">10:00</div>
+      <div class="tm fx lat" style="--p:var(--t1);left:735px;top:510px">10:30</div>
+      <div class="tm fx lat" style="--p:var(--t1);left:450px;top:510px">11:00</div>
+      <div class="tm fx lat" style="--p:var(--t1);left:165px;top:510px">11:30</div>
+      <div class="tm fx lat" style="--p:var(--t2);left:735px;top:675px">16:00</div>
+      <div class="tm fx lat" style="--p:var(--t2);left:450px;top:675px">16:30</div>
+      <div class="tm x fx lat" style="--p:var(--t2);left:165px;top:675px">17:00</div>
+      <div class="tm fx lat" style="--p:var(--t3);left:735px;top:775px">17:30</div>
+      <div class="tm fx lat" style="--p:var(--t3);left:450px;top:775px">18:00</div>
+      <div class="tm fx lat" style="--p:var(--t3);left:165px;top:775px">18:30</div>
+
+      <!-- step 4 · contact -->
+      <div class="field fx" style="--p:var(--f4);--f:var(--fcn);top:320px">
+        <svg class="ico fi" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg>
+        <span class="ph t" style="opacity:var(--np)">الاسم الكامل</span>
+        <span class="val t" style="opacity:var(--n0)">س</span><span class="val t" style="opacity:var(--n1)">سا</span><span class="val t" style="opacity:var(--n2)">سار</span><span class="val t" style="opacity:var(--n3)">سارة</span>
+      </div>
+      <div class="field fx" style="--p:var(--f4);--f:var(--fcp);top:448px">
+        <svg class="ico fi" viewBox="0 0 24 24"><path d="M5 3.5h3.2l1.6 4-2 1.3a11 11 0 0 0 5.4 5.4l1.3-2 4 1.6V17a2.5 2.5 0 0 1-2.7 2.5C9.6 19 5 14.4 4.5 8.2A2.5 2.5 0 0 1 5 3.5z"/></svg>
+        <span class="ph t" style="opacity:var(--pp)">رقم الهاتف</span>
+        <span class="val t lat" style="opacity:var(--q0)">0</span><span class="val t lat" style="opacity:var(--q1)">05</span><span class="val t lat" style="opacity:var(--q2)">050</span><span class="val t lat" style="opacity:var(--q3)">050-</span><span class="val t lat" style="opacity:var(--q4)">050-1</span><span class="val t lat" style="opacity:var(--q5)">050-12</span><span class="val t lat" style="opacity:var(--q6)">050-123</span><span class="val t lat" style="opacity:var(--q7)">050-1234</span><span class="val t lat" style="opacity:var(--q8)">050-12345</span><span class="val t lat" style="opacity:var(--q9)">050-123456</span><span class="val t lat" style="opacity:var(--q10)">050-1234567</span>
+      </div>
+      <div class="abs fx" style="--p:var(--f4);left:40px;top:588px;width:820px;height:120px;border-radius:24px;background:var(--mint)">
+        <div class="r row" style="right:30px;top:60px;gap:16px;font-size:32px;font-weight:800">
+          <svg class="ico" width="40" height="40" viewBox="0 0 24 24" style="color:var(--teal)"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 9.5h18"/></svg>
+          <span class="t">مداسات جديدة</span><span class="t" style="color:var(--muted);font-weight:400">·</span><span class="t">الأحد</span><span class="t lat">4</span><span class="t" style="color:var(--muted);font-weight:400">·</span><span class="t lat">16:30</span>
+        </div>
+      </div>
+      <div class="c row fx" style="--p:var(--f4);left:450px;top:770px;gap:12px;font-size:28px;font-weight:700;color:var(--teal)">
+        <svg class="ico" width="34" height="34" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.4"/></svg>
+        <span class="t">لن نطلب أي معلومات طبية</span>
+      </div>
+      <div class="btn fx" style="--p:var(--cf);top:875px;scale:calc(1 - 0.04 * var(--cfp))">
+        <span class="t">تأكيد الموعد</span>
+        <svg class="ico" width="36" height="36" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </div>
+    </div>
+
+    <!-- 6 · loader -->
+    <div class="L" style="width:220px;height:220px;margin:-110px 0 0 -110px;opacity:var(--ld)">
+      <svg width="220" height="220" viewBox="0 0 220 220" style="rotate:-90deg">
+        <circle cx="110" cy="110" r="56" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="10"/>
+        <circle cx="110" cy="110" r="56" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" pathLength="1"
+          style="stroke-dasharray:1 1;stroke-dashoffset:calc(1 - var(--rg));stroke-opacity:clamp(0, calc(var(--rg) * 40), 1)"/>
+      </svg>
+    </div>
+
+    <!-- 7 · check -->
+    <div class="L" style="width:240px;height:240px;margin:-120px 0 0 -120px;opacity:var(--ck)">
+      <svg width="240" height="240" viewBox="0 0 240 240"><g transform="translate(48 48) scale(6)">
+        <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" pathLength="1"
+          style="stroke-dasharray:1 1;stroke-dashoffset:calc(1 - var(--ckd));stroke-opacity:clamp(0, calc(var(--ckd) * 40), 1)"/></g></svg>
+    </div>
+
+    <!-- 8 · confirmed -->
+    <div class="L" style="width:900px;height:1000px;margin:-500px 0 0 -450px">
+      <div class="c fxs" style="--p:var(--dt);left:450px;top:120px;width:96px;height:96px;border-radius:48px;background:var(--teal);color:#fff">
+        <svg class="ico" style="margin:24px" width="48" height="48" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </div>
+      <div class="c t fx" style="--p:var(--dt);left:450px;top:230px;font-size:58px;font-weight:800">تم حجز موعدك</div>
+      <div class="sum fx" style="--p:var(--dr0);top:300px">
+        <svg class="ico i" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6z"/></svg>
+        <span class="k t">الخدمة</span><span class="v t">مداسات جديدة</span><div class="rule"></div>
+      </div>
+      <div class="sum fx" style="--p:var(--dr1);top:390px">
+        <svg class="ico i" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 9.5h18"/></svg>
+        <span class="k t">اليوم</span><span class="v row" style="gap:10px"><span class="t">الأحد</span><span class="t lat">4</span></span><div class="rule"></div>
+      </div>
+      <div class="sum fx" style="--p:var(--dr2);top:480px">
+        <svg class="ico i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+        <span class="k t">الساعة</span><span class="v t lat">16:30</span><div class="rule"></div>
+      </div>
+      <div class="abs fx" style="--p:var(--da);left:50px;top:625px;width:800px">
+        <div class="row" style="gap:14px"><svg class="ico" width="40" height="40" viewBox="0 0 24 24" style="color:var(--teal)"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+          <span class="t" style="font-size:40px;font-weight:800">ننتظرك في الطيبة</span></div>
+        <div class="t" style="margin:14px 54px 0 0;font-size:27px;color:var(--muted)">شارع محمود درويش الشمالي، مقابل مركز المرأة كلاليت</div>
+      </div>
+      <div class="abs fx" style="--p:var(--dh2);left:50px;top:790px;width:800px;height:150px;border-radius:28px;background:var(--mint)">
+        <div class="r row" style="right:32px;top:48px;gap:14px;font-size:30px;font-weight:700">
+          <svg class="ico" width="36" height="36" viewBox="0 0 24 24" style="color:var(--teal)"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+          <span class="t">السبت – الخميس</span></div>
+        <div class="r t lat" style="left:32px;top:48px;font-size:30px;font-weight:700">09:00–14:00 · 16:00–19:00</div>
+        <div class="r t" style="right:82px;top:104px;font-size:28px;color:var(--muted)">الجمعة</div>
+        <div class="r t" style="left:32px;top:104px;font-size:28px;font-weight:700;color:var(--closed)">مغلق</div>
+      </div>
+    </div>
+
+    <!-- 9 · health funds -->
+    <div class="L" style="width:900px;height:620px;margin:-310px 0 0 -450px">
+      <div class="c t fx" style="--p:var(--ft);left:450px;top:120px;font-size:48px;font-weight:800">نعمل مع جميع صناديق المرضى</div>
+      <div class="fund fxs" style="--p:var(--c0);left:665px;top:285px"><span class="a t">كلاليت</span><span class="h t">כללית</span></div>
+      <div class="fund fxs" style="--p:var(--c1);left:235px;top:285px"><span class="a t">مكابي</span><span class="h t">מכבי</span></div>
+      <div class="fund fxs" style="--p:var(--c2);left:665px;top:445px"><span class="a t">مئوحيدت</span><span class="h t">מאוחדת</span></div>
+      <div class="fund fxs" style="--p:var(--c3);left:235px;top:445px"><span class="a t">لئوميت</span><span class="h t">לאומית</span></div>
+    </div>
+  </div>
+
+  <div id="cta">
+    <span class="t" style="font-size:44px;font-weight:800">احجز موعدًا للفحص</span>
+    <svg class="ico" width="44" height="44" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 9.5h18"/></svg>
+  </div>
+  <div id="info" class="row">
+    <span class="t lat" style="font-weight:700">easy-steps.co.il</span>
+    <span style="width:8px;height:8px;border-radius:4px;background:var(--teal)"></span>
+    <span class="t lat" style="font-weight:700">052-5537334</span>
+  </div>
+
+  <!-- touches -->
+  <div class="touch" style="--a:var(--ta0);--pr:var(--tp0);left:540px;top:1000px"></div>
+  <div class="touch" style="--a:var(--ta1);--pr:var(--tp1);left:740px;top:680px"></div>
+  <div class="touch" style="--a:var(--ta2);--pr:var(--tp2);left:540px;top:1270px"></div>
+  <div class="touch" style="--a:var(--ta3);--pr:var(--tp3);left:645px;top:730px"></div>
+  <div class="touch" style="--a:var(--ta4);--pr:var(--tp4);left:540px;top:1015px"></div>
+  <div class="touch" style="--a:var(--ta5);--pr:var(--tp5);left:540px;top:1270px"></div>
+  <div class="touch" style="--a:var(--ta6);--pr:var(--tp6);left:540px;top:1500px"></div>
+</div>
+<script>
+// The loop plays with CSS only. This hook just lets the renderer freeze any instant (and ?t= to inspect one).
+window.TIMING = @TEXT:timing.json@;
+window.seek = (t) => {
+  const T = TIMING.T, tt = ((t % T) + T) % T;       // wrap: the CSS duration is rounded to the µs
+  for (const a of document.getAnimations()) { a.pause(); a.currentTime = tt * 1000; }
+};
+window.__ready = document.fonts.ready.then(() => Promise.all([...document.images].map((i) => i.decode()))).then(() => true);
+window.DEBUG = {};
+const q = new URLSearchParams(location.search);
+if (q.has('t')) window.__ready.then(() => seek(parseFloat(q.get('t'))));
+</script>
+</body>
+</html>
