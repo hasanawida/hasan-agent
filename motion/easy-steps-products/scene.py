@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Easy Steps · products + delivery — 9:16 (1080 × 1920), 40 beats at 90 BPM = 26.667 s = 1600 frames.
+"""Easy Steps · products + delivery — 9:16 (1080 × 1920), 64 beats at 90 BPM = 42.667 s = 2560 frames.
 
 hook → categories → five real products (swipe, price, sizes / colour / wishlist) → add to cart → ✓ →
 «أُضيف إلى السلة» → delivery map from Tayibe to the whole country incl. the West Bank and Jerusalem → order → hook.
+Paced for reading: every screen holds 1–3 beats after its last change (one event per beat was too fast to read).
+Written in story beats; the file starts 3 beats in (SHIFT) so frame 0 already shows the full title card, and the
+big changes (first product, add to cart, map) land on the song's downbeats.
 Every motion is a spring track compiled to CSS keyframes (tools/beat_engine.py); the page plays with CSS only.
 """
 import json
@@ -16,14 +19,14 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "tools"))
 from beat_engine import ENTER, EXIT, FAST, INST, MORPH, PRESS, Loop, F  # noqa: E402
 
-L = Loop(90, 40)
+SHIFT = 3
+L = Loop(90, 64, shift=SHIFT)
 B = L.B
 D = 0.18
 CALM = {"w": 22, "z": 0.94}
 FLIP = {"w": 44, "z": 1}
 SNAP = {"w": 16, "z": 0.9}
 CUE = L.cue
-ORIGIN = (90, 340)                   # top-left of a 900 × 1060 layer centred on the shape (540, 870)
 
 # ---------------------------------------------------------------- the shape
 ST = {
@@ -51,7 +54,8 @@ def shape(beat, name, bg_delay=0.12):
             _prev[k] = s[k]
 
 
-for b, n in [(4, "cats"), (8, "prod"), (22, "loader"), (23, "check"), (24, "island"), (25, "map"), (38, "toast"), (39, "hook")]:
+# story beats: hook 0 · categories 5 · products 11 · loader 39 · ✓ 40 · island 41 · map 43 · toast 60 · hook 64 (= 0)
+for b, n in [(5, "cats"), (11, "prod"), (39, "loader"), (40, "check"), (41, "island"), (43, "map"), (60, "toast"), (64, "hook")]:
     shape(b, n)
 
 
@@ -68,50 +72,51 @@ def smooth(u):
     return u * u * (3 - 2 * u)
 
 
-# ---------------------------------------------------------------- 1 · hook (0–3)
-P("h1", (0, 1), (4, 0)); P("h2", (1, 1), (4, 0)); P("h3", (2, 1, CALM), (4, 0)); press("h3p", 3)
-CUE(0, "soft_tick"); CUE(1, "soft_tick"); CUE(2, "pop"); CUE(3, "tap")
+# ---------------------------------------------------------------- 1 · hook (0–4)
+P("h1", (0 + D, 1), (5, 0)); P("h2", (1, 1), (5, 0)); P("h3", (2, 1, CALM), (5, 0)); press("h3p", 4)
+CUE(0 + D, "soft_tick"); CUE(1, "soft_tick"); CUE(2, "pop"); CUE(4, "tap")
 
-# ---------------------------------------------------------------- 2 · categories (4–7)
-P("ct", (4 + D, 1), (8, 0))
+# ---------------------------------------------------------------- 2 · categories (5–10)
+P("ct", (5 + D, 1), (11, 0))
 for i in range(6):
-    P(f"k{i}", (4 + D + 0.06 * i, 1, CALM), (8, 0))
-    CUE(4 + D + 0.06 * i, "tile", i=i)
+    P(f"k{i}", (5 + D + 0.06 * i, 1, CALM), (11, 0))
+    CUE(5 + D + 0.06 * i, "tile", i=i)
 TILE = [(665, 260), (235, 260), (665, 560), (235, 560), (665, 860), (235, 860)]     # photo centres, right → left
-P("cs", (5, 1, FAST), (8, 0))
-L.track("csx", MORPH, tol=0.1).to(5, TILE[0][0], INST).to(6, TILE[1][0], {"w": 24, "z": 0.86}).to(8.5, TILE[0][0], INST)
-press("k1p", 7)
-CUE(4, "whoosh"); CUE(5, "select"); CUE(6, "select"); CUE(7, "tap")
+P("cs", (7, 1, FAST), (11, 0))
+L.track("csx", MORPH, tol=0.1).to(7, TILE[0][0], INST).to(9, TILE[1][0], {"w": 24, "z": 0.86}).to(11.5, TILE[0][0], INST)
+press("k1p", 10)
+CUE(5, "whoosh"); CUE(7, "select"); CUE(9, "select"); CUE(10, "tap")
 
-# ---------------------------------------------------------------- 3 · five products (8–21)
-PROD = [  # beat of arrival, number of beats
-    dict(b=8, n=4), dict(b=12, n=4), dict(b=16, n=2), dict(b=18, n=2), dict(b=20, n=2)]
-P("pv", (8 + D, 1), (22, 0))
-P("ab", (8 + D + 0.2, 1), (22, 0))
-press("abp", 22)
+# ---------------------------------------------------------------- 3 · five products (11–38)
+PROD = [  # arrival beat, the beat the next one swipes in
+    dict(b=11, end=18), dict(b=18, end=26), dict(b=26, end=31), dict(b=31, end=36), dict(b=36, end=39)]
+P("pv", (11 + D, 1), (39, 0))
+P("ab", (11 + D + 0.2, 1), (39, 0))
+press("abp", 39)
 PITCH, DRAG, DRAG_T = 840.0, 240.0, 0.32
-SWIPES = [12, 16, 18, 20]                               # the strip moves to product k+1 on these beats
+SWIPES = [18, 26, 31, 36]                               # the strip moves to product k+1 on these beats
 V0 = DRAG * 2 / (DRAG_T * B)                            # finger speed at release (ease-in drag)
+RESET = 40.5                                            # the photo is gone by then
 
 
 def strip(t):
-    b = t / B
+    b = L.story(t)
     x = np.zeros_like(b)
     for k, sb in enumerate(SWIPES):
-        s0, nxt = sb - DRAG_T, (SWIPES[k + 1] - DRAG_T if k + 1 < len(SWIPES) else 23.5)
+        s0, nxt = sb - DRAG_T, (SWIPES[k + 1] - DRAG_T if k + 1 < len(SWIPES) else RESET)
         u = (b - s0) / DRAG_T
         drag = k * PITCH + DRAG * u * u
         rel = (k + 1) * PITCH + F((b - sb) * B, DRAG - PITCH, V0, SNAP)
         x = np.where((b >= s0) & (b < sb), drag, x)
         x = np.where((b >= sb) & (b < nxt), rel, x)
-    return x                                            # before the first drag and after 23.5 (hidden): 0
+    return x                                            # before the first drag and after RESET: 0
 
 
-L.fn("sx", strip, breaks=[23.5], tol=0.2)
+L.fn("sx", strip, breaks=[RESET], tol=0.2)
 
 
 def finger(t):
-    b = t / B
+    b = L.story(t)
     x = np.zeros_like(b)
     for sb in SWIPES:
         u = (b - (sb - DRAG_T)) / DRAG_T
@@ -129,60 +134,60 @@ for sb in SWIPES:
     CUE(sb, "swipe")
 
 for i, p in enumerate(PROD):
-    b, n = p["b"], p["n"]
-    P(f"pn{i}", (b + D, 1), (b + n, 0))                  # category + name
-    P(f"pp{i}", (b + 1, 1, CALM), (b + n, 0))            # price, struck price, badge
-    CUE(b + 1, "price")
-P("op0", (10, 1), (12, 0)); L.track("sz0", FAST, tol=0.002).to(11, 1).to(12, 0, EXIT)          # sizes, tap 44.5
-P("op1", (13, 1), (16, 0)); L.track("cox", {"w": 24, "z": 0.86}, tol=0.1).to(14, 250).to(16.5, 660, INST)   # colours: black → glossy
-L.track("acg", {"w": 30, "z": 1}, tol=0.002).to(14.04, 1).to(17, 0, INST)                         # photo → glossy
-L.track("hf", CALM, tol=0.002).to(15, 1).to(16, 0, EXIT)                                          # wishlist heart
-P("op2", (17, 1), (18, 0))
-P("op3", (19, 1), (20, 0))
-CUE(8, "whoosh"); CUE(10, "soft_tick"); CUE(11, "tap"); CUE(11.02, "select")
-CUE(14, "tap"); CUE(14.02, "select"); CUE(15, "tap"); CUE(15.03, "heart"); CUE(22, "tap")
+    P(f"pn{i}", (p["b"] + D, 1), (p["end"], 0))          # category + name
+    P(f"pp{i}", (p["b"] + 1, 1, CALM), (p["end"], 0))    # price, struck price, badge
+    CUE(p["b"] + 1, "price")
+P("op0", (14, 1), (18, 0)); L.track("sz0", FAST, tol=0.002).to(15, 1).to(18, 0, EXIT)          # sizes, tap 44.5
+P("op1", (19, 1), (26, 0)); L.track("cox", {"w": 24, "z": 0.86}, tol=0.1).to(21, 250).to(27, 660, INST)   # black → glossy
+L.track("acg", {"w": 30, "z": 1}, tol=0.002).to(21.04, 1).to(28, 0, INST)                        # photo → glossy
+L.track("hf", CALM, tol=0.002).to(23, 1).to(26, 0, EXIT)                                          # wishlist heart
+P("op2", (27, 1), (31, 0))
+P("op3", (32, 1), (36, 0))
+CUE(11, "whoosh"); CUE(14, "soft_tick"); CUE(15, "tap"); CUE(15.02, "select")
+CUE(19.3, "soft_tick"); CUE(21, "tap"); CUE(21.02, "select"); CUE(23, "tap"); CUE(23.03, "heart")
+CUE(27.3, "soft_tick"); CUE(32.3, "soft_tick"); CUE(39, "tap")
 
-# ---------------------------------------------------------------- 4 · cart (22–24)
-P("ld", (22 + D, 1), (23, 0))
-L.track("rg", FAST, tol=0.002).to(22 + D, 0.55).to(22.62, 1).to(24, 0, INST)
-P("ck", (23, 1, INST), (24, 0))
-L.track("ckd", {"w": 20, "z": 1}, tol=0.002).to(23.04, 1).to(25, 0, INST)
-P("il", (24 + D, 1), (25, 0)); P("ilb", (24 + D + 0.12, 1, CALM), (25, 0))
-CUE(22.05, "whoosh_small"); CUE(22 + D, "tick"); CUE(22.62, "tick_hi"); CUE(23, "chime_ok"); CUE(24, "whoosh")
+# ---------------------------------------------------------------- 4 · cart (39–42)
+P("ld", (39 + D, 1), (40, 0))
+L.track("rg", FAST, tol=0.002).to(39 + D, 0.55).to(39.62, 1).to(41, 0, INST)
+P("ck", (40, 1, INST), (41, 0))
+L.track("ckd", {"w": 20, "z": 1}, tol=0.002).to(40.04, 1).to(42, 0, INST)
+P("il", (41 + D, 1), (43, 0)); P("ilb", (41 + D + 0.12, 1, CALM), (43, 0))
+CUE(39.05, "whoosh_small"); CUE(39 + D, "tick"); CUE(39.62, "tick_hi"); CUE(40, "chime_ok"); CUE(41, "whoosh")
 
-# ---------------------------------------------------------------- 5 · delivery map (25–37)
+# ---------------------------------------------------------------- 5 · delivery map (43–59)
 pins = json.loads((HERE / "assets" / "pins.json").read_text())
 HUB, CITIES = pins[0], pins[1:]
-P("mp", (25 + D, 1), (38, 0))
-L.track("md", {"w": 10, "z": 1}, tol=0.002).to(25 + D, 1).to(38.7, 0, INST)
-P("hb", (26, 1, CALM), (38, 0))
-ARC0 = 27
+P("mp", (43 + D, 1), (60, 0))
+L.track("md", {"w": 10, "z": 1}, tol=0.002).to(43 + D, 1).to(61, 0, INST)
+P("hb", (44, 1, CALM), (60, 0))
+ARC0 = 45
 
 
 def arc_fn(beat):
-    return lambda t: np.where(t / B < 38.7, smooth(((t / B) - (beat - 0.78)) / 0.78), 0.0)
+    return lambda t: np.where(L.story(t) < 61, smooth((L.story(t) - (beat - 0.78)) / 0.78), 0.0)
 
 
 for j, c in enumerate(CITIES):
-    L.fn(f"a{j}", arc_fn(ARC0 + j), breaks=[38.7], tol=0.002)
-    P(f"q{j}", (ARC0 + j, 1, CALM), (38, 0))
+    L.fn(f"a{j}", arc_fn(ARC0 + j), breaks=[61], tol=0.002)
+    P(f"q{j}", (ARC0 + j, 1, CALM), (60, 0))
     CUE(ARC0 + j, "city", j=j)
 for i in range(3):
-    P(f"rc{i}", (35 + 0.08 * i, 1, CALM), (38, 0))
-    CUE(35 + 0.08 * i, "chip", i=i)
-P("fr", (36, 1, CALM), (38, 0))
-CUE(25, "whoosh"); CUE(25 + D, "draw", dur=0.8); CUE(26, "pop"); CUE(36, "chime2")
+    P(f"rc{i}", (54 + 0.12 * i, 1, CALM), (60, 0))
+    CUE(54 + 0.12 * i, "chip", i=i)
+P("fr", (56, 1, CALM), (60, 0))
+CUE(43, "whoosh"); CUE(43 + D, "draw", dur=0.8); CUE(44, "pop"); CUE(56, "chime2")
 
-# ---------------------------------------------------------------- 6 · order (37–39)
-press("cpr", 37)
-P("tt", (38 + D, 1), (39, 0)); P("tti", (38 + D + 0.1, 1, CALM), (39, 0))
-CUE(37, "tap"); CUE(38, "whoosh_small"); CUE(38 + D + 0.1, "new_chime"); CUE(39, "whoosh")
+# ---------------------------------------------------------------- 6 · order (59–63)
+press("cpr", 59)
+P("tt", (60 + D, 1), (64, 0)); P("tti", (60 + D + 0.1, 1, CALM), (64, 0))
+CUE(59, "tap"); CUE(60, "whoosh_small"); CUE(60 + D + 0.1, "new_chime"); CUE(64, "whoosh")
 
 cpu = L.track("cpu", {"w": 70, "z": 1}, tol=0.001)
-for b in range(0, 40, 4):
-    cpu.to(b, 1, {"w": 70, "z": 1}).to(b + 0.1, 0, {"w": 13, "z": 1})
+for r in range(0, 64, 4):                                   # on the song's downbeats (real beats)
+    cpu.to(r + SHIFT, 1, {"w": 70, "z": 1}).to(r + SHIFT + 0.1, 0, {"w": 13, "z": 1})
 
-TAPS = [(3, 540, 1000), (7, 325, 600), (11, 501, 1155), (14, 340, 1155), (15, 190, 440), (22, 540, 1313), (37, 540, 1500)]
+TAPS = [(4, 540, 1000), (10, 325, 600), (15, 501, 1155), (21, 340, 1155), (23, 190, 440), (39, 540, 1313), (59, 540, 1500)]
 for i, (b, x, y) in enumerate(TAPS):
     L.presence(f"ta{i}", [(b - 0.26, 1, FAST), (b + 0.3, 0, EXIT)])
     press(f"tp{i}", b)

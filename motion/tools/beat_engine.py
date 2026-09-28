@@ -85,7 +85,7 @@ class Track:
         self.ev = []
 
     def to(self, beat, v, spec=None):
-        self.ev.append((beat * self.L.B, float(v), spec or self.spec))
+        self.ev.append((self.L.real(beat) * self.L.B, float(v), spec or self.spec))
         return self
 
     def value(self, t):
@@ -105,7 +105,7 @@ class Track:
 
 class FnTrack:
     def __init__(self, loop, name, fn, breaks, tol):
-        self.L, self.name, self.fn, self._breaks, self.tol = loop, name, fn, [b * loop.B for b in breaks], tol
+        self.L, self.name, self.fn, self._breaks, self.tol = loop, name, fn, [loop.real(b) * loop.B for b in breaks], tol
 
     def value(self, t):
         return self.fn(np.asarray(t, dtype=float))
@@ -139,8 +139,10 @@ def _num(v, nd=3):
 
 
 class Loop:
-    def __init__(self, bpm, beats, fps=FPS):
-        self.bpm, self.beats, self.fps = bpm, beats, fps
+    """shift: author in story beats and start the file `shift` beats into the story (real = story − shift, wrapped),
+    e.g. so frame 0 already shows the title — the best thumbnail for a story."""
+    def __init__(self, bpm, beats, fps=FPS, shift=0):
+        self.bpm, self.beats, self.fps, self.shift = bpm, beats, fps, shift
         self.B = 60.0 / bpm
         self.T = beats * self.B
         self.tracks = []
@@ -151,6 +153,13 @@ class Loop:
                              f"Whole-frame tempos: {good_tempos(beats, int(bpm) - 8, int(bpm) + 8, fps)}")
 
     # --- authoring ----------------------------------------------------------------------------
+    def real(self, beat):
+        return (beat - self.shift) % self.beats if self.shift else beat
+
+    def story(self, t):
+        """seconds (array) → story beats, for FnTracks written in story beats"""
+        return (np.asarray(t) / self.B + self.shift) % self.beats
+
     def track(self, name, spec=MORPH, tol=0.15):
         k = Track(self, name, spec, tol)
         self.tracks.append(k)
@@ -170,7 +179,7 @@ class Loop:
         return k
 
     def cue(self, beat, name, **kw):
-        self.cues.append({"t": round(beat * self.B, 6), "beat": beat, "name": name, **kw})
+        self.cues.append({"t": round(self.real(beat) * self.B, 6), "beat": beat, "name": name, **kw})
 
     # --- compile ------------------------------------------------------------------------------
     def _keyframes(self, k):

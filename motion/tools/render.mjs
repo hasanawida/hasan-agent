@@ -9,7 +9,7 @@
 // project.json "size" sets the canvas (default 1440 × 1440); --scale multiplies it (1080 × 1920 --scale=2 → 2160 × 3840).
 // Add --part=k/n to video to render only segment k of n (segments are independent; mux joins them).
 import { chromium } from 'playwright-core';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -101,26 +101,37 @@ if (mode === 'beats') {
     f0 = Math.round(frames * (k - 1) / n); f1 = Math.round(frames * k / n);
     silent = join(out, `video_silent${SUFFIX}_part${k}of${n}.mp4`);
   }
+  // Two stages. Chrome returns some screenshots as RGB PNGs and some as RGBA; every switch made ffmpeg re-create its
+  // filter graph, resetting tmix/select mid-stream (frames silently dropped, blur groups misaligned). So stage 1 only
+  // decodes to a fixed rgb24 raw stream (a re-created graph there is stateless), stage 2 blends and encodes.
+  const [PW, PH] = [Math.round(W * SCALE), Math.round(H * SCALE)];
+  const dec = spawn(FFMPEG, ['-loglevel', 'error', '-f', 'image2pipe', '-c:v', 'png', '-i', '-',
+    '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { stdio: ['pipe', 'pipe', 'inherit'] });
   const ff = spawn(FFMPEG, ['-y', '-loglevel', 'error',
-    '-f', 'image2pipe', '-framerate', String(FPS * SUB), '-c:v', 'png', '-i', '-',
+    '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${PW}x${PH}`, '-framerate', String(FPS * SUB), '-i', '-',
     '-vf', `tmix=frames=${SUB}:weights='1 1 1 1',select='eq(mod(n\\,${SUB})\\,${SUB - 1})',setpts=N/${FPS}/TB`,
     '-r', String(FPS), '-c:v', 'libx264', '-preset', 'slow', '-crf', SCALE > 1 ? '10' : '12', '-tune', 'animation',
     '-profile:v', 'high', '-level', SCALE > 1 ? '5.2' : '5.1', '-pix_fmt', 'yuv420p',
     '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-movflags', '+faststart', silent],
     { stdio: ['pipe', 'inherit', 'inherit'] });
+  dec.stdout.pipe(ff.stdin);
   const t0 = Date.now();
   for (let f = f0; f < f1; f++) {
     for (let j = 0; j < SUB; j++) {
       const t = f / FPS + ((j + 0.5) / SUB - 0.5) * (SHUTTER / FPS);
       const buf = await shot(t);
-      if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once('drain', r));
+      if (!dec.stdin.write(buf)) await new Promise((r) => dec.stdin.once('drain', r));
     }
     if (f % 60 === 0) console.log(`frame ${f}/${frames}  ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   }
-  ff.stdin.end();
+  dec.stdin.end();
   await new Promise((r) => ff.on('close', r));
   await browser.close();
-  console.log('silent video →', silent, `${frames} frames`);
+  // never trust a silent drop again: the file must hold exactly the frames we rendered
+  const log = spawnSync(FFMPEG, ['-i', silent, '-map', '0:v', '-f', 'null', '-']).stderr.toString();
+  const got = +((log.match(/frame=\s*\d+/g) || ['0']).pop().replace(/\D/g, ''));
+  if (got !== f1 - f0) { console.error(`✗ ${silent}: ${got} frames, expected ${f1 - f0}`); process.exit(1); }
+  console.log('silent video →', silent, `${f1 - f0} frames ✓`);
 } else if (mode === 'mux') {
   const name = proj.output.replace(/\.html$/, `${SUFFIX}.mp4`);
   let video = join(out, `video_silent${SUFFIX}.mp4`);

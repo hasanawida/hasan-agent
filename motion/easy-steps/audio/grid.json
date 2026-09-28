@@ -6,13 +6,12 @@
     "mp3_url": "https://assets.mixkit.co/music/959/959.mp3",
     "page_url": "https://mixkit.co/free-stock-music/pop/?page=3",
     "license": "Mixkit Stock Music Free License (commercial use, no attribution required) https://mixkit.co/license/#musicFree",
-    "bars": 8,
+    "bars": 14,
     "target_bpm": 90,
     "tempo_range": [
       70,
       115
-    ],
-    "window_start_s": 58.6567
+    ]
   },
   "measured_bpm": 89.997,
   "beat_phase_s": 0.6615,
@@ -25,75 +24,99 @@
     1.042
   ],
   "kick_attack_vs_grid_ms": -0.06,
-  "window_start_s": 58.6567,
-  "window_len_src_s": 21.334,
+  "window_start_s": 47.9899,
+  "window_len_src_s": 37.3346,
   "atempo": 1.000033,
   "bpm": 90.0,
-  "beats": 32,
-  "loop_s": 21.333333333333332,
+  "beats": 56,
+  "loop_s": 37.333333333333336,
   "top_windows": [
     {
-      "start_s": 58.663,
-      "seam": 0.741,
-      "steady": 0.079
-    },
-    {
-      "start_s": 61.33,
-      "seam": 0.748,
-      "steady": 0.077
-    },
-    {
-      "start_s": 29.329,
-      "seam": 0.921,
-      "steady": 0.098
-    },
-    {
-      "start_s": 138.666,
-      "seam": 0.958,
-      "steady": 0.099
+      "start_s": 47.996,
+      "seam": 1.23,
+      "steady": 0.091
     },
     {
       "start_s": 42.663,
-      "seam": 1.044,
-      "steady": 0.097
+      "seam": 1.367,
+      "steady": 0.094
+    },
+    {
+      "start_s": 125.332,
+      "seam": 1.507,
+      "steady": 0.118
+    },
+    {
+      "start_s": 50.663,
+      "seam": 1.617,
+      "steady": 0.093
+    },
+    {
+      "start_s": 130.666,
+      "seam": 1.704,
+      "steady": 0.096
     }
   ],
-  "conformed_bpm": 90.019,
+  "conformed_bpm": 90.002,
   "kick_xcorr_vs_grid_ms": {
     "median": 9.0,
-    "max_abs_dev": 12.0,
+    "max_abs_dev": 12.08,
     "per_beat": [
-      0.7,
-      8.9,
-      15.0,
-      20.4,
       0.6,
-      8.3,
-      14.9,
-      20.8,
-      0.7,
-      9.0,
+      8.8,
+      14.8,
+      20.4,
+      0.3,
+      8.6,
       15.0,
+      20.7,
+      0.4,
+      9.0,
+      14.9,
+      21.1,
+      0.2,
+      8.2,
+      14.8,
+      20.6,
+      0.6,
+      8.9,
+      14.9,
+      20.4,
+      0.5,
+      8.3,
+      14.8,
+      20.8,
+      0.6,
+      9.0,
+      14.9,
       21.0,
       0.2,
       8.2,
-      15.0,
-      20.5,
-      0.7,
+      14.9,
+      20.4,
+      0.6,
       8.8,
       14.8,
       20.3,
       0.2,
-      8.5,
-      14.4,
+      8.4,
+      14.3,
       20.7,
       0.2,
       8.8,
-      14.6,
+      14.5,
       20.6,
-      0.1,
+      0.0,
       8.0,
-      15.0
+      15.0,
+      20.4,
+      0.3,
+      8.7,
+      14.6,
+      20.2,
+      0.2,
+      8.4,
+      14.8
     ]
   }
 }

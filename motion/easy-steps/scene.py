@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Easy Steps story — 9:16 (1080 × 1920), 32 beats at 90 BPM = 21.333 s = 1280 frames, an event on every beat.
+"""Easy Steps story — 9:16 (1080 × 1920), 56 beats at 90 BPM = 37.333 s = 2240 frames.
+
+Paced for reading: every screen holds 1–4 beats after its last change (the first cut, one event per beat, was
+too fast to read). Written in story beats; the file starts 3 beats in (SHIFT) so frame 0 shows the full title card.
 
 Every motion is computed here with the spring model (tools/beat_engine.py) and compiled to CSS keyframes, so
 the page plays with CSS only. Writes:
@@ -20,7 +23,8 @@ sys.path.insert(0, str(HERE))
 from beat_engine import DRAW, ENTER, EXIT, FAST, INST, MORPH, PRESS, TINT, Loop, S  # noqa: E402
 import foot  # noqa: E402
 
-L = Loop(90, 32)
+SHIFT = 3
+L = Loop(90, 56, shift=SHIFT)
 B = L.B
 D = 0.18                      # entries wait for the outgoing content (fraction of a beat)
 CALM = {"w": 22, "z": 0.94}   # clinic preset: settles fast, no visible overshoot
@@ -54,8 +58,10 @@ def shape(beat, name, bg_delay=0.12):
             _prev[k] = s[k]
 
 
-for b, n in [(4, "scan"), (8, "grid"), (12, "island"), (13, "book"), (22, "loader"), (23, "check"),
-             (24, "done"), (28, "funds"), (31, "hook")]:
+# story beats: hook 0 · scan 6 · services 15 · «new» 22 · booking 25 · loader 39 · ✓ 40 · confirmed 41 · funds 50 ·
+# «new» again after the CTA tap 54 · hook 56 (= 0)
+for b, n in [(6, "scan"), (15, "grid"), (22, "island"), (25, "book"), (39, "loader"), (40, "check"),
+             (41, "done"), (50, "funds"), (54, "island"), (56, "hook")]:
     shape(b, n)
 
 
@@ -67,112 +73,112 @@ def press(name, beat):
     L.track(name, PRESS, tol=0.002).to(beat, 1).to(beat + 0.16, 0)
 
 
-# ---------------------------------------------------------------- 1 · hook
-P("h1", (0, 1), (4, 0))
-P("h2", (1, 1), (4, 0))
-P("h3", (2, 1, CALM), (4, 0))
-press("h3p", 3)
-CUE(0, "soft_tick"); CUE(1, "soft_tick"); CUE(2, "pop"); CUE(3, "tap")
+# ---------------------------------------------------------------- 1 · hook (0–5)
+P("h1", (0 + D, 1), (6, 0))
+P("h2", (1, 1), (6, 0))
+P("h3", (2, 1, CALM), (6, 0))
+press("h3p", 5)
+CUE(0 + D, "soft_tick"); CUE(1, "soft_tick"); CUE(2, "pop"); CUE(5, "tap")
 
-# ---------------------------------------------------------------- 2 · pressure scan
-P("sc", (4 + D, 1), (8, 0))
-L.track("fo", {"w": 10, "z": 1}, tol=0.002).to(4 + D, 1).to(10, 0, INST)        # outline draws inside beat 4
+# ---------------------------------------------------------------- 2 · pressure scan (6–14)
+P("sc", (6 + D, 1), (15, 0))
+L.track("fo", {"w": 10, "z": 1}, tol=0.002).to(6 + D, 1).to(17, 0, INST)         # outline draws inside its beat
 SCAN0, SCAN1 = -20.0, 640.0                                                        # sweep through the 600-high feet box
 
 
 def scan_fn(t):
-    b = t / B
-    u = np.clip((b - 5.0) / 0.8, 0, 1)
+    b = L.story(t)
+    u = np.clip((b - 7.0) / 0.8, 0, 1)
     y = SCAN0 + (SCAN1 - SCAN0) * u * u * (3 - 2 * u)
-    return np.where(b < 9.5, y, SCAN0)                                             # reset while hidden
+    return np.where(b < 17, y, SCAN0)                                              # reset while hidden
 
 
-L.fn("scan", scan_fn, breaks=[9.5], tol=0.2)
-P("sl", (4.92, 1, FAST), (5.85, 0))
-P("lg", (5, 1), (8, 0))
-P("mk", (6, 1, CALM), (8, 0))
-P("tg", (7, 1), (8, 0))
-CUE(4, "whoosh"); CUE(4 + D, "draw", dur=0.5); CUE(5, "scan", dur=0.8); CUE(6, "pop"); CUE(7, "chime2")
+L.fn("scan", scan_fn, breaks=[17], tol=0.2)
+P("sl", (6.92, 1, FAST), (7.85, 0))
+P("lg", (7, 1), (15, 0))
+P("mk", (9, 1, CALM), (15, 0))
+P("tg", (11, 1), (15, 0))
+CUE(6, "whoosh"); CUE(6 + D, "draw", dur=0.5); CUE(7, "scan", dur=0.8); CUE(9, "pop"); CUE(11, "chime2")
 
-# ---------------------------------------------------------------- 3 · what Easy Steps does
-P("gt", (8 + D, 1), (12, 0))
+# ---------------------------------------------------------------- 3 · what Easy Steps does (15–21)
+P("gt", (15 + D, 1), (22, 0))
 for i in range(4):
-    P(f"g{i}", (8 + i + (D if i == 0 else 0), 1, CALM), (12, 0))
-    CUE(8 + i + (D if i == 0 else 0), "tile", i=i)
-CUE(8, "whoosh")
+    P(f"g{i}", (15 + i + (D if i == 0 else 0), 1, CALM), (22, 0))
+    CUE(15 + i + (D if i == 0 else 0), "tile", i=i)
+CUE(15, "whoosh")
 
-# ---------------------------------------------------------------- 4 · NEW: book online
-P("il", (12 + D, 1), (13, 0))
-P("ilb", (12 + D + 0.12, 1, CALM), (13, 0))
-CUE(12, "whoosh"); CUE(12 + D + 0.12, "new_chime")
+# ---------------------------------------------------------------- 4 · NEW: book online (22–38)
+P("il", (22 + D, 1), (25, 0), (54 + D, 1), (56, 0))
+P("ilb", (22 + D + 0.12, 1, CALM), (25, 0), (54 + D + 0.12, 1, CALM), (56, 0))
+CUE(22, "whoosh"); CUE(22 + D + 0.12, "new_chime"); CUE(54, "whoosh_small"); CUE(54 + D + 0.12, "chime2")
 
-P("bk", (13 + D, 1), (22, 0))
-L.track("stp", MORPH, tol=0.002).to(16, 1).to(18, 2).to(20, 3).to(23, 0, INST)
-P("s1", (13 + D, 1), (16, 0)); P("s2", (16 + D, 1), (18, 0)); P("s3", (18 + D, 1), (20, 0)); P("s4", (20 + D, 1), (22, 0))
+P("bk", (25 + D, 1), (39, 0))
+L.track("stp", MORPH, tol=0.002).to(30, 1).to(33, 2).to(36, 3).to(41, 0, INST)
+P("s1", (25 + D, 1), (30, 0)); P("s2", (30 + D, 1), (33, 0)); P("s3", (33 + D, 1), (36, 0)); P("s4", (36 + D, 1), (39, 0))
 for i in range(4):
-    P(f"r{i}", (13 + D + 0.07 * i, 1), (16, 0))
-P("cb", (13 + D + 0.3, 1), (16, 0))
-L.track("se1", FAST, tol=0.002).to(14, 1).to(16, 0, EXIT)
-press("cbp", 15)
-CUE(13, "whoosh"); CUE(14, "tap"); CUE(14.02, "select"); CUE(15, "tap")
+    P(f"r{i}", (25 + D + 0.07 * i, 1), (30, 0))
+P("cb", (25 + D + 0.3, 1), (30, 0))
+L.track("se1", FAST, tol=0.002).to(27, 1).to(30, 0, EXIT)
+press("cbp", 29)
+CUE(25, "whoosh"); CUE(27, "tap"); CUE(27.02, "select"); CUE(29, "tap")
 for i in range(7):
-    P(f"d{i}", (16 + D + 0.04 * i, 1), (18, 0))
-P("dh", (16 + D + 0.3, 1), (18, 0))
-L.track("se2", FAST, tol=0.002).to(17, 1).to(18, 0, EXIT)
-CUE(16, "whoosh_soft"); CUE(17, "tap"); CUE(17.02, "select")
+    P(f"d{i}", (30 + D + 0.04 * i, 1), (33, 0))
+P("dh", (30 + D + 0.3, 1), (33, 0))
+L.track("se2", FAST, tol=0.002).to(32, 1).to(33, 0, EXIT)
+CUE(30, "whoosh_soft"); CUE(32, "tap"); CUE(32.02, "select")
 for i in range(4):
-    P(f"t{i}", (18 + D + 0.06 * i, 1), (20, 0))
-L.track("se3", FAST, tol=0.002).to(19, 1).to(20, 0, EXIT)
-CUE(18, "whoosh_soft"); CUE(19, "tap"); CUE(19.02, "select")
-P("f4", (20 + D, 1), (22, 0))
-P("cf", (20 + D + 0.2, 1), (22, 0))
+    P(f"t{i}", (33 + D + 0.06 * i, 1), (36, 0))
+L.track("se3", FAST, tol=0.002).to(35, 1).to(36, 0, EXIT)
+CUE(33, "whoosh_soft"); CUE(35, "tap"); CUE(35.02, "select")
+P("f4", (36 + D, 1), (39, 0))
+P("cf", (36 + D + 0.2, 1), (39, 0))
 NAME = ["س", "سا", "سار", "سارة"]
-KEYS_N = [20.3, 20.44, 20.58, 20.72]
+KEYS_N = [36.3, 36.44, 36.58, 36.72]
 for k, b in enumerate(KEYS_N):
-    nxt = KEYS_N[k + 1] if k + 1 < len(KEYS_N) else 22
+    nxt = KEYS_N[k + 1] if k + 1 < len(KEYS_N) else 39
     L.presence(f"n{k}", [(b, 1, INST), (nxt, 0, INST if k + 1 < len(KEYS_N) else EXIT)])
     CUE(b, "key", k=k)
-L.presence("np", [(20.3, 0, INST), (23, 1, INST)])                  # a placeholder vanishes on the first key
+L.presence("np", [(36.3, 0, INST), (41, 1, INST)])                  # a placeholder vanishes on the first key
 PHONE = "050-1234567"
-KEYS_P = [21.0 + 0.055 * k for k in range(len(PHONE))]
+KEYS_P = [37.0 + 0.055 * k for k in range(len(PHONE))]
 for k, b in enumerate(KEYS_P):                                         # one string per keystroke, right-anchored
-    nxt = KEYS_P[k + 1] if k + 1 < len(KEYS_P) else 22
+    nxt = KEYS_P[k + 1] if k + 1 < len(KEYS_P) else 39
     L.presence(f"q{k}", [(b, 1, INST), (nxt, 0, INST if k + 1 < len(KEYS_P) else EXIT)])
     if PHONE[k] != "-":
         CUE(b, "key", k=k)
-L.presence("pp", [(21.0, 0, INST), (23, 1, INST)])
-L.track("fcn", FAST, tol=0.002).to(20.2, 1).to(20.9, 0)            # focus ring follows the field being typed
-L.track("fcp", FAST, tol=0.002).to(20.9, 1).to(21.75, 0)
-press("cfp", 22)
-CUE(20, "whoosh_soft"); CUE(22, "tap")
+L.presence("pp", [(37.0, 0, INST), (41, 1, INST)])
+L.track("fcn", FAST, tol=0.002).to(36.2, 1).to(36.9, 0)            # focus ring follows the field being typed
+L.track("fcp", FAST, tol=0.002).to(36.9, 1).to(37.75, 0)
+press("cfp", 39)
+CUE(36, "whoosh_soft"); CUE(39, "tap")
 
-# ---------------------------------------------------------------- 5 · confirmed
-P("ld", (22 + D, 1), (23, 0))
-L.track("rg", FAST, tol=0.002).to(22 + D, 0.55).to(22.62, 1).to(24, 0, INST)
-P("ck", (23, 1, INST), (24, 0))
-L.track("ckd", {"w": 20, "z": 1}, tol=0.002).to(23.04, 1).to(25, 0, INST)
-CUE(22 + 0.05, "whoosh_small"); CUE(22 + D, "tick"); CUE(22.62, "tick_hi"); CUE(23, "chime_ok")
-P("dt", (24 + D, 1), (28, 0))
+# ---------------------------------------------------------------- 5 · confirmed (39–49)
+P("ld", (39 + D, 1), (40, 0))
+L.track("rg", FAST, tol=0.002).to(39 + D, 0.55).to(39.62, 1).to(41, 0, INST)
+P("ck", (40, 1, INST), (41, 0))
+L.track("ckd", {"w": 20, "z": 1}, tol=0.002).to(40.04, 1).to(42, 0, INST)
+CUE(39 + 0.05, "whoosh_small"); CUE(39 + D, "tick"); CUE(39.62, "tick_hi"); CUE(40, "chime_ok")
+P("dt", (41 + D, 1), (50, 0))
 for i in range(3):
-    P(f"dr{i}", (25 + 0.08 * i, 1), (28, 0))
-    CUE(25 + 0.08 * i, "row", i=i)
-P("da", (26, 1), (28, 0))
-P("dh2", (27, 1), (28, 0))
-CUE(24, "whoosh"); CUE(26, "soft_tick"); CUE(27, "soft_tick")
+    P(f"dr{i}", (42 + 0.1 * i, 1), (50, 0))
+    CUE(42 + 0.1 * i, "row", i=i)
+P("da", (44, 1), (50, 0))
+P("dh2", (46, 1), (50, 0))
+CUE(41, "whoosh"); CUE(44, "soft_tick"); CUE(46, "soft_tick")
 
-# ---------------------------------------------------------------- 6 · all health funds
-P("ft", (28 + D, 1), (31, 0))
+# ---------------------------------------------------------------- 6 · all health funds (50–53)
+P("ft", (50 + D, 1), (54, 0))
 for i in range(4):
-    P(f"c{i}", (29 + 0.08 * i, 1, CALM), (31, 0))
-    CUE(29 + 0.08 * i, "chip", i=i)
-CUE(28, "whoosh"); CUE(30, "tap"); CUE(31, "whoosh")
+    P(f"c{i}", (51 + 0.1 * i, 1, CALM), (54, 0))
+    CUE(51 + 0.1 * i, "chip", i=i)
+CUE(50, "whoosh"); CUE(53, "tap"); CUE(56, "whoosh")
 
-# ---------------------------------------------------------------- persistent: CTA pulse on every downbeat, taps
+# ---------------------------------------------------------------- persistent: CTA pulse on the song's downbeats, taps
 cpu = L.track("cpu", {"w": 70, "z": 1}, tol=0.001)
-for b in range(0, 32, 4):
-    cpu.to(b, 1, {"w": 70, "z": 1}).to(b + 0.1, 0, {"w": 13, "z": 1})
-press("cpr", 30)
-TAPS = [(3, 540, 1000), (14, 740, 680), (15, 540, 1270), (17, 645, 730), (19, 540, 1015), (22, 540, 1270), (30, 540, 1500)]
+for r in range(0, 56, 4):
+    cpu.to(r + SHIFT, 1, {"w": 70, "z": 1}).to(r + SHIFT + 0.1, 0, {"w": 13, "z": 1})
+press("cpr", 53)
+TAPS = [(5, 540, 1000), (27, 740, 680), (29, 540, 1270), (32, 645, 730), (35, 540, 1015), (39, 540, 1270), (53, 540, 1500)]
 for i, (b, x, y) in enumerate(TAPS):
     L.presence(f"ta{i}", [(b - 0.26, 1, FAST), (b + 0.3, 0, EXIT)])
     press(f"tp{i}", b)
