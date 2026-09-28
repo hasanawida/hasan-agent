@@ -1,0 +1,14 @@
+{
+  "output": "aya-story.html",
+  "size": [1080, 1920],
+  "fonts": [
+    ["PlexArabic", 400, "@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-400-normal.woff2"],
+    ["PlexArabic", 500, "@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-500-normal.woff2"],
+    ["PlexArabic", 600, "@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-600-normal.woff2"],
+    ["PlexArabic", 700, "@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-700-normal.woff2"],
+    ["Geist", 500, "geist/dist/fonts/geist-sans/Geist-Medium.woff2"],
+    ["Geist", 600, "geist/dist/fonts/geist-sans/Geist-SemiBold.woff2"],
+    ["Geist", 700, "geist/dist/fonts/geist-sans/Geist-Bold.woff2"],
+    ["HeeboHe", 700, "@fontsource/heebo/files/heebo-hebrew-700-normal.woff2"]
+  ]
+}

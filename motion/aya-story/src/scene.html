@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>متجر آيه · ورشات مسجّلة</title>
+<style>
+/*@FONTS@*/
+/* every motion below is a CSS keyframe track compiled from springs by scene.py (tools/beat_engine.py) */
+@TEXT:scene.css@
+
+:root {
+  --dark: #12100D; --cream: #F4EFE4; --ink: #1D1B18; --muted: #7A746A; --yellow: #F2D263; --soft: #F7F3EA; --line: #E4DDCF;
+  --card-dark: #1D1B18; --dim: #CFC8B8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+#stage {
+  position: absolute; left: 50%; top: 50%; width: 1080px; height: 1920px; overflow: hidden;
+  translate: -50% -50%; scale: min(tan(atan2(100vh, 1920px)), tan(atan2(100vw, 1080px)));
+  background: var(--dark); color: var(--ink);
+  font-family: 'PlexArabic', 'Geist', sans-serif; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision;
+}
+@media (width: 1080px) and (height: 1920px) { #stage { scale: 1; } }
+
+.abs { position: absolute; }
+.c { position: absolute; transform: translate(-50%, -50%); }
+.r { position: absolute; transform: translateY(-50%); }
+.t { white-space: nowrap; line-height: 1.2; }
+.num { font-family: 'Geist', 'HeeboHe', 'PlexArabic', sans-serif; direction: ltr; unicode-bidi: isolate; }
+.row { display: flex; align-items: center; direction: rtl; }
+.fx { opacity: var(--p); filter: blur(calc(max(0, 1 - var(--p)) * 9px)); translate: 0 calc((1 - var(--p)) * 18px); }
+.fxs { opacity: min(1, var(--p)); filter: blur(calc(max(0, 1 - var(--p)) * 7px)); scale: calc(0.9 + 0.1 * var(--p)); }
+.ico { fill: none; stroke: currentColor; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+svg { display: block; overflow: visible; }
+
+/* the room: a warm spot in the dark, and the light that fills the screen when the bulb switches on */
+#spot { position: absolute; left: 540px; top: 820px; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(242, 210, 99, .16), rgba(242, 210, 99, 0)); opacity: calc(var(--op) * (1 - var(--lit))); }
+#light { position: absolute; inset: 0; background: var(--cream); clip-path: circle(calc(var(--lit) * 2300px) at 540px 820px); }
+
+/* the logo: traced name + the 3D bulb */
+#logo { position: absolute; left: 540px; top: calc(var(--ly) * 1px); width: 719px; height: 176px; margin: -88px 0 0 -359.5px; scale: var(--ls); z-index: 3; }
+#name { position: absolute; left: 0; top: 0; width: 530px; height: 127px; clip-path: inset(-10px -10px -10px calc((1 - var(--nm)) * 100%)); }
+#name path { fill: #838385; }
+#sub { position: absolute; left: 0; top: 150px; width: 530px; transform: translateY(-50%); text-align: right; font-size: 25px; font-weight: 500; color: #8B8B8D;
+  opacity: var(--sub); filter: blur(calc(max(0, 1 - var(--sub)) * 6px)); display: flex; justify-content: flex-end; gap: 12px; }
+#bulbwrap { position: absolute; left: 535px; top: 0; width: 184px; height: 176px; perspective: 700px;
+  translate: calc(var(--bx) * 1px) 0; scale: var(--bs); opacity: var(--op); filter: blur(calc(max(0, var(--bl)) * 1px)); }
+#bulb3d { position: absolute; inset: 0; transform-style: preserve-3d;
+  transform: translateZ(calc(var(--tz) * 1px)) rotateX(calc(var(--rx) * 1deg)) rotateY(calc(var(--ry) * 1deg)); }
+.layer { position: absolute; left: 0; top: 0; width: 184px; height: 176px; }
+.layer path { fill: color-mix(in srgb, color-mix(in srgb, #E9C24E calc(var(--on) * 100%), #8E7224) calc(var(--sh) * 100%), #1E1604); }
+.layer.front path { fill: color-mix(in srgb, #FFD95C calc(var(--on) * 100%), #B99638); }
+#sheen { position: absolute; left: 0; top: 0; width: 184px; height: 176px; transform: translateZ(0.6px);
+  -webkit-mask: url(@TEXT:bulb_mask.txt@) center / 100% 100% no-repeat; mask: url(@TEXT:bulb_mask.txt@) center / 100% 100% no-repeat;
+  background: linear-gradient(105deg, rgba(255,255,255,0) calc(var(--sweep) * 160% - 60%), rgba(255,255,255,.9) calc(var(--sweep) * 160% - 42%), rgba(255,255,255,0) calc(var(--sweep) * 160% - 24%)); }
+
+/* the one shape */
+#shape {
+  position: absolute; left: 540px; top: 870px; overflow: hidden; transform: translate(-50%, -50%);
+  width: calc(var(--sw) * 1px); height: calc(var(--sh) * 1px); border-radius: calc(var(--sr) * 1px); opacity: var(--so);
+  background: color-mix(in srgb, var(--card-dark) calc(clamp(0, var(--dk), 1) * 100%), #fff);
+  box-shadow: 0 34px 70px -40px rgba(60, 45, 10, .45), 0 2px 8px rgba(60, 45, 10, .05);
+}
+.L { position: absolute; left: 50%; top: 50%; width: 900px; height: 1060px; margin: -530px 0 0 -450px; }
+
+#ui { opacity: var(--ui); }
+#cta { position: absolute; left: 540px; top: 1500px; width: 700px; height: 124px; border-radius: 62px; background: var(--yellow); color: var(--ink);
+  transform: translate(-50%, -50%); scale: calc((1 + 0.03 * var(--cpu)) * (1 - 0.05 * var(--cpr)));
+  display: flex; align-items: center; justify-content: center; gap: 18px; direction: rtl; }
+#info { position: absolute; left: 540px; top: 1624px; transform: translate(-50%, -50%); gap: 22px; font-size: 34px; color: var(--ink); }
+
+/* products */
+.slide { position: absolute; top: 0; width: 820px; height: 520px; overflow: hidden; background: var(--soft); }
+.slide img { position: absolute; left: 50%; top: 50%; max-width: 94%; max-height: 94%; transform: translate(-50%, -50%); mix-blend-mode: multiply; }
+.badge { position: absolute; right: 28px; top: 28px; height: 64px; padding: 0 24px; border-radius: 32px; background: var(--yellow); color: var(--ink);
+  display: flex; align-items: center; gap: 10px; direction: rtl; font-size: 30px; font-weight: 700; transform-origin: 100% 0; }
+.nm { font-size: 38px; font-weight: 700; }
+.ds { font-size: 27px; font-weight: 400; color: var(--muted); }
+.pr { font-size: 58px; font-weight: 700; }
+.old { position: relative; font-size: 36px; font-weight: 600; color: var(--muted); }
+.old i { position: absolute; left: -4px; right: -4px; top: 52%; height: 3px; border-radius: 2px; background: var(--muted); transform-origin: 100% 50%;
+  scale: clamp(0, calc((var(--p) - 0.3) / 0.6), 1) 1; }
+.chips { position: absolute; right: 40px; top: 832px; transform: translateY(-50%); display: flex; gap: 12px; direction: rtl; }
+.chip { height: 64px; padding: 0 24px; border-radius: 32px; background: #F6EED6; display: flex; align-items: center; font-size: 27px; font-weight: 600; }
+.btn { position: absolute; left: 40px; width: 820px; height: 96px; border-radius: 48px; background: var(--ink); color: #fff;
+  display: flex; align-items: center; justify-content: center; gap: 16px; direction: rtl; font-size: 34px; font-weight: 700; }
+.tile { position: absolute; width: 400px; }
+.tile img { display: block; width: 400px; height: 300px; object-fit: cover; border-radius: 32px; background: var(--soft); }
+.tile .lb { margin-top: 18px; text-align: center; font-size: 30px; font-weight: 700; }
+
+/* workshops */
+.cred { position: absolute; right: 150px; transform: translateY(-50%); gap: 16px; font-size: 30px; color: var(--dim); }
+.cred b { width: 14px; height: 14px; border-radius: 7px; background: var(--yellow); flex: none; }
+.lrow { position: absolute; left: 40px; width: 820px; height: 195px; border-radius: 28px; background: rgba(255, 255, 255, .06); }
+.lrow img { position: absolute; right: 15px; top: 15px; width: 165px; height: 165px; border-radius: 20px; object-fit: cover; }
+.lrow .tt { position: absolute; right: 206px; top: 58px; transform: translateY(-50%); font-size: 31px; font-weight: 700; color: #fff; }
+.lrow .mt { position: absolute; right: 206px; top: 128px; transform: translateY(-50%); gap: 12px; font-size: 26px; color: var(--yellow); font-weight: 600; }
+.lrow .mt .num { color: #fff; font-size: 30px; font-weight: 600; }
+.ring { position: absolute; border-radius: 28px; box-shadow: inset 0 0 0 4px var(--yellow); opacity: min(1, var(--q)); scale: calc(0.97 + 0.03 * var(--q)); }
+.chap { position: absolute; right: 40px; transform: translateY(-50%); gap: 16px; font-size: 28px; font-weight: 500;
+  color: color-mix(in srgb, #fff calc(clamp(0, var(--d), 1) * 100%), #8E887A); }
+.chap .ck { width: 40px; height: 40px; border-radius: 20px; flex: none; display: flex; align-items: center; justify-content: center; color: var(--ink);
+  background: color-mix(in srgb, var(--yellow) calc(clamp(0, var(--d), 1) * 100%), transparent);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--yellow) calc(clamp(0, var(--d), 1) * 100%), #5E584C); }
+.flyer { position: absolute; width: 270px; height: 270px; border-radius: 22px; object-fit: cover; }
+
+/* map */
+.land { fill: #F3EEE2; fill-opacity: var(--md); stroke: #B9B09C; stroke-width: 1.6; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - var(--md)); }
+.arc { fill: none; stroke: #C9A43A; stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 1 1; }
+.head { position: absolute; left: 0; top: 0; width: 16px; height: 16px; border-radius: 8px; background: #C9A43A; offset-rotate: 0deg; offset-anchor: 50% 50%; }
+.pin { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 13px; background: var(--ink); box-shadow: 0 0 0 4px #fff;
+  opacity: min(1, var(--p)); scale: calc(0.4 + 0.6 * var(--p)); }
+.plbl { position: absolute; transform: translateY(-50%); font-size: 32px; font-weight: 700; opacity: var(--p); filter: blur(calc(max(0, 1 - var(--p)) * 6px)); }
+.hub { position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 32px; background: var(--yellow); color: var(--ink);
+  display: flex; align-items: center; justify-content: center; opacity: min(1, var(--hb)); scale: calc(0.5 + 0.5 * var(--hb)); box-shadow: 0 0 0 5px #fff; }
+.hlbl { position: absolute; transform: translateY(-50%); font-size: 34px; font-weight: 700; color: #A8841F; opacity: var(--hb); }
+.reg { height: 80px; padding: 0 26px; border-radius: 40px; background: #F6EED6; display: flex; align-items: center; gap: 10px; font-size: 31px; font-weight: 700; direction: rtl; }
+
+.touch { position: absolute; width: 96px; height: 96px; margin-left: -48px; margin-top: -48px; border-radius: 48px;
+  background: rgba(29, 27, 24, .2); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .95), 0 6px 16px rgba(29, 27, 24, .18);
+  opacity: min(1, var(--a)); scale: calc((1.3 - 0.3 * min(1, var(--a))) * (1 - 0.16 * var(--pr))); z-index: 5; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="spot"></div>
+  <div id="light"></div>
+
+  <!-- the one shape -->
+  <div id="shape">
+    <!-- products -->
+    <div class="L">
+      <div class="abs" style="left:40px;top:40px;width:820px;height:520px;border-radius:44px;overflow:hidden;opacity:var(--pv)">
+        <div class="abs" style="left:0;top:0;width:820px;height:520px;translate:calc(var(--sx) * 1px) 0">
+          <div class="slide" style="left:0"><img src="@IMG:box.jpg@" alt=""></div>
+          <div class="slide" style="left:-840px"><img src="@IMG:books.jpg@" alt="" style="max-width:100%;max-height:100%"></div>
+          <div class="slide" style="left:-1680px"><img src="@IMG:asas.jpg@" alt=""></div>
+        </div>
+        <div class="badge fxs" style="--p:var(--pp0)"><span>خصم</span><span class="num">25%</span></div>
+        <div class="badge fxs" style="--p:var(--pp1)"><span>خصم</span><span class="num">27%</span></div>
+        <div class="badge fxs" style="--p:var(--pp2)"><span>خصم</span><span class="num">43%</span></div>
+      </div>
+      <div class="fx" style="--p:var(--pn0)"><div class="r t nm" style="right:40px;top:612px">صندوق عالم التركيز والتفكير</div><div class="r t ds" style="right:40px;top:664px">صندوق ألعاب تعليمية متكامل، بعيدًا عن الشاشات</div></div>
+      <div class="fx" style="--p:var(--pn1)"><div class="r t nm" style="right:40px;top:612px">مغامرات عائلة ضو · الجزء الأول والثاني</div><div class="r row ds" style="right:40px;top:664px;gap:8px"><span>للأطفال من عمر</span><span class="num">3–8</span><span>سنوات</span></div></div>
+      <div class="fx" style="--p:var(--pn2)"><div class="r t nm" style="right:40px;top:612px">أساس ثابت</div><div class="r t ds" style="right:40px;top:664px">كراس تدريبي للتحضير لصف البستان والأول</div></div>
+      <div class="r row fx" style="--p:var(--pp0);right:40px;top:742px;gap:20px"><span class="pr t num">260 ₪</span><span class="old t num">350 ₪<i></i></span></div>
+      <div class="r row fx" style="--p:var(--pp1);right:40px;top:742px;gap:20px"><span class="pr t num">130 ₪</span><span class="old t num">180 ₪<i></i></span></div>
+      <div class="r row fx" style="--p:var(--pp2);right:40px;top:742px;gap:20px"><span class="pr t num">85 ₪</span><span class="old t num">150 ₪<i></i></span></div>
+      <div class="chips fx" style="--p:var(--pc0)"><span class="chip t">تركيز</span><span class="chip t">تفكير</span><span class="chip t">وظائف تنفيذية</span></div>
+      <div class="chips fx" style="--p:var(--pc1)"><span class="chip t">مهارات حركية دقيقة</span><span class="chip t">إدراك بصري</span><span class="chip t">تآزر العين واليد</span></div>
+      <div class="chips fx" style="--p:var(--pc2)"><span class="chip t">عضلات دقيقة</span><span class="chip t">ما قبل الكتابة</span><span class="chip t">إدراك بصري</span></div>
+      <div class="btn fx" style="--p:var(--ab);top:935px">
+        <span class="t">أضف إلى السلة</span>
+        <svg class="ico" width="38" height="38" viewBox="0 0 24 24"><path d="M5.5 8h13l-1.1 11.2a1.5 1.5 0 0 1-1.5 1.3H8.1a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+      </div>
+    </div>
+
+    <!-- games -->
+    <div class="L">
+      <div class="c t fx" style="--p:var(--gt);left:450px;top:80px;font-size:50px;font-weight:700">ألعاب تطورية</div>
+      <div class="c t fx" style="--p:var(--gt);left:450px;top:140px;font-size:30px;color:var(--muted)">لتطوير مهارات الأطفال بطرق ممتعة</div>
+      <div class="tile fxs" style="--p:var(--g0);left:465px;top:200px"><img src="@IMG:g_colour.jpg@" alt=""><div class="lb t">شفرة الألوان</div></div>
+      <div class="tile fxs" style="--p:var(--g1);left:35px;top:200px"><img src="@IMG:g_rabbit.jpg@" alt=""><div class="lb t">الأرنب القافز</div></div>
+      <div class="tile fxs" style="--p:var(--g2);left:465px;top:590px"><img src="@IMG:g_board.jpg@" alt=""><div class="lb t">لوحة الأشكال المطاطية</div></div>
+      <div class="tile fxs" style="--p:var(--g3);left:35px;top:590px"><img src="@IMG:g_cards.jpg@" alt=""><div class="lb t">تحدّي بوشي السريع</div></div>
+    </div>
+
+    <!-- workshops: the instructor -->
+    <div class="L">
+      <div class="c t fx" style="--p:var(--ct);left:450px;top:80px;font-size:60px;font-weight:700;color:var(--yellow)">ورشات مسجّلة</div>
+      <img class="abs fxs" src="@IMG:aya_photo.jpg@" alt="" style="--p:var(--ct);left:240px;top:150px;width:420px;height:498px;border-radius:36px;object-fit:cover">
+      <div class="c t fx" style="--p:var(--ct);left:450px;top:712px;font-size:46px;font-weight:700;color:#fff">آيه جميل مصاروة</div>
+      <div class="cred row fx" style="--p:var(--cr0);top:800px"><b></b><span class="t">لقب ثاني في العلاج الوظيفي</span></div>
+      <div class="cred row fx" style="--p:var(--cr1);top:862px"><b></b><span class="t">مُحاضِرة معالجين وأهالي</span></div>
+      <div class="cred row fx" style="--p:var(--cr2);top:924px"><b></b><span class="t">قدّمت العديد من الورشات للأهالي والطواقم الطبية</span></div>
+    </div>
+
+    <!-- workshops: the library -->
+    <div class="L">
+      <div class="c t fx" style="--p:var(--lb);left:450px;top:80px;font-size:48px;font-weight:700;color:#fff">مكتبة الورشات</div>
+      <div class="ring" style="--q:var(--lh);left:40px;top:150px;width:820px;height:195px"></div>
+      <div class="lrow fx" style="--p:var(--lr0);top:150px;scale:calc(1 - 0.03 * var(--lrp))"><img src="@IMG:c02.jpg@" alt=""><div class="tt t">التكامل الحسّي من التقييم إلى العلاج</div>
+        <div class="mt row"><svg class="ico" width="30" height="30" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5l6-3.5v10l-6-3.5z"/></svg><span class="t">ورشة مسجّلة</span><span class="num">600 ₪</span></div></div>
+      <div class="lrow fx" style="--p:var(--lr1);top:365px"><img src="@IMG:c03.jpg@" alt=""><div class="tt t">التوحد · جزء 1: المشاهدات والتقييم</div>
+        <div class="mt row"><svg class="ico" width="30" height="30" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5l6-3.5v10l-6-3.5z"/></svg><span class="t">ورشة مسجّلة</span><span class="num">350 ₪</span></div></div>
+      <div class="lrow fx" style="--p:var(--lr2);top:580px"><img src="@IMG:c05.jpg@" alt=""><div class="tt t">الكتابة · جزء 1: الفحص والتقييم</div>
+        <div class="mt row"><svg class="ico" width="30" height="30" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5l6-3.5v10l-6-3.5z"/></svg><span class="t">ورشة مسجّلة</span><span class="num">480 ₪</span></div></div>
+      <div class="lrow fx" style="--p:var(--lr3);top:795px"><img src="@IMG:c07.jpg@" alt=""><div class="tt t">اللعب بين التطور والتشخيص</div>
+        <div class="mt row"><svg class="ico" width="30" height="30" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5l6-3.5v10l-6-3.5z"/></svg><span class="t">ورشة مسجّلة</span><span class="num">250 ₪</span><span class="num" style="font-size:24px;color:#8E887A;text-decoration:line-through">300 ₪</span></div></div>
+    </div>
+
+    <!-- workshops: one playing -->
+    <div class="L">
+      <div class="abs" style="left:40px;top:40px;width:820px;height:560px;border-radius:36px;overflow:hidden;background:#000;opacity:var(--pl)">
+        <img class="abs" src="@IMG:c02.jpg@" alt="" style="left:-40px;top:-40px;width:900px;height:640px;object-fit:cover;filter:blur(28px) brightness(.55)">
+        <img class="abs" src="@IMG:c02.jpg@" alt="" style="left:170px;top:30px;width:480px;height:480px;border-radius:18px;object-fit:cover">
+        <div class="c" style="left:410px;top:270px;width:132px;height:132px;border-radius:66px;background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;opacity:calc(1 - var(--pz));scale:calc(1 + 0.15 * var(--pz))">
+          <svg width="52" height="52" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="#1D1B18"/></svg></div>
+        <div class="abs" style="left:40px;right:40px;bottom:36px;height:8px;border-radius:4px;background:rgba(255,255,255,.28)">
+          <div class="abs" style="left:0;top:0;height:8px;border-radius:4px;background:var(--yellow);width:calc(var(--pg) * 100%)"></div></div>
+      </div>
+      <div class="r t fx" style="--p:var(--pl);right:40px;top:650px;font-size:38px;font-weight:700;color:#fff">التكامل الحسّي من التقييم إلى العلاج</div>
+      <div class="r row fx" style="--p:var(--pl);right:40px;top:712px;gap:16px">
+        <span class="t" style="height:54px;padding:0 20px;border-radius:27px;background:var(--yellow);color:var(--ink);font-size:26px;font-weight:700;display:flex;align-items:center">ورشة مسجّلة</span>
+        <span class="num t" style="font-size:34px;font-weight:600;color:#fff">600 ₪</span></div>
+      <div class="r t fx" style="--p:var(--au);right:40px;top:768px;font-size:26px;color:var(--dim)">مناسبة لأخصائيي العلاج الوظيفي، الطبيعي والنطق</div>
+      <div class="chap row fx" style="--p:var(--ch0);--d:var(--cd0);top:836px"><span class="ck"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" style="opacity:var(--d)"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="t">مسح شامل عن التكامل الحسّي</span></div>
+      <div class="chap row fx" style="--p:var(--ch1);--d:var(--cd1);top:892px"><span class="ck"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" style="opacity:var(--d)"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="t">طرق التقييم وتعلّم بروفيل سنسوري 2</span></div>
+      <div class="chap row fx" style="--p:var(--ch2);--d:var(--cd2);top:948px"><span class="ck"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" style="opacity:var(--d)"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="t">طرق علاج متنوعة وأدوات عمل</span></div>
+      <div class="chap row fx" style="--p:var(--ch3);--d:var(--cd3);top:1004px"><span class="ck"><svg class="ico" width="22" height="22" viewBox="0 0 24 24" style="opacity:var(--d)"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="t">البروتوكول الحسّي-جسدي وتطبيقه</span></div>
+    </div>
+
+    <!-- workshops: the wall -->
+    <div class="L" style="opacity:var(--wl)">
+      <div class="abs" style="left:0;top:210px;width:900px;height:850px;overflow:hidden">
+        <div class="abs" style="left:0;top:0;width:900px;height:1160px;translate:0 calc(var(--wy) * 1px)">
+          <img class="flyer" src="@IMG:c01.jpg@" alt="" style="left:600px;top:0"><img class="flyer" src="@IMG:c04.jpg@" alt="" style="left:315px;top:0"><img class="flyer" src="@IMG:c06.jpg@" alt="" style="left:30px;top:0">
+          <img class="flyer" src="@IMG:c08.jpg@" alt="" style="left:600px;top:285px"><img class="flyer" src="@IMG:c09.jpg@" alt="" style="left:315px;top:285px"><img class="flyer" src="@IMG:c10.jpg@" alt="" style="left:30px;top:285px">
+          <img class="flyer" src="@IMG:c11.jpg@" alt="" style="left:600px;top:570px"><img class="flyer" src="@IMG:c12.jpg@" alt="" style="left:315px;top:570px"><img class="flyer" src="@IMG:c03.jpg@" alt="" style="left:30px;top:570px">
+          <img class="flyer" src="@IMG:c05.jpg@" alt="" style="left:600px;top:855px"><img class="flyer" src="@IMG:c07.jpg@" alt="" style="left:315px;top:855px"><img class="flyer" src="@IMG:c02.jpg@" alt="" style="left:30px;top:855px">
+        </div>
+      </div>
+      <div class="c t fx" style="--p:var(--wt);left:450px;top:78px;font-size:46px;font-weight:700;color:var(--yellow)">أكثر من 10 ورشات مسجّلة</div>
+      <div class="c t fx" style="--p:var(--wt2);left:450px;top:146px;font-size:32px;color:#fff">شاهدها متى ما بدك</div>
+    </div>
+
+    <!-- delivery -->
+    <div class="L">
+      <div class="c t fx" style="--p:var(--mp);left:450px;top:70px;font-size:52px;font-weight:700">نوصل لكل البلاد</div>
+      <div class="abs" style="left:90px;top:120px;width:600px;height:860px;scale:0.94;transform-origin:50% 0;opacity:var(--mp)">@TEXT:map.html@</div>
+      <div class="abs" style="right:44px;top:470px;display:flex;flex-direction:column;align-items:flex-end;gap:18px">
+        <div class="reg fxs" style="--p:var(--rc0)"><svg class="ico" width="30" height="30" viewBox="0 0 24 24" style="color:#A8841F"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><span class="t">الشمال</span></div>
+        <div class="reg fxs" style="--p:var(--rc1)"><svg class="ico" width="30" height="30" viewBox="0 0 24 24" style="color:#A8841F"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><span class="t">الداخل</span></div>
+        <div class="reg fxs" style="--p:var(--rc2)"><svg class="ico" width="30" height="30" viewBox="0 0 24 24" style="color:#A8841F"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><span class="t">القدس</span></div>
+      </div>
+      <div class="c fx" style="--p:var(--dn);left:450px;top:1000px;text-align:center">
+        <div class="row t" style="justify-content:center;gap:10px;font-size:31px;font-weight:700"><span>توصيل للبيت خلال</span><span class="num">5</span><span>أيام عمل</span></div>
+        <div class="t" style="margin-top:6px;font-size:26px;color:var(--muted)">رسوم التوصيل تُضاف عند إتمام الطلب</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- the logo (it opens the film, then stays as the header) -->
+  <div id="logo">
+    <svg id="name" viewBox="0 0 530 127"><path d="@TEXT:name_path.txt@" fill-rule="evenodd"/></svg>
+    <div id="sub" class="t"><span>أخصائية علاج وظيفي</span><span style="color:#C9C2B3">|</span><span class="num" style="font-weight:500">Occupational Therapist</span></div>
+    <div id="bulbwrap"><div id="bulb3d">@TEXT:bulb.html@<div id="sheen"></div></div></div>
+  </div>
+
+  <div id="ui">
+    <div id="cta">
+      <span class="t" style="font-size:46px;font-weight:700">اطلب الآن</span>
+      <svg class="ico" width="44" height="44" viewBox="0 0 24 24"><path d="M5.5 8h13l-1.1 11.2a1.5 1.5 0 0 1-1.5 1.3H8.1a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+    </div>
+    <div id="info" class="row">
+      <span class="t num" style="font-weight:600">aya-shop.com</span>
+      <span style="width:8px;height:8px;border-radius:4px;background:#C9A43A"></span>
+      <span class="t num" style="font-weight:600">050-4292685</span>
+    </div>
+  </div>
+
+  <div class="touch" style="--a:var(--ta0);--pr:var(--tp0);left:540px;top:587px"></div>
+  <div class="touch" style="--a:var(--ta1);--pr:var(--tp1);left:540px;top:660px"></div>
+  <div class="touch" style="--a:var(--ta2);--pr:var(--tp2);left:540px;top:1500px"></div>
+  <div class="touch" style="--a:var(--fga);--pr:var(--fgp);left:290px;top:640px;translate:calc(var(--fgx) * 1px) 0"></div>
+</div>
+<script>
+// The film plays with CSS only. This hook just lets the renderer freeze any instant (and ?t= to inspect one).
+window.TIMING = @TEXT:timing.json@;
+window.seek = (t) => {
+  const T = TIMING.T, tt = ((t % T) + T) % T;
+  for (const a of document.getAnimations()) { a.pause(); a.currentTime = tt * 1000; }
+};
+window.__ready = document.fonts.ready.then(() => Promise.all([...document.images].map((i) => i.decode()))).then(() => true);
+window.DEBUG = {};
+const q = new URLSearchParams(location.search);
+if (q.has('t')) window.__ready.then(() => seek(parseFloat(q.get('t'))));
+</script>
+</body>
+</html>

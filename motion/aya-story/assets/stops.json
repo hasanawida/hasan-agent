@@ -1,0 +1,9 @@
+[
+ {"name": "Tayibe", "ll": [34.98, 32.27], "label": "الطيبة"},
+ {"name": "Galilee", "ll": [35.30, 32.88], "label": "الشمال"},
+ {"name": "Haifa", "ll": [34.99, 32.79], "label": "حيفا"},
+ {"name": "Nazareth", "ll": [35.30, 32.70], "label": "الناصرة"},
+ {"name": "Jaffa", "ll": [34.76, 32.05], "label": "يافا"},
+ {"name": "Jerusalem", "ll": [35.19, 31.78], "label": "القدس"},
+ {"name": "Negev", "ll": [34.76, 31.39], "label": "النقب"}
+]

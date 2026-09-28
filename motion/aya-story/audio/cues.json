@@ -1,0 +1,323 @@
+{
+ "B": 0.75,
+ "T": 48.0,
+ "cues": [
+  {
+   "t": 47.25,
+   "beat": 0,
+   "name": "swell"
+  },
+  {
+   "t": 0.825,
+   "beat": 2.1,
+   "name": "sweep_air"
+  },
+  {
+   "t": 1.5,
+   "beat": 3,
+   "name": "switch_on"
+  },
+  {
+   "t": 2.475,
+   "beat": 4.3,
+   "name": "name"
+  },
+  {
+   "t": 3.0,
+   "beat": 5,
+   "name": "soft_tick"
+  },
+  {
+   "t": 4.125,
+   "beat": 6.5,
+   "name": "whoosh"
+  },
+  {
+   "t": 43.5,
+   "beat": 59,
+   "name": "whoosh"
+  },
+  {
+   "t": 45.375,
+   "beat": 61.5,
+   "name": "switch_off"
+  },
+  {
+   "t": 46.125,
+   "beat": 62.5,
+   "name": "fall"
+  },
+  {
+   "t": 8.25,
+   "beat": 12,
+   "name": "swipe"
+  },
+  {
+   "t": 11.25,
+   "beat": 16,
+   "name": "swipe"
+  },
+  {
+   "t": 6.0,
+   "beat": 9,
+   "name": "price"
+  },
+  {
+   "t": 6.75,
+   "beat": 10,
+   "name": "soft_tick"
+  },
+  {
+   "t": 9.0,
+   "beat": 13,
+   "name": "price"
+  },
+  {
+   "t": 9.75,
+   "beat": 14,
+   "name": "soft_tick"
+  },
+  {
+   "t": 12.0,
+   "beat": 17,
+   "name": "price"
+  },
+  {
+   "t": 12.75,
+   "beat": 18,
+   "name": "soft_tick"
+  },
+  {
+   "t": 5.25,
+   "beat": 8,
+   "name": "whoosh"
+  },
+  {
+   "t": 14.385,
+   "beat": 20.18,
+   "name": "tile",
+   "i": 0
+  },
+  {
+   "t": 14.46,
+   "beat": 20.28,
+   "name": "tile",
+   "i": 1
+  },
+  {
+   "t": 14.535,
+   "beat": 20.38,
+   "name": "tile",
+   "i": 2
+  },
+  {
+   "t": 14.61,
+   "beat": 20.48,
+   "name": "tile",
+   "i": 3
+  },
+  {
+   "t": 14.25,
+   "beat": 20,
+   "name": "whoosh_soft"
+  },
+  {
+   "t": 18.0,
+   "beat": 25,
+   "name": "soft_tick"
+  },
+  {
+   "t": 18.75,
+   "beat": 26,
+   "name": "soft_tick"
+  },
+  {
+   "t": 19.5,
+   "beat": 27,
+   "name": "soft_tick"
+  },
+  {
+   "t": 17.25,
+   "beat": 24,
+   "name": "whoosh"
+  },
+  {
+   "t": 17.385,
+   "beat": 24.18,
+   "name": "chime2"
+  },
+  {
+   "t": 21.135,
+   "beat": 29.18,
+   "name": "row",
+   "i": 0
+  },
+  {
+   "t": 21.225,
+   "beat": 29.3,
+   "name": "row",
+   "i": 1
+  },
+  {
+   "t": 21.315,
+   "beat": 29.419999999999998,
+   "name": "row",
+   "i": 2
+  },
+  {
+   "t": 21.405,
+   "beat": 29.54,
+   "name": "row",
+   "i": 3
+  },
+  {
+   "t": 21.0,
+   "beat": 29,
+   "name": "whoosh_soft"
+  },
+  {
+   "t": 22.5,
+   "beat": 31,
+   "name": "select"
+  },
+  {
+   "t": 23.25,
+   "beat": 32,
+   "name": "tap"
+  },
+  {
+   "t": 26.25,
+   "beat": 36,
+   "name": "chapter",
+   "i": 0
+  },
+  {
+   "t": 27.75,
+   "beat": 38,
+   "name": "chapter",
+   "i": 1
+  },
+  {
+   "t": 29.25,
+   "beat": 40,
+   "name": "chapter",
+   "i": 2
+  },
+  {
+   "t": 30.75,
+   "beat": 42,
+   "name": "chapter",
+   "i": 3
+  },
+  {
+   "t": 24.0,
+   "beat": 33,
+   "name": "whoosh"
+  },
+  {
+   "t": 24.75,
+   "beat": 34,
+   "name": "tap"
+  },
+  {
+   "t": 24.7875,
+   "beat": 34.05,
+   "name": "play"
+  },
+  {
+   "t": 32.25,
+   "beat": 44,
+   "name": "whoosh_soft"
+  },
+  {
+   "t": 33.0,
+   "beat": 45,
+   "name": "chime2"
+  },
+  {
+   "t": 33.75,
+   "beat": 46,
+   "name": "soft_tick"
+  },
+  {
+   "t": 36.75,
+   "beat": 50,
+   "name": "city",
+   "j": 0
+  },
+  {
+   "t": 37.5,
+   "beat": 51,
+   "name": "city",
+   "j": 1
+  },
+  {
+   "t": 38.25,
+   "beat": 52,
+   "name": "city",
+   "j": 2
+  },
+  {
+   "t": 39.0,
+   "beat": 53,
+   "name": "city",
+   "j": 3
+  },
+  {
+   "t": 39.75,
+   "beat": 54,
+   "name": "city",
+   "j": 4
+  },
+  {
+   "t": 40.5,
+   "beat": 55,
+   "name": "city",
+   "j": 5
+  },
+  {
+   "t": 41.25,
+   "beat": 56.0,
+   "name": "chip",
+   "i": 0
+  },
+  {
+   "t": 41.34,
+   "beat": 56.12,
+   "name": "chip",
+   "i": 1
+  },
+  {
+   "t": 41.43,
+   "beat": 56.24,
+   "name": "chip",
+   "i": 2
+  },
+  {
+   "t": 35.25,
+   "beat": 48,
+   "name": "whoosh"
+  },
+  {
+   "t": 35.385,
+   "beat": 48.18,
+   "name": "draw",
+   "dur": 0.8
+  },
+  {
+   "t": 36.0,
+   "beat": 49,
+   "name": "pop"
+  },
+  {
+   "t": 42.0,
+   "beat": 57,
+   "name": "soft_tick"
+  },
+  {
+   "t": 42.75,
+   "beat": 58,
+   "name": "tap"
+  }
+ ]
+}
