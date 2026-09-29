@@ -184,19 +184,21 @@ ARC0 = 50
 
 
 def arc_fn(beat):
-    return lambda t: np.where((L.story(t) > 40) & (L.story(t) < 60), smooth((L.story(t) - (beat - 0.78)) / 0.78), 0.0)
+    return lambda t: np.where((L.story(t) > 40) & (L.story(t) < 60), smooth((L.story(t) - (beat - 0.62)) / 0.62), 0.0)
 
 
+# the cities come on the half beats, so the regions and the paid-delivery note get ~3.5 s of stillness to be read
 for j, c in enumerate(CITIES):
-    L.fn(f"a{j}", arc_fn(ARC0 + j), breaks=[60], tol=0.002)
-    P(f"q{j}", (ARC0 + j, 1, CALM), (59, 0))
-    CUE(ARC0 + j, "city", j=j)
+    L.fn(f"a{j}", arc_fn(ARC0 + 0.5 * j), breaks=[60], tol=0.002)
+    P(f"q{j}", (ARC0 + 0.5 * j, 1, CALM), (59, 0))
+    CUE(ARC0 + 0.5 * j, "city", j=j)
 for i in range(3):
-    P(f"rc{i}", (56 + 0.12 * i, 1, CALM), (59, 0))
-    CUE(56 + 0.12 * i, "chip", i=i)
-P("dn", (57, 1), (59, 0))
+    P(f"rc{i}", (53.5 + 0.12 * i, 1, CALM), (59, 0))
+    CUE(53.5 + 0.12 * i, "chip", i=i)
+P("dn", (54.5, 1), (59, 0))
+P("fee", (55.25, 1, CALM), (59, 0))
 press("cpr", 58)
-CUE(48, "whoosh"); CUE(48 + D, "draw", dur=0.8); CUE(49, "pop"); CUE(57, "soft_tick"); CUE(58, "tap")
+CUE(48, "whoosh"); CUE(48 + D, "draw", dur=0.8); CUE(49, "pop"); CUE(54.5, "soft_tick"); CUE(55.25, "pop"); CUE(58, "tap")
 
 cpu = L.track("cpu", {"w": 70, "z": 1}, tol=0.001)
 for r in range(8, 56, 4):                                   # the CTA breathes on the song's downbeats
